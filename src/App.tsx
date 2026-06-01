@@ -601,24 +601,72 @@ export default function App() {
   // ⚙️ FUNÇÕES DE NEGÓCIO & EVENTOS
   // ==========================================
   
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
     if (categories.length >= 20) {
       alert('Você atingiu o limite máximo de 20 categorias!');
       return;
     }
-    const newCat: Category = {
+    
+    let newCat: Category = {
       id: Math.random().toString(),
       name: newCatName.trim(),
       color: newCatColor,
       icon: 'HelpCircle'
     };
+
+    if (useRealSupabase) {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .insert({
+            name: newCat.name,
+            color: newCat.color,
+            icon: newCat.icon
+          })
+          .select()
+          .single();
+
+        if (error) {
+          alert('Erro ao salvar categoria no banco: ' + error.message);
+          return;
+        }
+        if (data) {
+          newCat = {
+            id: data.id.toString(),
+            name: data.name,
+            color: data.color,
+            icon: data.icon
+          };
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao salvar categoria: ' + err.message);
+        return;
+      }
+    }
+
     setCategories([...categories, newCat]);
     setNewCatName('');
     sfx.playCorrect();
   };
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = async (id: string) => {
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', id);
+        
+        if (error) {
+          alert('Erro ao excluir categoria do banco: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao excluir categoria: ' + err.message);
+        return;
+      }
+    }
     setCategories(categories.filter(c => c.id !== id));
     sfx.playClick();
   };
@@ -755,8 +803,8 @@ export default function App() {
     setTimeout(async () => {
       setIsSpinning(false);
       
-      // Determinar a categoria selecionada com base no ângulo final
-      const normalizedAngle = (360 - (finalAngle % 360)) % 360;
+      // Determinar a categoria selecionada com base no ângulo final e na seta à direita (3 horas / 90 graus)
+      const normalizedAngle = (90 - (finalAngle % 360) + 360) % 360;
       const index = Math.floor((normalizedAngle / 360) * categories.length);
       const cat = categories[index] || categories[0];
       
@@ -1482,7 +1530,7 @@ export default function App() {
                     }}>
                       {/* Textos radiais dentro do disco */}
                       {categories.map((cat, i) => {
-                        const angle = i * (360 / categories.length) + (180 / categories.length);
+                        const angle = i * (360 / categories.length) + (180 / categories.length) - 90;
                         return (
                           <div key={cat.id} style={{
                             position: 'absolute',
