@@ -1536,14 +1536,13 @@ export default function App() {
                             position: 'absolute',
                             top: '50%',
                             left: '50%',
-                            width: '130px',
+                            width: '115px',
                             height: '24px',
                             transformOrigin: '0% 50%',
-                            transform: `translate(0%, -50%) rotate(${angle}deg)`,
+                            transform: `rotate(${angle}deg) translate(38px, -50%)`,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            paddingRight: '18px',
+                            justifyContent: 'center',
                           }}>
                             <span style={{
                               fontSize: '11px',
