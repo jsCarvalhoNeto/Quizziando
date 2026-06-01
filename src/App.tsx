@@ -5,7 +5,7 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
-  Pencil, Check, X
+  Pencil, Check, X, Settings
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -378,6 +378,9 @@ export default function App() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
   const [editingCatColor, setEditingCatColor] = useState('');
+  
+  // Estado para Dropdown de Configurações
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   
   // Nova Pergunta Formulário
   const [newQText, setNewQText] = useState('');
@@ -1017,33 +1020,73 @@ export default function App() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 relative">
+          {/* BOTÃO DE CONFIGURAÇÕES */}
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.05)] transition text-[hsl(var(--text-secondary))]"
-            title={soundEnabled ? 'Desativar som' : 'Ativar som'}
+            onClick={() => { setShowSettingsDropdown(!showSettingsDropdown); sfx.playClick(); }}
+            className={`p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border transition text-[hsl(var(--text-secondary))] flex items-center justify-center ${
+              showSettingsDropdown ? 'border-[hsl(var(--primary))]' : 'border-[rgba(255,255,255,0.05)]'
+            }`}
+            title="Configurações"
           >
-            {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+            <Settings className={`w-5 h-5 transition-transform duration-300 ${showSettingsDropdown ? 'rotate-90 text-[hsl(var(--primary))]' : ''}`} />
           </button>
-          
 
-
-          {/* Seção do Organizador Autenticado diretamente no Cabeçalho */}
-          {authUser && (
-            <div className="flex items-center gap-2.5 pl-3 border-l border-[rgba(255,255,255,0.08)]">
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Host</span>
-                <span className="text-[11px] text-[hsl(var(--text-secondary))] font-medium truncate max-w-[130px]" title={authUser.email}>
-                  {authUser.email}
+          {/* DROPDOWN DE CONFIGURAÇÕES */}
+          {showSettingsDropdown && (
+            <div 
+              className="absolute right-0 top-full mt-2 w-64 glass-card p-4 flex flex-col gap-3.5 z-[100] shadow-2xl border border-[rgba(255,255,255,0.08)] bg-[#0c1222]/95 backdrop-blur-xl animate-fade-in"
+              style={{
+                animation: 'slideUpModal 0.2s ease-out'
+              }}
+            >
+              <div className="border-b border-[rgba(255,255,255,0.06)] pb-2">
+                <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block mb-1">
+                  Preferências
                 </span>
               </div>
-              <button 
-                onClick={handleLogout}
-                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition"
-                title="Sair da Conta"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-              </button>
+
+              {/* Controle de Som */}
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  {soundEnabled ? <Volume2 className="w-4 h-4 text-[hsl(var(--primary))]" /> : <VolumeX className="w-4 h-4 text-red-400" />}
+                  <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Efeitos Sonoros</span>
+                </div>
+                <button
+                  onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
+                  className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                    soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-white/10'
+                  }`}
+                >
+                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                    soundEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Informações da Conta */}
+              {authUser && (
+                <div className="flex flex-col gap-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
+                  <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
+                    Conta Ativa (Host)
+                  </span>
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-0.5">
+                    <span className="text-[11px] text-[hsl(var(--text-primary))] font-semibold truncate max-w-[200px]" title={authUser.email}>
+                      {authUser.email}
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Permissão: Operador</span>
+                  </div>
+
+                  {/* Botão de Logout */}
+                  <button
+                    onClick={() => { setShowSettingsDropdown(false); handleLogout(); }}
+                    className="w-full mt-1.5 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Sair da Conta
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
