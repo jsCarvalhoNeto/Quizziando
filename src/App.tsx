@@ -1,3 +1,4 @@
+// Quizziando - Arena Realtime Arena - Produção Supabase Habilitada
 import { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
