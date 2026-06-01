@@ -286,7 +286,7 @@ export default function App() {
   }
 
   // Configurações Globais / Conexão
-  const [useRealSupabase, setUseRealSupabase] = useState(true);
+  const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
