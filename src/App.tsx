@@ -284,13 +284,7 @@ export default function App() {
   }
 
   // Configurações Globais / Conexão
-  const isSupabaseConfigured = 
-    import.meta.env.VITE_SUPABASE_URL && 
-    import.meta.env.VITE_SUPABASE_URL !== 'https://suasala.supabase.co' &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY !== 'seu-anon-key';
-
-  const [useRealSupabase, setUseRealSupabase] = useState(!!isSupabaseConfigured);
+  const [useRealSupabase, setUseRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
