@@ -830,7 +830,7 @@ export default function App() {
 
 
   // Girar a Roleta de Categorias
-  const handleSpinRoulette = () => {
+  const handleSpinRoulette = async () => {
     if (categories.length === 0) {
       alert('Adicione pelo menos uma categoria antes de rodar!');
       return;
@@ -838,6 +838,14 @@ export default function App() {
     sfx.playSpin();
     setIsSpinning(true);
     setRoundState('spinning');
+    
+    // Publicar o estado de giro imediatamente no Supabase para os jogadores verem a animação
+    if (useRealSupabase) {
+      await publishRoomState({
+        round_state: 'spinning',
+        current_round: currentRoundIndex
+      });
+    }
     
     // Gerar um giro aleatório
     const numSpins = 4 + Math.random() * 4;

@@ -143,7 +143,8 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     } else if (room.round_state === 'question') {
       // Nova pergunta — resetar resposta APENAS se mudou a pergunta!
       const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
-      if (isNewQuestion) {
+      const shouldSetQuestionScreen = isNewQuestion || (playerScreen !== 'question' && playerScreen !== 'answered');
+      if (shouldSetQuestionScreen) {
         setChosenIndex(null);
         setWasCorrect(null);
         setAnsweredCount(0);
@@ -344,7 +345,10 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
           <ConnectedBadge connected={connected} />
           <div style={{ textAlign: 'center' }}>
             <h2 style={styles.title}>Sorteando Categoria...</h2>
-            <p style={{ color: '#A0AEC0', fontSize: 13, marginTop: 8 }}>O Host está girando a roleta!</p>
+            <p style={{ color: '#A0AEC0', fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>
+              A roleta já está rodando! <br />
+              Por favor, aguarde a categoria ser sorteada.
+            </p>
           </div>
 
           {/* Mini Roleta Premium Girando */}
