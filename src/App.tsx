@@ -4,7 +4,8 @@ import {
   Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
-  Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy
+  Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
+  Pencil, Check, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -373,6 +374,11 @@ export default function App() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
   
+  // Estados para Edição de Categorias
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState('');
+  const [editingCatColor, setEditingCatColor] = useState('');
+  
   // Nova Pergunta Formulário
   const [newQText, setNewQText] = useState('');
   const [newQCatId, setNewQCatId] = useState('');
@@ -668,6 +674,44 @@ export default function App() {
       }
     }
     setCategories(categories.filter(c => c.id !== id));
+    sfx.playClick();
+  };
+
+  const handleSaveCategoryEdit = async (id: string) => {
+    if (!editingCatName.trim()) {
+      alert('O nome da categoria não pode ser vazio!');
+      return;
+    }
+
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .update({
+            name: editingCatName.trim(),
+            color: editingCatColor
+          })
+          .eq('id', id);
+
+        if (error) {
+          alert('Erro ao atualizar categoria no banco: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao atualizar categoria: ' + err.message);
+        return;
+      }
+    }
+
+    setCategories(categories.map(c => c.id === id ? { ...c, name: editingCatName.trim(), color: editingCatColor } : c));
+    setEditingCatId(null);
+    sfx.playCorrect();
+  };
+
+  const startEditCategory = (cat: Category) => {
+    setEditingCatId(cat.id);
+    setEditingCatName(cat.name);
+    setEditingCatColor(cat.color);
     sfx.playClick();
   };
 
@@ -1189,20 +1233,72 @@ export default function App() {
 
               {/* Lista */}
               <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
-                {categories.map(cat => (
-                  <div key={cat.id} className="flex justify-between items-center p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
-                    <div className="flex items-center gap-3">
-                      <span className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                      <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{cat.name}</span>
+                {categories.map(cat => {
+                  const isEditing = editingCatId === cat.id;
+                  return (
+                    <div key={cat.id} className="flex justify-between items-center p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl gap-3">
+                      {isEditing ? (
+                        <>
+                          <div className="flex items-center gap-2 flex-grow">
+                            <input 
+                              type="color" 
+                              value={editingCatColor} 
+                              onChange={e => setEditingCatColor(e.target.value)}
+                              className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0"
+                              title="Mudar cor"
+                            />
+                            <input 
+                              type="text" 
+                              value={editingCatName} 
+                              onChange={e => setEditingCatName(e.target.value)}
+                              className="input-glow py-1 px-2 text-xs flex-grow font-semibold"
+                              placeholder="Nome da categoria..."
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button 
+                              onClick={() => handleSaveCategoryEdit(cat.id)}
+                              className="p-1 text-emerald-400 hover:text-emerald-300 transition"
+                              title="Salvar"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => setEditingCatId(null)}
+                              className="p-1 text-red-400 hover:text-red-300 transition"
+                              title="Cancelar"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-3 cursor-pointer flex-grow animate-fade-in" onClick={() => startEditCategory(cat)}>
+                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform hover:scale-110" style={{ backgroundColor: cat.color }} />
+                            <span className="font-semibold text-sm text-[hsl(var(--text-primary))] hover:text-[hsl(var(--primary))] transition-colors truncate">{cat.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button 
+                              onClick={() => startEditCategory(cat)}
+                              className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
+                              title="Excluir"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <button 
-                      onClick={() => handleDeleteCategory(cat.id)}
-                      className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
-                    >
-                      <Trash className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Criar nova */}
