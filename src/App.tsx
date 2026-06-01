@@ -1703,17 +1703,49 @@ export default function App() {
                           const count = roomAnswers[idx] || 0;
                           const pct = totalAnswered > 0 ? Math.round((count / totalAnswered) * 100) : 0;
                           return (
-                            <div key={idx} className="flex flex-col items-center gap-2 p-3 bg-white/5 border border-[rgba(255,255,255,0.02)] rounded-xl relative overflow-hidden">
-                              <span className="text-xs font-black text-white/80">{['A', 'B', 'C', 'D'][idx]}</span>
-                              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: col.bg }} />
-                              <div className="text-lg font-black text-white">{count}</div>
-                              <div className="text-[10px] font-mono text-[hsl(var(--text-secondary))]">{pct}%</div>
-                              {/* Barra de progresso sutil no fundo */}
+                            <div 
+                              key={idx} 
+                              className="flex flex-col items-center gap-2.5 p-4 rounded-xl relative overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+                              style={{
+                                background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                                border: '1px solid rgba(255,255,255,0.04)',
+                                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.15)'
+                              }}
+                            >
+                              {/* Emblema com Letra em Cores Vibrantes */}
+                              <div 
+                                className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shadow-md animate-bounce-gentle" 
+                                style={{ 
+                                  backgroundColor: col.bg, 
+                                  color: '#fff', 
+                                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                                  boxShadow: `0 4px 10px ${col.bg}40`
+                                }}
+                              >
+                                {['A', 'B', 'C', 'D'][idx]}
+                              </div>
+                              
+                              {/* Contador de Votos */}
+                              <div className="flex flex-col items-center mt-1">
+                                <span className="text-2xl font-extrabold text-white leading-none">{count}</span>
+                                <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase mt-1 tracking-wider">votos</span>
+                              </div>
+
+                              {/* Percentagem em Badge Estilizado */}
+                              <span 
+                                className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/5 mt-0.5" 
+                                style={{ color: col.bg }}
+                              >
+                                {pct}%
+                              </span>
+
+                              {/* Barra de Progresso com Brilho Sutil */}
                               <div 
                                 style={{ 
                                   position: 'absolute', bottom: 0, left: 0, right: 0, 
                                   height: '4px', backgroundColor: col.bg,
-                                  width: `${pct}%`, transition: 'width 0.3s ease'
+                                  width: `${pct}%`, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                                  boxShadow: `0 -1px 8px ${col.bg}`
                                 }} 
                               />
                             </div>

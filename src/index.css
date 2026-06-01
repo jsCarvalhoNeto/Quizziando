@@ -41,6 +41,39 @@
   scrollbar-color: hsl(var(--border-color)) transparent;
 }
 
+button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Mapeamento de classes utilitárias arbitrárias do CSS do Quizziando */
+.text-\[hsl\(var\(--text-primary\)\)\] { color: hsl(var(--text-primary)); }
+.text-\[hsl\(var\(--text-secondary\)\)\] { color: hsl(var(--text-secondary)); }
+.text-\[hsl\(var\(--text-muted\)\)\] { color: hsl(var(--text-muted)); }
+.text-\[hsl\(var\(--secondary\)\)\] { color: hsl(var(--secondary)); }
+.text-\[hsl\(var\(--primary\)\)\] { color: hsl(var(--primary)); }
+.text-\[hsl\(var\(--accent\)\)\] { color: hsl(var(--accent)); }
+
+.bg-\[rgba\(255\,255\,255\,0\.01\)\] { background-color: rgba(255, 255, 255, 0.01); }
+.bg-\[rgba\(255\,255\,255\,0\.02\)\] { background-color: rgba(255, 255, 255, 0.02); }
+.bg-\[rgba\(255\,255\,255\,0\.03\)\] { background-color: rgba(255, 255, 255, 0.03); }
+.bg-\[rgba\(255\,255\,255\,0\.05\)\] { background-color: rgba(255, 255, 255, 0.05); }
+.bg-\[rgba\(255\,255\,255\,0\.08\)\] { background-color: rgba(255, 255, 255, 0.08); }
+.bg-\[hsla\(var\(--primary\)\,0\.05\)\] { background-color: hsla(var(--primary), 0.05); }
+.bg-\[hsla\(var\(--primary\)\,0\.08\)\] { background-color: hsla(var(--primary), 0.08); }
+.bg-\[hsla\(var\(--secondary\)\,0\.05\)\] { background-color: hsla(var(--secondary), 0.05); }
+.bg-\[hsla\(var\(--secondary\)\,0\.08\)\] { background-color: hsla(var(--secondary), 0.08); }
+
+.border-\[rgba\(255\,255\,255\,0\.05\)\] { border-color: rgba(255, 255, 255, 0.05); }
+.border-\[rgba\(255\,255\,255\,0\.08\)\] { border-color: rgba(255, 255, 255, 0.08); }
+.border-\[hsl\(var\(--primary\)\)\] { border-color: hsl(var(--primary)); }
+.border-\[hsl\(var\(--secondary\)\)\] { border-color: hsl(var(--secondary)); }
+
+
 body {
   min-height: 100vh;
   overflow-x: hidden;
@@ -163,6 +196,12 @@ body::after {
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
 }
 
+select.input-glow option {
+  background-color: #0c1020;
+  color: #f8fafc;
+}
+
+
 /* ==========================================
    📦 CUSTOM VANILLA UTILITY CSS (MINI-TAILWIND MAPPER)
    ========================================== */
@@ -197,6 +236,8 @@ body::after {
 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
 
 @media (min-width: 1024px) {
   .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
