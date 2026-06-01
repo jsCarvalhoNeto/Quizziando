@@ -1035,9 +1035,14 @@ export default function App() {
           {/* DROPDOWN DE CONFIGURAÇÕES */}
           {showSettingsDropdown && (
             <div 
-              className="absolute right-0 top-full mt-2 w-64 glass-card p-4 flex flex-col gap-3.5 z-[100] shadow-2xl border border-[rgba(255,255,255,0.08)] bg-[#0c1222]/95 backdrop-blur-xl animate-fade-in"
+              className="absolute p-4 flex flex-col gap-3.5 z-[100] shadow-2xl rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0c1222]/95 backdrop-blur-xl animate-fade-in"
               style={{
-                animation: 'slideUpModal 0.2s ease-out'
+                top: '100%',
+                right: 0,
+                marginTop: '10px',
+                width: '290px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+                animation: 'slideUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
               <div className="border-b border-[rgba(255,255,255,0.06)] pb-2">
@@ -1067,20 +1072,29 @@ export default function App() {
               {/* Informações da Conta */}
               {authUser && (
                 <div className="flex flex-col gap-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
-                  <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
+                  <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
                     Conta Ativa (Host)
                   </span>
-                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-0.5">
-                    <span className="text-[11px] text-[hsl(var(--text-primary))] font-semibold truncate max-w-[200px]" title={authUser.email}>
+                  <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1.5 w-full box-border">
+                    <span 
+                      className="text-xs text-white font-semibold block truncate" 
+                      style={{ maxWidth: '240px' }}
+                      title={authUser.email}
+                    >
                       {authUser.email}
                     </span>
-                    <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Permissão: Operador</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
+                        Permissão: Operador
+                      </span>
+                    </div>
                   </div>
 
                   {/* Botão de Logout */}
                   <button
                     onClick={() => { setShowSettingsDropdown(false); handleLogout(); }}
-                    className="w-full mt-1.5 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition"
+                    className="w-full mt-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all duration-200"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     Sair da Conta
