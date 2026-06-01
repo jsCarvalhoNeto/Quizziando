@@ -936,6 +936,25 @@ export default function App() {
           >
             {useRealSupabase ? 'Supabase Conectado' : 'Modo Demo (Offline)'}
           </button>
+
+          {/* Seção do Organizador Autenticado diretamente no Cabeçalho */}
+          {authUser && (
+            <div className="flex items-center gap-2.5 pl-3 border-l border-[rgba(255,255,255,0.08)]">
+              <div className="flex flex-col items-end">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Host</span>
+                <span className="text-[11px] text-[hsl(var(--text-secondary))] font-medium truncate max-w-[130px]" title={authUser.email}>
+                  {authUser.email}
+                </span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition"
+                title="Sair da Conta"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -1049,24 +1068,6 @@ export default function App() {
             ========================================== */}
         {screen === 'operator-dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-
-            {/* Banner do Gerenciador Autenticado */}
-            {authUser && (
-              <div className="lg:col-span-3 flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div className="flex items-center gap-2.5">
-                  <ShieldCheck className="w-5 h-5" style={{ color: 'rgba(52,211,153,1)' }} />
-                  <span className="text-sm font-semibold" style={{ color: 'rgba(52,211,153,1)' }}>Gerenciador Autenticado</span>
-                  <span className="text-xs" style={{ color: 'rgba(148,163,184,1)' }}>— {authUser.email}</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition"
-                  style={{ background: 'rgba(248,113,113,0.1)', color: 'rgba(248,113,113,1)', border: '1px solid rgba(248,113,113,0.25)' }}
-                >
-                  <LogOut className="w-3.5 h-3.5" /> Sair
-                </button>
-              </div>
-            )}
             {/* Esquerda: Nova Partida */}
             <div className="glass-card p-6 flex flex-col gap-5 h-fit">
               <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
