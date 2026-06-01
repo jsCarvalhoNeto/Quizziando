@@ -133,16 +133,22 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     if (room.round_state === 'spinning') {
       setPlayerScreen('spinning');
     } else if (room.round_state === 'category-reveal') {
-      setChosenIndex(null);
-      setWasCorrect(null);
-      setAnsweredCount(0);
-      setPlayerScreen('category-reveal');
+      const isNewCategory = !roomState || roomState.selected_category?.name !== room.selected_category?.name;
+      if (isNewCategory) {
+        setChosenIndex(null);
+        setWasCorrect(null);
+        setAnsweredCount(0);
+        setPlayerScreen('category-reveal');
+      }
     } else if (room.round_state === 'question') {
-      // Nova pergunta — resetar resposta
-      setChosenIndex(null);
-      setWasCorrect(null);
-      setAnsweredCount(0);
-      setPlayerScreen('question');
+      // Nova pergunta — resetar resposta APENAS se mudou a pergunta!
+      const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
+      if (isNewQuestion) {
+        setChosenIndex(null);
+        setWasCorrect(null);
+        setAnsweredCount(0);
+        setPlayerScreen('question');
+      }
     } else if (room.round_state === 'answered') {
       // Revelar resultado
       if (chosenIndex !== null && room.current_question) {
