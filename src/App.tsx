@@ -1026,16 +1026,7 @@ export default function App() {
             {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5 text-red-400" />}
           </button>
           
-          <button 
-            onClick={() => setUseRealSupabase(!useRealSupabase)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-              useRealSupabase 
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
-                : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-            }`}
-          >
-            {useRealSupabase ? 'Supabase Conectado' : 'Modo Demo (Offline)'}
-          </button>
+
 
           {/* Seção do Organizador Autenticado diretamente no Cabeçalho */}
           {authUser && (
