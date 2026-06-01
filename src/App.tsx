@@ -2,11 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
   Clock, CheckCircle, XCircle, RotateCcw, 
-  Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle
+  Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
+  Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
+import PlayerView, { ANSWER_COLORS } from './PlayerView';
 
+// Detectar se o jogador está acessando via link de sala
+const urlParams = new URLSearchParams(window.location.search);
+const URL_ROOM_CODE = urlParams.get('room')?.toUpperCase() || null;
 
 // ==========================================
 // 🎵 SINTETIZADOR DE EFEITOS SONOROS (WEB AUDIO API)
@@ -271,6 +276,13 @@ const DEFAULT_QUESTIONS: Question[] = [
 ];
 
 export default function App() {
+  // ==========================================
+  // Se acessado via link de sala → renderizar PlayerView
+  // ==========================================
+  if (URL_ROOM_CODE) {
+    return <PlayerView roomCode={URL_ROOM_CODE} />;
+  }
+
   // Configurações Globais / Conexão
   const [useRealSupabase, setUseRealSupabase] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -340,6 +352,19 @@ export default function App() {
   const [role, setRole] = useState<'operator' | 'player'>('player');
   const [nickname, setNickname] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [joinRoomCode, setJoinRoomCode] = useState('');
+
+  // ==========================================
+  // 🔐 ESTADOS DE AUTENTICAÇÃO DO GERENCIADOR
+  // ==========================================
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authShowPassword, setAuthShowPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authUser, setAuthUser] = useState<{ email: string } | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Estados de Configuração do Painel do Operador
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
@@ -365,8 +390,8 @@ export default function App() {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(1);
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([]);
   
-  // Status da rodada ativa: 'idle' | 'spinning' | 'question' | 'answered' | 'ranking'
-  const [roundState, setRoundState] = useState<'idle' | 'spinning' | 'question' | 'answered' | 'ranking'>('idle');
+  // Status da rodada ativa: 'idle' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'ranking'
+  const [roundState, setRoundState] = useState<'idle' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'ranking'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(15);
@@ -379,31 +404,89 @@ export default function App() {
   
   // Referências
   const timerIntervalRef = useRef<any | null>(null);
+  const realtimeChannelRef = useRef<any | null>(null);
+
+  // ==========================================
+  // 🏗️ ESTADOS DO SISTEMA DE SALAS
+  // ==========================================
+  const [roomCode, setRoomCode] = useState('');
+  const [roomLink, setRoomLink] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+  // Contagem de respostas por alternativa para o operador [A, B, C, D]
+  const [roomAnswers, setRoomAnswers] = useState<number[]>([0, 0, 0, 0]);
+  const [totalAnswered, setTotalAnswered] = useState(0);
 
   // Efeito para som global
   useEffect(() => {
     sfx.enabled = soundEnabled;
   }, [soundEnabled]);
 
-  // Simular a entrada de jogadores aleatórios no lobby do Jogo Aberto para preencher a dinâmica do lobby
+  // Simular a entrada de jogadores reais via Supabase Realtime
   useEffect(() => {
-    if (screen === 'game-lobby' && role === 'operator' && activePlayers.length < 5) {
+    if (screen !== 'game-lobby' || role !== 'operator' || !roomCode) return;
+    
+    if (!useRealSupabase) {
+      // Modo demo: simular jogadores fictícios
       const names = ['Ana', 'Bruno', 'Carlos', 'Diana', 'Eduardo', 'Felipe', 'Gabriela'];
       const interval = setInterval(() => {
-        if (activePlayers.length < 6) {
+        setActivePlayers(prev => {
+          if (prev.length >= 6) return prev;
           const randName = names[Math.floor(Math.random() * names.length)];
-          if (!activePlayers.some(p => p.nickname === randName)) {
-            setActivePlayers(prev => [
-              ...prev, 
-              { id: Math.random().toString(), nickname: randName, score: 0 }
-            ]);
-            sfx.playClick();
-          }
-        }
+          if (prev.some(p => p.nickname === randName)) return prev;
+          sfx.playClick();
+          return [...prev, { id: Math.random().toString(), nickname: randName, score: 0 }];
+        });
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [screen, role, activePlayers]);
+
+    // Supabase Real: escutar novos jogadores na sala
+    const channel = supabase
+      .channel(`lobby-${roomCode}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'room_players', filter: `room_code=eq.${roomCode}` },
+        (payload) => {
+          const p = payload.new as any;
+          setActivePlayers(prev => {
+            if (prev.some(x => x.nickname === p.nickname)) return prev;
+            sfx.playClick();
+            return [...prev, { id: p.id, nickname: p.nickname, score: p.score || 0 }];
+          });
+        }
+      )
+      .subscribe();
+
+    realtimeChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); };
+  }, [screen, role, roomCode, useRealSupabase]);
+
+  // Escutar respostas dos jogadores em tempo real (operador)
+  useEffect(() => {
+    if (screen !== 'game-play' || role !== 'operator' || !roomCode || !useRealSupabase) return;
+    
+    const channel = supabase
+      .channel(`answers-${roomCode}-${currentRoundIndex}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'player_answers',
+          filter: `room_code=eq.${roomCode}` },
+        (payload) => {
+          const ans = payload.new as any;
+          if (ans.round_index !== currentRoundIndex) return;
+          setRoomAnswers(prev => {
+            const next = [...prev];
+            if (ans.answer_index >= 0 && ans.answer_index <= 3) next[ans.answer_index]++;
+            return next;
+          });
+          setTotalAnswered(prev => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [screen, role, roomCode, currentRoundIndex, useRealSupabase]);
+
 
   // Controlar o temporizador
   useEffect(() => {
@@ -425,6 +508,93 @@ export default function App() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [timerRunning, timeLeft]);
+
+  // ==========================================
+  // 🔐 FUNÇÕES DE AUTENTICAÇÃO DO GERENCIADOR
+  // ==========================================
+
+  const handleOpenManagerLogin = () => {
+    setRole('operator');
+    sfx.playClick();
+    if (authUser) {
+      // Já autenticado, vai direto para o painel
+      setScreen('operator-dashboard');
+    } else {
+      setShowLoginModal(true);
+      setAuthError('');
+      setAuthEmail('');
+      setAuthPassword('');
+    }
+  };
+
+  const handleAuthSubmit = async () => {
+    if (!authEmail.trim() || !authPassword.trim()) {
+      setAuthError('Preencha o e-mail e a senha para continuar.');
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError('');
+
+    // Modo Demo: aceitar credenciais padrão sem Supabase
+    if (!useRealSupabase) {
+      await new Promise(r => setTimeout(r, 900));
+      if (authEmail === 'admin@quizziando.com' && authPassword === 'admin123') {
+        setAuthUser({ email: authEmail });
+        setShowLoginModal(false);
+        setScreen('operator-dashboard');
+        sfx.playCorrect();
+      } else {
+        setAuthError('Modo Demo: use admin@quizziando.com / admin123');
+      }
+      setAuthLoading(false);
+      return;
+    }
+
+    // Autenticação real via Supabase
+    try {
+      if (authMode === 'login') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) {
+          setAuthError('E-mail ou senha incorretos. Tente novamente.');
+        } else if (data.user) {
+          setAuthUser({ email: data.user.email || authEmail });
+          setShowLoginModal(false);
+          setScreen('operator-dashboard');
+          sfx.playCorrect();
+        }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        });
+        if (error) {
+          setAuthError(error.message || 'Erro ao criar conta. Tente novamente.');
+        } else if (data.user) {
+          setAuthUser({ email: data.user.email || authEmail });
+          setShowLoginModal(false);
+          setScreen('operator-dashboard');
+          sfx.playCorrect();
+        }
+      }
+    } catch {
+      setAuthError('Erro inesperado. Verifique sua conexão.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    sfx.playClick();
+    if (useRealSupabase) {
+      await supabase.auth.signOut();
+    }
+    setAuthUser(null);
+    setScreen('welcome');
+    setRole('player');
+  };
 
   // ==========================================
   // ⚙️ FUNÇÕES DE NEGÓCIO & EVENTOS
@@ -483,7 +653,28 @@ export default function App() {
   //   sfx.playClick();
   // };
 
-  const handleStartGameSetup = () => {
+  // ==========================================
+  // 🏗️ FUNÇÕES DO SISTEMA DE SALAS
+  // ==========================================
+
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  };
+
+  const publishRoomState = async (update: Record<string, any>) => {
+    if (!useRealSupabase || !roomCode) return;
+    await supabase.from('game_rooms').update({ ...update, updated_at: new Date().toISOString() }).eq('code', roomCode);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(roomLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
+  const handleStartGameSetup = async () => {
     if (role === 'player' && !nickname.trim()) {
       alert('Por favor, informe seu nickname para entrar no jogo!');
       return;
@@ -492,10 +683,36 @@ export default function App() {
     sfx.playClick();
     
     if (role === 'operator') {
-      setScreen('game-lobby');
+      // Gerar código único de sala
+      const code = generateRoomCode();
+      const link = `${window.location.origin}${window.location.pathname}?room=${code}`;
+      setRoomCode(code);
+      setRoomLink(link);
       setActivePlayers([]);
+      setRoomAnswers([0, 0, 0, 0]);
+      setTotalAnswered(0);
+
+      // Criar sala no Supabase
+      if (useRealSupabase) {
+        await supabase.from('game_rooms').insert({
+          code,
+          operator_email: authUser?.email || 'demo',
+          game_mode: gameMode,
+          rounds: gameRounds,
+          time_limit: gameTimeLimit,
+          status: 'lobby',
+          round_state: 'idle',
+        });
+      }
+
+      setScreen('game-lobby');
     } else {
       // Jogador entra na fila
+      if (joinRoomCode.trim()) {
+        window.location.href = `${window.location.origin}${window.location.pathname}?room=${joinRoomCode.trim().toUpperCase()}`;
+        return;
+      }
+      
       const newPlayer: GamePlayer = {
         id: 'player-self',
         nickname: nickname.trim(),
@@ -507,13 +724,17 @@ export default function App() {
     }
   };
 
-  const handleStartMatch = () => {
+  const handleStartMatch = async () => {
     sfx.playClick();
     setCurrentRoundIndex(1);
     setUsedQuestionIds([]);
     setRoundState('idle');
+    setRoomAnswers([0, 0, 0, 0]);
+    setTotalAnswered(0);
+    await publishRoomState({ status: 'playing', round_state: 'idle', current_round: 1 });
     setScreen('game-play');
   };
+
 
   // Girar a Roleta de Categorias
   const handleSpinRoulette = () => {
@@ -530,7 +751,7 @@ export default function App() {
     const finalAngle = rouletteAngle + numSpins * 360 + Math.random() * 360;
     setRouletteAngle(finalAngle);
     
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsSpinning(false);
       
       // Determinar a categoria selecionada com base no ângulo final
@@ -545,29 +766,45 @@ export default function App() {
         q => q.category_id === cat.id && !usedQuestionIds.includes(q.id)
       );
       
+      let selectedQ;
       if (availableQuestions.length === 0) {
         // Fallback: se acabarem as perguntas daquela categoria, pegar qualquer uma não usada da categoria ou geral
         const fallbackQuestions = questions.filter(q => !usedQuestionIds.includes(q.id));
         if (fallbackQuestions.length > 0) {
-          const selectedQ = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
-          setCurrentQuestion(selectedQ);
-          setUsedQuestionIds([...usedQuestionIds, selectedQ.id]);
+          selectedQ = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
         } else {
           // Zerar banco de usadas se todas forem esgotadas
-          const selectedQ = questions[Math.floor(Math.random() * questions.length)];
-          setCurrentQuestion(selectedQ);
+          selectedQ = questions[Math.floor(Math.random() * questions.length)];
           setUsedQuestionIds([selectedQ.id]);
         }
       } else {
-        const selectedQ = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
-        setCurrentQuestion(selectedQ);
-        setUsedQuestionIds([...usedQuestionIds, selectedQ.id]);
+        selectedQ = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
       }
-      
-      setRoundState('question');
-      setTimeLeft(gameTimeLimit);
-      setTimerRunning(true);
-      setPlayerAnswered(null);
+      setCurrentQuestion(selectedQ);
+      setUsedQuestionIds(prev => prev.includes(selectedQ!.id) ? prev : [...prev, selectedQ!.id]);
+
+      // Publicar categoria e pergunta no Supabase para os jogadores verem
+      await publishRoomState({
+        round_state: 'category-reveal',
+        current_round: currentRoundIndex,
+        selected_category: cat,
+        current_question: selectedQ,
+      });
+
+      // ⏳ Aguardar um momento exibindo a categoria antes de mostrar a pergunta
+      setTimeout(async () => {
+        setRoundState('category-reveal');
+        setTimeout(async () => {
+          setRoundState('question');
+          setTimeLeft(gameTimeLimit);
+          setTimerRunning(true);
+          setPlayerAnswered(null);
+          setRoomAnswers([0, 0, 0, 0]);
+          setTotalAnswered(0);
+          await publishRoomState({ round_state: 'question' });
+        }, 2200);
+      }, 0);
+
     }, 3500);
   };
 
@@ -593,9 +830,10 @@ export default function App() {
     }
   };
 
-  const revealAnswer = () => {
+  const revealAnswer = async () => {
     setTimerRunning(false);
     setRoundState('answered');
+    await publishRoomState({ round_state: 'answered' });
     
     // Simular respostas e scores para outros jogadores do lobby (bots) no modo demo
     if (role === 'operator' || activePlayers.length > 1) {
@@ -612,21 +850,25 @@ export default function App() {
     }
   };
 
-  const handleGoToRanking = () => {
+  const handleGoToRanking = async () => {
     setRoundState('ranking');
     sfx.playClick();
+    await publishRoomState({ round_state: 'ranking' });
   };
 
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
     sfx.playClick();
     if (currentRoundIndex < gameRounds) {
-      setCurrentRoundIndex(currentRoundIndex + 1);
+      const nextRound = currentRoundIndex + 1;
+      setCurrentRoundIndex(nextRound);
       setRoundState('idle');
       setSelectedCategory(null);
       setCurrentQuestion(null);
+      await publishRoomState({ round_state: 'idle', current_round: nextRound });
     } else {
       // Fim do jogo! Chamar Pódio de Suspense
       setScreen('podium');
+      await publishRoomState({ status: 'finished', round_state: 'idle' });
       sfx.playDrumRoll();
       setTimeout(() => {
         sfx.playVictory();
@@ -651,6 +893,10 @@ export default function App() {
   const thirdPlace = sortedPlayers[2];
   const secondPlace = sortedPlayers[1];
   const firstPlace = sortedPlayers[0];
+
+  if (URL_ROOM_CODE) {
+    return <PlayerView roomCode={URL_ROOM_CODE} />;
+  }
 
   return (
     <div className="app-container min-h-screen flex flex-col justify-between">
@@ -724,7 +970,7 @@ export default function App() {
               </button>
               
               <button 
-                onClick={() => { setRole('operator'); sfx.playClick(); }}
+                onClick={handleOpenManagerLogin}
                 className={`flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition ${
                   role === 'operator' 
                     ? 'border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.05)] text-white' 
@@ -733,6 +979,11 @@ export default function App() {
               >
                 <Crown className="w-8 h-8" />
                 <span className="font-semibold text-sm">Gerenciar Quiz</span>
+                {authUser && (
+                  <span style={{ fontSize: '10px', color: 'rgba(52, 211, 153, 0.9)', background: 'rgba(16,185,129,0.1)', borderRadius: '999px', padding: '2px 8px', border: '1px solid rgba(16,185,129,0.25)' }}>
+                    ✓ Autenticado
+                  </span>
+                )}
               </button>
             </div>
 
@@ -746,6 +997,15 @@ export default function App() {
                     value={nickname} 
                     onChange={e => setNickname(e.target.value)}
                     className="input-glow"
+                  />
+                  
+                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase mt-2">Código da Sala (para Jogar Online)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Y9KA (Opcional para local)" 
+                    value={joinRoomCode} 
+                    onChange={e => setJoinRoomCode(e.target.value)}
+                    className="input-glow font-mono uppercase"
                   />
                   {gameMode === 'team' && (
                     <>
@@ -762,17 +1022,22 @@ export default function App() {
                 </>
               ) : (
                 <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl text-xs text-[hsl(var(--text-secondary))] flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
-                  <span>Como organizador, você terá acesso completo para gerenciar até 20 categorias, perguntas e comandar a roleta.</span>
+                  <Lock className="w-4 h-4 text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
+                  <span>
+                    {authUser 
+                      ? `Logado como ${authUser.email}. Acesse o painel abaixo.`
+                      : 'Acesso restrito. Clique em "Gerenciar Quiz" para autenticar-se como organizador.'
+                    }
+                  </span>
                 </div>
               )}
             </div>
 
             <button 
-              onClick={role === 'operator' ? () => { setScreen('operator-dashboard'); sfx.playClick(); } : handleStartGameSetup}
+              onClick={role === 'operator' ? handleOpenManagerLogin : handleStartGameSetup}
               className="btn-glow justify-center text-center font-bold"
             >
-              {role === 'operator' ? 'Entrar no Painel' : 'Entrar no Lobby'}
+              {role === 'operator' ? (authUser ? 'Entrar no Painel' : 'Fazer Login') : 'Entrar no Lobby'}
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -783,7 +1048,24 @@ export default function App() {
             ========================================== */}
         {screen === 'operator-dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-            
+
+            {/* Banner do Gerenciador Autenticado */}
+            {authUser && (
+              <div className="lg:col-span-3 flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-5 h-5" style={{ color: 'rgba(52,211,153,1)' }} />
+                  <span className="text-sm font-semibold" style={{ color: 'rgba(52,211,153,1)' }}>Gerenciador Autenticado</span>
+                  <span className="text-xs" style={{ color: 'rgba(148,163,184,1)' }}>— {authUser.email}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition"
+                  style={{ background: 'rgba(248,113,113,0.1)', color: 'rgba(248,113,113,1)', border: '1px solid rgba(248,113,113,0.25)' }}
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Sair
+                </button>
+              </div>
+            )}
             {/* Esquerda: Nova Partida */}
             <div className="glass-card p-6 flex flex-col gap-5 h-fit">
               <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
@@ -985,54 +1267,130 @@ export default function App() {
             3. LOBBY DE ESPERA (LOBBY)
             ========================================== */}
         {screen === 'game-lobby' && (
-          <div className="max-w-2xl mx-auto w-full glass-card p-8 flex flex-col gap-6">
+          <div className={`${role === 'operator' ? 'max-w-4xl' : 'max-w-2xl'} mx-auto w-full glass-card p-8 flex flex-col gap-6`}>
             <div className="text-center">
               <span className="text-xs font-bold text-[hsl(var(--accent))] tracking-widest uppercase">
                 Sala de Espera
               </span>
               <h2 className="text-3xl font-extrabold mt-1">Lobby do Quiz</h2>
               <p className="text-sm text-[hsl(var(--text-secondary))] mt-2">
-                Aguardando os competidores se conectarem. {gameMode === 'open' && 'Limite: 360 simultâneos.'}
+                {role === 'operator' 
+                  ? 'Compartilhe o código ou o link abaixo com seus competidores.' 
+                  : 'Aguardando os competidores se conectarem.'}
               </p>
             </div>
 
-            {/* Status do Jogador Principal */}
-            {role === 'player' && (
-              <div className="p-4 bg-[hsla(var(--secondary),0.05)] border border-[hsla(var(--secondary),0.2)] rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-[hsl(var(--secondary))]" />
-                  <div>
-                    <p className="text-sm font-bold text-white">{nickname}</p>
-                    <p className="text-xs text-[hsl(var(--text-secondary))]">Seu Nickname de Jogo</p>
+            {role === 'operator' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                {/* Lado Esquerdo: Acesso à Sala */}
+                <div className="flex flex-col gap-5 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 relative overflow-hidden">
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-[hsl(var(--primary))]/10 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="text-center">
+                    <span className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase tracking-widest block mb-1">
+                      Código de Acesso
+                    </span>
+                    <div className="text-4xl font-black bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent tracking-widest font-mono">
+                      {roomCode}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase">Link para Celular</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        readOnly 
+                        value={roomLink}
+                        className="input-glow text-xs flex-grow font-semibold"
+                        onClick={e => (e.target as any).select()}
+                      />
+                      <button 
+                        onClick={handleCopyLink}
+                        className="p-2.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition text-white"
+                        title="Copiar Link"
+                      >
+                        {linkCopied ? <span className="text-xs text-emerald-400 font-bold">Copiado!</span> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="flex flex-col items-center justify-center gap-3 pt-2">
+                    <span className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
+                      Aponte a câmera para jogar 📱
+                    </span>
+                    <div className="p-3 bg-white rounded-2xl shadow-xl shadow-purple-900/10 border border-purple-500/20">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(roomLink)}&color=7c3aed&bgcolor=ffffff`}
+                        alt="QR Code da Sala"
+                        className="w-36 h-36 rounded-lg"
+                      />
+                    </div>
                   </div>
                 </div>
-                <span className="px-3 py-1 bg-[hsl(var(--secondary))]/10 text-[hsl(var(--secondary))] text-xs font-bold rounded-full">
-                  Pronto
-                </span>
-              </div>
-            )}
 
-            {/* Grid de Competidores */}
-            <div className="flex flex-col gap-3">
-              <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
-                <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                Jogadores Conectados ({activePlayers.length})
-              </h4>
-              
-              <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
-                {activePlayers.map((player) => (
-                  <div key={player.id} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center">
-                    <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                {/* Lado Direito: Jogadores Conectados */}
+                <div className="flex flex-col gap-4">
+                  <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                    Jogadores na Sala ({activePlayers.length})
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
+                    {activePlayers.map((player) => (
+                      <div key={player.id} className="p-3 bg-white/5 border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center transition hover:border-[rgba(255,255,255,0.1)]">
+                        <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                    ))}
+                    {activePlayers.length === 0 && (
+                      <div className="col-span-2 text-center text-xs text-[hsl(var(--text-muted))] py-12 border border-dashed border-[rgba(255,255,255,0.05)] rounded-2xl">
+                        Aguardando competidores se conectarem...
+                      </div>
+                    )}
                   </div>
-                ))}
-                {activePlayers.length === 0 && (
-                  <div className="col-span-2 text-center text-xs text-[hsl(var(--text-muted))] py-6">
-                    Nenhum jogador conectado ainda.
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Status do Jogador Principal */}
+                <div className="p-4 bg-[hsla(var(--secondary),0.05)] border border-[hsla(var(--secondary),0.2)] rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-[hsl(var(--secondary))]" />
+                    <div>
+                      <p className="text-sm font-bold text-white">{nickname}</p>
+                      <p className="text-xs text-[hsl(var(--text-secondary))]">Seu Nickname de Jogo</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-[hsl(var(--secondary))]/10 text-[hsl(var(--secondary))] text-xs font-bold rounded-full">
+                    Pronto
+                  </span>
+                </div>
+
+                {/* Grid de Competidores */}
+                <div className="flex flex-col gap-3">
+                  <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                    Jogadores Conectados ({activePlayers.length})
+                  </h4>
+                  
+                  <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
+                    {activePlayers.map((player) => (
+                      <div key={player.id} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center">
+                        <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                    ))}
+                    {activePlayers.length === 0 && (
+                      <div className="col-span-2 text-center text-xs text-[hsl(var(--text-muted))] py-6">
+                        Nenhum jogador conectado ainda.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Controles */}
             <div className="flex justify-between items-center gap-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
@@ -1186,6 +1544,66 @@ export default function App() {
                 </div>
               ) : null}
 
+              {/* REVEAL DA CATEGORIA — estado intermediário após a roleta parar */}
+              {roundState === 'category-reveal' && selectedCategory && (
+                <div
+                  className="glass-card p-8 flex flex-col items-center justify-center"
+                  style={{
+                    minHeight: '300px',
+                    border: `1px solid ${selectedCategory.color}55`,
+                    boxShadow: `0 0 60px ${selectedCategory.color}30`,
+                    animation: 'slideUpModal 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
+                  {/* Glow de cor da categoria */}
+                  <div style={{
+                    position: 'absolute', width: '200px', height: '200px', borderRadius: '50%',
+                    background: `radial-gradient(circle, ${selectedCategory.color}40 0%, transparent 70%)`,
+                    filter: 'blur(40px)', pointerEvents: 'none'
+                  }} />
+
+                  <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', position: 'relative' }}>
+                    {/* Ícone pulsando com a cor da categoria */}
+                    <div style={{
+                      width: '80px', height: '80px', borderRadius: '24px',
+                      background: `linear-gradient(135deg, ${selectedCategory.color}cc, ${selectedCategory.color}66)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: `0 8px 32px ${selectedCategory.color}60`,
+                      animation: 'bounce-gentle 0.8s ease infinite'
+                    }}>
+                      <Trophy style={{ width: '40px', height: '40px', color: 'white' }} />
+                    </div>
+
+                    <div>
+                      <p style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(148,163,184,1)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '8px' }}>
+                        Categoria Sorteada
+                      </p>
+                      <h3 style={{
+                        fontSize: '36px', fontWeight: 900,
+                        fontFamily: 'Outfit, sans-serif',
+                        color: selectedCategory.color,
+                        textShadow: `0 0 30px ${selectedCategory.color}80`,
+                        lineHeight: 1.1
+                      }}>
+                        {selectedCategory.name}
+                      </h3>
+                    </div>
+
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      fontSize: '13px', color: 'rgba(148,163,184,0.8)'
+                    }}>
+                      <span style={{
+                        width: '8px', height: '8px', borderRadius: '50%',
+                        background: selectedCategory.color,
+                        animation: 'animate-pulse 1s infinite'
+                      }} />
+                      Preparando a pergunta...
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* PERGUNTA & CRONÔMETRO */}
               {(roundState === 'question' || roundState === 'answered') && currentQuestion && (
                 <div className="glass-card p-6 flex flex-col gap-6">
@@ -1265,6 +1683,43 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                  {/* Painel de Respostas dos Competidores (Visível apenas para o Host/Operador) */}
+                  {role === 'operator' && (
+                    <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
+                          Respostas Coletadas: <span className="font-mono text-sm text-[hsl(var(--accent))]">{totalAnswered} / {activePlayers.length}</span>
+                        </h4>
+                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full animate-pulse">
+                          Realtime ativo
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-4 gap-3">
+                        {ANSWER_COLORS.map((col, idx) => {
+                          const count = roomAnswers[idx] || 0;
+                          const pct = totalAnswered > 0 ? Math.round((count / totalAnswered) * 100) : 0;
+                          return (
+                            <div key={idx} className="flex flex-col items-center gap-2 p-3 bg-white/5 border border-[rgba(255,255,255,0.02)] rounded-xl relative overflow-hidden">
+                              <span className="text-xs font-black text-white/80">{['A', 'B', 'C', 'D'][idx]}</span>
+                              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: col.bg }} />
+                              <div className="text-lg font-black text-white">{count}</div>
+                              <div className="text-[10px] font-mono text-[hsl(var(--text-secondary))]">{pct}%</div>
+                              {/* Barra de progresso sutil no fundo */}
+                              <div 
+                                style={{ 
+                                  position: 'absolute', bottom: 0, left: 0, right: 0, 
+                                  height: '4px', backgroundColor: col.bg,
+                                  width: `${pct}%`, transition: 'width 0.3s ease'
+                                }} 
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Ações do Organizador na Pergunta */}
                   {role === 'operator' && (
@@ -1454,6 +1909,252 @@ export default function App() {
           <span className="hover:text-[hsl(var(--text-primary))] transition cursor-pointer">Privacidade</span>
         </div>
       </footer>
+
+      {/* ==========================================
+          🔐 MODAL DE LOGIN DO GERENCIADOR
+          ========================================== */}
+      {showLoginModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+            animation: 'fadeInModal 0.25s ease'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowLoginModal(false); }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: '420px',
+              background: 'rgba(8,12,28,0.92)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '24px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(124,58,237,0.15)',
+              padding: '40px 36px',
+              display: 'flex', flexDirection: 'column', gap: '24px',
+              position: 'relative',
+              animation: 'slideUpModal 0.3s cubic-bezier(0.34,1.56,0.64,1)'
+            }}
+          >
+            {/* Glow decorativo */}
+            <div style={{
+              position: 'absolute', top: '-80px', left: '50%', transform: 'translateX(-50%)',
+              width: '200px', height: '200px',
+              background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%)',
+              pointerEvents: 'none', filter: 'blur(30px)'
+            }} />
+
+            {/* Header do Modal */}
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '16px',
+                background: 'linear-gradient(135deg, hsl(263,90%,64%) 0%, hsl(322,81%,54%) 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 8px 24px rgba(124,58,237,0.4)'
+              }}>
+                <Crown style={{ width: '28px', height: '28px', color: 'white' }} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'white', fontFamily: 'Outfit, sans-serif', marginBottom: '4px' }}>
+                  {authMode === 'login' ? 'Acesso ao Gerenciador' : 'Criar Conta'}
+                </h2>
+                <p style={{ fontSize: '13px', color: 'hsl(215,20%,65%)' }}>
+                  {authMode === 'login'
+                    ? 'Entre com suas credenciais para gerenciar quizzes'
+                    : 'Crie uma conta de gerenciador para começar'
+                  }
+                </p>
+              </div>
+            </div>
+
+            {/* Badge Modo Demo */}
+            {!useRealSupabase && (
+              <div style={{
+                background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
+                borderRadius: '12px', padding: '10px 14px',
+                display: 'flex', alignItems: 'flex-start', gap: '10px'
+              }}>
+                <AlertCircle style={{ width: '16px', height: '16px', color: 'rgba(251,191,36,1)', flexShrink: 0, marginTop: '1px' }} />
+                <div style={{ fontSize: '12px', color: 'rgba(251,191,36,0.9)', lineHeight: '1.5' }}>
+                  <strong>Modo Demo</strong> — use as credenciais de teste:<br />
+                  <span style={{ fontFamily: 'monospace', letterSpacing: '0.03em' }}>admin@quizziando.com</span> / <span style={{ fontFamily: 'monospace' }}>admin123</span>
+                </div>
+              </div>
+            )}
+
+            {/* Formulário */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Email */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'hsl(215,20%,65%)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  E-mail
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Mail style={{
+                    position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+                    width: '16px', height: '16px', color: 'hsl(215,15%,55%)', pointerEvents: 'none'
+                  }} />
+                  <input
+                    id="auth-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={authEmail}
+                    onChange={e => setAuthEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAuthSubmit()}
+                    autoComplete="email"
+                    style={{
+                      width: '100%', padding: '13px 16px 13px 40px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: authError ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px', color: 'white',
+                      fontSize: '15px', fontFamily: 'inherit',
+                      outline: 'none', transition: 'all 0.2s ease'
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'hsl(263,90%,64%)'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.2)'; }}
+                    onBlur={e => { e.target.style.borderColor = authError ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                  />
+                </div>
+              </div>
+
+              {/* Senha */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: 'hsl(215,20%,65%)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Senha
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Lock style={{
+                    position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)',
+                    width: '16px', height: '16px', color: 'hsl(215,15%,55%)', pointerEvents: 'none'
+                  }} />
+                  <input
+                    id="auth-password"
+                    type={authShowPassword ? 'text' : 'password'}
+                    placeholder="Sua senha segura"
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAuthSubmit()}
+                    autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                    style={{
+                      width: '100%', padding: '13px 44px 13px 40px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: authError ? '1px solid rgba(248,113,113,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px', color: 'white',
+                      fontSize: '15px', fontFamily: 'inherit',
+                      outline: 'none', transition: 'all 0.2s ease'
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'hsl(263,90%,64%)'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.2)'; }}
+                    onBlur={e => { e.target.style.borderColor = authError ? 'rgba(248,113,113,0.5)' : 'rgba(255,255,255,0.08)'; e.target.style.boxShadow = 'none'; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAuthShowPassword(!authShowPassword)}
+                    style={{
+                      position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(215,15%,55%)',
+                      padding: '2px', display: 'flex', alignItems: 'center'
+                    }}
+                  >
+                    {authShowPassword ? <EyeOff style={{ width: '16px', height: '16px' }} /> : <Eye style={{ width: '16px', height: '16px' }} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Mensagem de Erro */}
+              {authError && (
+                <div style={{
+                  background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.3)',
+                  borderRadius: '10px', padding: '10px 14px',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  fontSize: '13px', color: 'rgba(252,165,165,1)'
+                }}>
+                  <XCircle style={{ width: '15px', height: '15px', flexShrink: 0, color: 'rgba(248,113,113,1)' }} />
+                  {authError}
+                </div>
+              )}
+
+              {/* Botão Principal */}
+              <button
+                id="auth-submit-btn"
+                onClick={handleAuthSubmit}
+                disabled={authLoading}
+                style={{
+                  background: authLoading
+                    ? 'rgba(124,58,237,0.5)'
+                    : 'linear-gradient(135deg, hsl(263,90%,64%) 0%, hsl(322,81%,54%) 100%)',
+                  color: 'white', border: 'none',
+                  padding: '14px 24px', borderRadius: '12px',
+                  fontSize: '15px', fontWeight: 700, cursor: authLoading ? 'not-allowed' : 'pointer',
+                  fontFamily: 'Outfit, sans-serif',
+                  boxShadow: authLoading ? 'none' : '0 4px 20px rgba(124,58,237,0.4)',
+                  transition: 'all 0.2s ease',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  marginTop: '4px'
+                }}
+              >
+                {authLoading ? (
+                  <>
+                    <span style={{
+                      width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: 'white', borderRadius: '50%',
+                      display: 'inline-block',
+                      animation: 'spin 0.8s linear infinite'
+                    }} />
+                    Autenticando...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck style={{ width: '18px', height: '18px' }} />
+                    {authMode === 'login' ? 'Entrar como Gerenciador' : 'Criar Conta'}
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Alternar Login / Cadastro */}
+            <div style={{ textAlign: 'center', fontSize: '13px', color: 'hsl(215,20%,65%)' }}>
+              {authMode === 'login' ? (
+                <>
+                  Não tem conta?{' '}
+                  <button
+                    onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(263,90%,74%)', fontWeight: 600, fontSize: '13px' }}
+                  >
+                    Criar conta de gerenciador
+                  </button>
+                </>
+              ) : (
+                <>
+                  Já tem conta?{' '}
+                  <button
+                    onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'hsl(263,90%,74%)', fontWeight: 600, fontSize: '13px' }}
+                  >
+                    Fazer login
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Fechar */}
+            <button
+              onClick={() => setShowLoginModal(false)}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '8px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'hsl(215,15%,55%)', fontSize: '18px', fontWeight: 300,
+                transition: 'all 0.2s'
+              }}
+              aria-label="Fechar modal"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
