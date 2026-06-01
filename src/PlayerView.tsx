@@ -33,7 +33,7 @@ interface RoomState {
   selected_category: { name: string; color: string } | null;
 }
 
-type PlayerScreen = 'join' | 'waiting' | 'question' | 'answered' | 'round-result' | 'finished';
+type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'round-result' | 'finished';
 
 // ==========================================
 // 🎮 COMPONENTE PRINCIPAL DO JOGADOR
@@ -52,6 +52,18 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [connected, setConnected] = useState(false);
+
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*');
+      if (data) {
+        setCategories(data);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const channelRef = useRef<any>(null);
   const nickRef = useRef('');
@@ -118,14 +130,19 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       setPlayerScreen('finished');
       return;
     }
-    if (room.round_state === 'question' || room.round_state === 'category-reveal') {
+    if (room.round_state === 'spinning') {
+      setPlayerScreen('spinning');
+    } else if (room.round_state === 'category-reveal') {
+      setChosenIndex(null);
+      setWasCorrect(null);
+      setAnsweredCount(0);
+      setPlayerScreen('category-reveal');
+    } else if (room.round_state === 'question') {
       // Nova pergunta — resetar resposta
       setChosenIndex(null);
       setWasCorrect(null);
       setAnsweredCount(0);
-      if (room.round_state === 'question') {
-        setPlayerScreen('question');
-      }
+      setPlayerScreen('question');
     } else if (room.round_state === 'answered') {
       // Revelar resultado
       if (chosenIndex !== null && room.current_question) {
@@ -187,6 +204,10 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
 
     if (room.round_state === 'question') {
       setPlayerScreen('question');
+    } else if (room.round_state === 'spinning') {
+      setPlayerScreen('spinning');
+    } else if (room.round_state === 'category-reveal') {
+      setPlayerScreen('category-reveal');
     } else {
       setPlayerScreen('waiting');
     }
@@ -297,6 +318,127 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             <p style={{ color: '#4A5568', fontSize: 11, textAlign: 'center' }}>
               Pontuação acumulada: <strong style={{ color: '#A78BFA' }}>{myScore} pts</strong>
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Roleta Girando (spinning) ──
+  if (playerScreen === 'spinning') {
+    return (
+      <div style={styles.fullscreen}>
+        <style>{`
+          @keyframes spin-infinite {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+        <div style={styles.waitingCard}>
+          <ConnectedBadge connected={connected} />
+          <div style={{ textAlign: 'center' }}>
+            <h2 style={styles.title}>Sorteando Categoria...</h2>
+            <p style={{ color: '#A0AEC0', fontSize: 13, marginTop: 8 }}>O Host está girando a roleta!</p>
+          </div>
+
+          {/* Mini Roleta Premium Girando */}
+          <div style={{ position: 'relative', width: '200px', height: '200px', margin: '20px auto' }}>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '200px',
+              height: '200px',
+              borderRadius: '50%',
+              border: '4px solid white',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              animation: 'spin-infinite 2s linear infinite',
+              background: categories.length > 0
+                ? `conic-gradient(${categories.map((c, i) => `${c.color} ${i * (360 / categories.length)}deg ${(i + 1) * (360 / categories.length)}deg`).join(', ')})`
+                : '#555',
+              overflow: 'hidden'
+            }} />
+            
+            {/* Pino Central Branco */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: 'white',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.3)',
+            }} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+            <span style={styles.pulseDot} />
+            <span style={{ color: '#A0AEC0', fontSize: 14 }}>Cruzando os dedos! 🤞</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Revelação da Categoria (category-reveal) ──
+  if (playerScreen === 'category-reveal' && roomState?.selected_category) {
+    const cat = roomState.selected_category;
+    return (
+      <div style={styles.fullscreen}>
+        <style>{`
+          @keyframes bounce-gentle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+          }
+          @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+          }
+        `}</style>
+        <div style={{
+          ...styles.waitingCard,
+          border: `1px solid ${cat.color}66`,
+          boxShadow: `0 24px 60px ${cat.color}22`,
+          animation: 'fadeInScale 0.4s ease-out'
+        }}>
+          <ConnectedBadge connected={connected} />
+          
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              width: 70, height: 70, borderRadius: 20,
+              background: `linear-gradient(135deg, ${cat.color}cc, ${cat.color}66)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: `0 8px 24px ${cat.color}50`,
+              animation: 'bounce-gentle 1s ease infinite'
+            }}>
+              <Trophy style={{ width: 34, height: 34, color: 'white' }} />
+            </div>
+
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#A0AEC0', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 4 }}>
+                Categoria Sorteada
+              </p>
+              <h2 style={{
+                fontSize: 28, fontWeight: 900,
+                color: cat.color,
+                textShadow: `0 0 20px ${cat.color}40`,
+                margin: 0,
+                fontFamily: "'Outfit', sans-serif"
+              }}>
+                {cat.name}
+              </h2>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#A0AEC0' }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: cat.color,
+                animation: 'pulse-opac 1s infinite'
+              }} />
+              Prepare-se para a pergunta...
+            </div>
           </div>
         </div>
       </div>
