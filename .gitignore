@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Variáveis de ambiente (credenciais — NÃO versionar)
+.env
+.env.local
+.env.production
