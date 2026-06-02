@@ -52,21 +52,8 @@ class SoundFX {
 
   playSpin() {
     if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.5);
-    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
-    
-    osc.start();
-    osc.stop(this.ctx.currentTime + 0.5);
+    const audio = new Audio('/spin.mp3');
+    audio.play().catch(e => console.warn('Erro ao tocar spin.mp3:', e));
   }
 
   playCorrect() {
@@ -1316,7 +1303,7 @@ Garanta que:
         }, 2200);
       }, 0);
 
-    }, 3500);
+    }, 4000);
   };
 
   const handlePlayerAnswer = (altIndex: number) => {
@@ -2274,7 +2261,7 @@ Garanta que:
                       border: '5px solid white',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                       transform: `rotate(${rouletteAngle}deg)`,
-                      transition: isSpinning ? 'transform 3.5s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transition: isSpinning ? 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                       background: categories.length > 0
                         ? `conic-gradient(${categories.map((c, i) => `${c.color} ${i * (360 / categories.length)}deg ${(i + 1) * (360 / categories.length)}deg`).join(', ')})`
                         : '#555',
