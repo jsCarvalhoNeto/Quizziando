@@ -246,10 +246,6 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       is_correct: isCorrect,
       points_earned: isCorrect ? 100 : 0,
     });
-
-    if (isCorrect) {
-      setMyScore(prev => prev + 100);
-    }
   };
 
   // ==========================================

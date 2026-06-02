@@ -707,6 +707,15 @@ Garanta que:
             return next;
           });
           setTotalAnswered(prev => prev + 1);
+          
+          if (ans.is_correct) {
+            setActivePlayers(prev => prev.map(p => {
+              if (p.nickname === ans.player_nickname) {
+                return { ...p, score: p.score + (ans.points_earned || 100) };
+              }
+              return p;
+            }));
+          }
         }
       )
       .subscribe();
@@ -1345,17 +1354,19 @@ Garanta que:
     await publishRoomState({ round_state: 'answered' });
     
     // Simular respostas e scores para outros jogadores do lobby (bots) no modo demo
-    if (role === 'operator' || activePlayers.length > 1) {
-      setActivePlayers(prev => prev.map(p => {
-        if (p.id !== 'player-self') {
-          const isCorrect = Math.random() > 0.4;
-          if (isCorrect) {
-            const addedScore = 100 + Math.floor(Math.random() * 50);
-            return { ...p, score: p.score + addedScore };
+    if (!useRealSupabase) {
+      if (role === 'operator' || activePlayers.length > 1) {
+        setActivePlayers(prev => prev.map(p => {
+          if (p.id !== 'player-self') {
+            const isCorrect = Math.random() > 0.4;
+            if (isCorrect) {
+              const addedScore = 100 + Math.floor(Math.random() * 50);
+              return { ...p, score: p.score + addedScore };
+            }
           }
-        }
-        return p;
-      }));
+          return p;
+        }));
+      }
     }
   };
 
