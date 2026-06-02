@@ -465,9 +465,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   if (playerScreen === 'question-reveal' && roomState?.current_question) {
     return (
       <div style={styles.fullscreen}>
-        <div style={{...styles.questionContainer, justifyContent: 'center', alignItems: 'center', minHeight: '60vh'}}>
-          <ConnectedBadge connected={connected} />
-          <h3 style={{ color: 'white', fontSize: 24, fontWeight: 800, lineHeight: 1.5, textAlign: 'center', marginTop: 'auto', marginBottom: 'auto' }}>
+        <div style={{...styles.questionContainer, justifyContent: 'center', alignItems: 'center', flex: 1, display: 'flex', flexDirection: 'column'}}>
+          <div style={{ alignSelf: 'flex-end', marginBottom: 'auto' }}>
+            <ConnectedBadge connected={connected} />
+          </div>
+          <h3 style={{ color: 'white', fontSize: 32, fontWeight: 900, lineHeight: 1.4, textAlign: 'center', marginBottom: 'auto' }}>
             {roomState.current_question.question_text}
           </h3>
         </div>

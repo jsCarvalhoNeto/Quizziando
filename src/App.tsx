@@ -2425,6 +2425,7 @@ Garanta que:
                     </span>
 
                     {/* Cronômetro Circular Editável */}
+                    {roundState !== 'question-reveal' && (
                     <div className="flex items-center gap-3">
                       {role === 'operator' && roundState === 'question' && (
                         <div className="flex gap-1.5">
@@ -2458,12 +2459,13 @@ Garanta que:
                         </span>
                       </div>
                     </div>
+                    )}
                   </div>
 
                   {/* Enunciado Premium Destacado */}
-                  <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden">
+                  <div className={`p-6 md:p-12 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden transition-all duration-500 ${roundState === 'question-reveal' ? 'my-auto flex-1 flex flex-col justify-center' : ''}`}>
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                    <h3 className="text-3xl md:text-4xl font-extrabold text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none">
+                    <h3 className={`font-extrabold text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 ${roundState === 'question-reveal' ? 'text-4xl md:text-6xl' : 'text-3xl md:text-4xl'}`}>
                       {currentQuestion.question_text}
                     </h3>
                   </div>
@@ -2576,7 +2578,7 @@ Garanta que:
                   </div>
                   )}
                   {/* Painel de Respostas dos Competidores (Visível apenas para o Host/Operador) */}
-                  {role === 'operator' && (
+                  {role === 'operator' && roundState !== 'question-reveal' && (
                     <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4 transition-all duration-300">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
