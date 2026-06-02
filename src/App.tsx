@@ -599,12 +599,7 @@ Garanta que:
           id: savedQuestionId,
           category_id: managerQCatId,
           question_text: parsed.question_text.trim(),
-          alternatives: updatedAlts.map((alt: any) => ({
-            id: Math.random().toString(),
-            question_id: savedQuestionId,
-            alternative_text: alt.text.trim(),
-            is_correct: alt.isCorrect
-          }))
+          alternatives: updatedAlts
         });
       }
 
