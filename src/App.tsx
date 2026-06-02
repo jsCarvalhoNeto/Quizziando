@@ -2210,10 +2210,10 @@ Garanta que:
             ========================================== */}
         {screen === 'game-play' && (
           <div className="w-full transition-all duration-500" style={{ maxWidth: '100%', padding: '0 24px' }}>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" style={{ minHeight: 'calc(100vh - 40px)' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" style={{ minHeight: 'calc(100vh - 40px)', alignItems: 'stretch' }}>
             
               {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
-              <div className={`${isLobbyExpanded ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col gap-6 transition-all duration-500`}>
+              <div className={`${isLobbyExpanded ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col gap-6 transition-all duration-500`} style={{ minHeight: 0 }}>
                 
                 {/* STATUS DO JOGO */}
                 <div className="glass-card p-4 flex justify-between items-center relative overflow-hidden">
@@ -2406,7 +2406,7 @@ Garanta que:
 
               {/* PERGUNTA & CRONÔMETRO */}
               {(roundState === 'question' || roundState === 'answered') && currentQuestion && (
-                <div className="glass-card p-6 flex flex-col gap-6">
+                <div className="glass-card p-6 flex flex-col gap-6" style={{ flex: 1, minHeight: 0 }}>
                   {/* Categoria Sorteada */}
                   <div className="flex justify-between items-center">
                     <span 
@@ -2447,7 +2447,7 @@ Garanta que:
                   </div>
 
                   {/* Alternativas — Estilo Kahoot com cores vibrantes */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '16px', flex: 1, minHeight: 0 }}>
                     {currentQuestion.alternatives.map((alt, index) => {
                       const isSelectedBySelf = playerAnswered === alt.text;
                       const showAnswers = roundState === 'answered';
@@ -2472,7 +2472,8 @@ Garanta que:
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         boxShadow: `0 6px 20px ${theme.shadow}`,
                         width: '100%',
-                        minHeight: '80px',
+                        minHeight: '100px',
+                        flex: 1,
                         opacity: 1,
                         transform: 'scale(1)',
                         filter: 'none',
