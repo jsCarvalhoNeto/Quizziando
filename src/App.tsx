@@ -311,6 +311,8 @@ export default function App() {
               color: c.color,
               icon: c.icon
             })));
+          } else {
+            setCategories([]);
           }
 
           // 2. Carregar Perguntas com suas respectivas alternativas
@@ -335,9 +337,13 @@ export default function App() {
                 isCorrect: alt.is_correct
               }))
             })));
+          } else {
+            setQuestions([]);
           }
         } catch (err) {
           console.error("Erro ao buscar dados do Supabase:", err);
+          setCategories([]);
+          setQuestions([]);
         }
       } else {
         // Resetar para padrões do mockup local
@@ -369,8 +375,8 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Estados de Configuração do Painel do Operador
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const [questions, setQuestions] = useState<Question[]>(DEFAULT_QUESTIONS);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
   
