@@ -385,11 +385,13 @@ export default function App() {
   const [editingCatName, setEditingCatName] = useState('');
   const [editingCatColor, setEditingCatColor] = useState('');
   
-  // Estado para Dropdown de Configurações
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  // Estados para Modal de Configurações
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account'>('general');
   
   // Estados para Integração Gemini IA
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+  const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-1.5-flash');
   const [managerTab, setManagerTab] = useState<'manual' | 'ai'>('manual');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -407,7 +409,7 @@ export default function App() {
     setAiTestingKey(true);
     setAiTestStatus('idle');
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyToTest}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${keyToTest}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -508,7 +510,7 @@ Garanta que:
 2. Exatamente uma alternativa tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
 3. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1396,142 +1398,262 @@ Garanta que:
         <div className="flex items-center gap-3 relative">
           {/* BOTÃO DE CONFIGURAÇÕES */}
           <button 
-            onClick={() => { setShowSettingsDropdown(!showSettingsDropdown); sfx.playClick(); }}
+            onClick={() => { setShowSettingsModal(true); sfx.playClick(); }}
             className={`p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border transition text-[hsl(var(--text-secondary))] flex items-center justify-center ${
-              showSettingsDropdown ? 'border-[hsl(var(--primary))]' : 'border-[rgba(255,255,255,0.05)]'
+              showSettingsModal ? 'border-[hsl(var(--primary))]' : 'border-[rgba(255,255,255,0.05)]'
             }`}
             title="Configurações"
           >
-            <Settings className={`w-5 h-5 transition-transform duration-300 ${showSettingsDropdown ? 'rotate-90 text-[hsl(var(--primary))]' : ''}`} />
+            <Settings className={`w-5 h-5 transition-transform duration-300 ${showSettingsModal ? 'rotate-90 text-[hsl(var(--primary))]' : ''}`} />
           </button>
 
-          {/* DROPDOWN DE CONFIGURAÇÕES */}
-          {showSettingsDropdown && (
-            <div 
-              className="absolute p-4 flex flex-col gap-3.5 z-[100] shadow-2xl rounded-2xl border border-[rgba(255,255,255,0.08)] animate-fade-in"
+          {/* ==========================================
+              ⚙️ MODAL PREMIUM DE CONFIGURAÇÕES (ESTILO SIDEBAR)
+              ========================================== */}
+          {showSettingsModal && (
+            <div
               style={{
-                top: '100%',
-                right: 0,
-                marginTop: '10px',
-                width: '290px',
-                backgroundColor: '#0d1326', // Fundo escuro 100% sólido e opaco
-                boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-                animation: 'slideUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.8)',
+                backdropFilter: 'blur(12px)',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px',
+                animation: 'fadeInModal 0.25s ease'
               }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
             >
-              <div className="border-b border-[rgba(255,255,255,0.06)] pb-2">
-                <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block mb-1">
-                  Preferências
-                </span>
-              </div>
-
-              {/* Controle de Som */}
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  {soundEnabled ? <Volume2 className="w-4 h-4 text-[hsl(var(--primary))]" /> : <VolumeX className="w-4 h-4 text-red-400" />}
-                  <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Efeitos Sonoros</span>
-                </div>
-                <button
-                  onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
-                  className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                    soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-white/10'
-                  }`}
-                >
-                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                    soundEnabled ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-
-              {/* Gerenciador de Questões (Disponível apenas para Operador) */}
-              {(role === 'operator' || authUser) && (
-                <button
-                  onClick={() => {
-                    setShowQuestionManagerModal(true);
-                    setShowSettingsDropdown(false);
-                    sfx.playClick();
-                  }}
-                  className="w-full mt-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/20 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] text-xs font-bold transition-all duration-200"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  Gerenciar Questões
-                </button>
-              )}
-
-              {/* Integração Gemini AI */}
-              <div className="flex flex-col gap-2 pt-2.5 border-t border-[rgba(255,255,255,0.06)]">
-                <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
-                  Integração Gemini AI
-                </span>
-                <div className="flex flex-col gap-2">
-                  <div className="relative">
-                    <input
-                      type="password"
-                      placeholder="API Key do Gemini..."
-                      value={geminiApiKey}
-                      onChange={(e) => {
-                        setGeminiApiKey(e.target.value);
-                        localStorage.setItem('geminiApiKey', e.target.value);
-                        if (aiTestStatus !== 'idle') setAiTestStatus('idle');
-                      }}
-                      className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
-                      style={{ paddingRight: '24px' }}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => testGeminiConnection(geminiApiKey)}
-                      disabled={aiTestingKey}
-                      className="flex-1 py-1.5 px-3 rounded-xl bg-white/5 border border-white/10 text-[hsl(var(--text-secondary))] hover:bg-white/10 text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
-                    >
-                      {aiTestingKey ? 'Testando...' : 'Testar Conexão'}
-                    </button>
-                    {aiTestStatus === 'success' && (
-                      <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-lg border border-emerald-500/20 flex items-center">
-                        Conectado
-                      </span>
-                    )}
-                    {aiTestStatus === 'error' && (
-                      <span className="px-2.5 py-1 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/20 flex items-center">
-                        Inválida
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Informações da Conta */}
-              {authUser && (
-                <div className="flex flex-col gap-2 pt-2 border-t border-[rgba(255,255,255,0.06)]">
-                  <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
-                    Conta Ativa (Host)
-                  </span>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1.5 w-full box-border">
-                    <span 
-                      className="text-xs text-white font-semibold block truncate" 
-                      style={{ maxWidth: '240px' }}
-                      title={authUser.email}
-                    >
-                      {authUser.email}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
-                        Permissão: Operador
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botão de Logout */}
+              <div
+                style={{
+                  width: '100%', maxWidth: '680px',
+                  height: '460px',
+                  background: 'rgba(8,12,28,0.96)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '20px',
+                  boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.15)',
+                  display: 'flex', flexDirection: 'column',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+              >
+                {/* Header */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-white/5">
+                  <h3 className="text-base font-extrabold text-white tracking-wide uppercase font-sans">
+                    Configurações
+                  </h3>
                   <button
-                    onClick={() => { setShowSettingsDropdown(false); handleLogout(); }}
-                    className="w-full mt-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all duration-200"
+                    onClick={() => setShowSettingsModal(false)}
+                    className="text-slate-400 hover:text-white transition-colors text-lg"
+                    title="Fechar"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Sair da Conta
+                    ×
                   </button>
                 </div>
-              )}
+
+                {/* Body (Sidebar + Content) */}
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Sidebar */}
+                  <div className="w-1/3 border-r border-white/5 bg-[#080c1c]/40 p-3 flex flex-col gap-1">
+                    <button
+                      onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
+                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                        settingsActiveTab === 'general'
+                          ? 'bg-white/5 text-[hsl(var(--primary))] border-l-2 border-[hsl(var(--primary))]'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <Settings className="w-4 h-4" />
+                      Geral
+                    </button>
+                    
+                    <button
+                      onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
+                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                        settingsActiveTab === 'ai'
+                          ? 'bg-white/5 text-[hsl(var(--secondary))] border-l-2 border-[hsl(var(--secondary))]'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Inteligência Artificial
+                    </button>
+
+                    <button
+                      onClick={() => { setSettingsActiveTab('account'); sfx.playClick(); }}
+                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                        settingsActiveTab === 'account'
+                          ? 'bg-white/5 text-emerald-400 border-l-2 border-emerald-500'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      Conta
+                    </button>
+                  </div>
+
+                  {/* Content Panel */}
+                  <div className="w-2/3 p-6 overflow-y-auto">
+                    {settingsActiveTab === 'general' && (
+                      <div className="flex flex-col gap-4 animate-fade-in">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
+                          <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl">
+                          <div className="flex items-center gap-2">
+                            {soundEnabled ? <Volume2 className="w-4 h-4 text-[hsl(var(--primary))]" /> : <VolumeX className="w-4 h-4 text-red-400" />}
+                            <span className="text-xs font-semibold text-white">Sons da Arena</span>
+                          </div>
+                          <button
+                            onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
+                            className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                              soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-white/10'
+                            }`}
+                          >
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                              soundEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`} />
+                          </button>
+                        </div>
+
+                        {/* Gerenciador de Questões Shortcut */}
+                        {(role === 'operator' || authUser) && (
+                          <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Painel Administrativo</span>
+                            <button
+                              onClick={() => {
+                                setShowQuestionManagerModal(true);
+                                setShowSettingsModal(false);
+                                sfx.playClick();
+                              }}
+                              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/20 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] text-xs font-bold transition-all duration-200"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Gerenciar Banco de Questões
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {settingsActiveTab === 'ai' && (
+                      <div className="flex flex-col gap-4 animate-fade-in">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Integração Gemini AI</h4>
+                          <p className="text-[11px] text-slate-400">Configure a chave de acesso e o modelo preditivo.</p>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          {/* Chave de API */}
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Gemini API Key</label>
+                            <input
+                              type="password"
+                              placeholder="Cole sua API Key aqui..."
+                              value={geminiApiKey}
+                              onChange={(e) => {
+                                setGeminiApiKey(e.target.value);
+                                localStorage.setItem('geminiApiKey', e.target.value);
+                                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+                              }}
+                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                            />
+                          </div>
+
+                          {/* Nome do Modelo */}
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Modelo do Gemini</label>
+                            <select
+                              value={geminiModel}
+                              onChange={(e) => {
+                                setGeminiModel(e.target.value);
+                                localStorage.setItem('geminiModel', e.target.value);
+                                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+                              }}
+                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
+                            >
+                              <option value="gemini-1.5-flash">gemini-1.5-flash (Padrão e Rápido)</option>
+                              <option value="gemini-1.5-pro">gemini-1.5-pro (Precisão Máxima)</option>
+                              <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
+                              <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
+                            </select>
+                          </div>
+
+                          {/* Teste de Conexão */}
+                          <div className="flex gap-2 items-center mt-1">
+                            <button
+                              onClick={() => testGeminiConnection(geminiApiKey)}
+                              disabled={aiTestingKey}
+                              className="py-2 px-4 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
+                            >
+                              {aiTestingKey ? 'Validando...' : 'Testar Chave'}
+                            </button>
+                            {aiTestStatus === 'success' && (
+                              <span className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20">
+                                ✓ Chave Conectada
+                              </span>
+                            )}
+                            {aiTestStatus === 'error' && (
+                              <span className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20">
+                                ✗ Chave Inválida
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {settingsActiveTab === 'account' && (
+                      <div className="flex flex-col gap-4 animate-fade-in">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Gerenciamento de Conta</h4>
+                          <p className="text-[11px] text-slate-400">Verifique seu perfil de operador e permissões de arena.</p>
+                        </div>
+
+                        {authUser ? (
+                          <div className="flex flex-col gap-3">
+                            <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1.5">
+                              <span className="text-xs text-white font-bold">{authUser.email}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
+                                  Permissão: Operador
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => { setShowSettingsModal(false); handleLogout(); }}
+                              className="w-full py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all flex items-center justify-center gap-2"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Sair da Conta
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-3 p-4 border border-white/5 rounded-xl bg-white/[0.01] text-center justify-center items-center">
+                            <Lock className="w-8 h-8 text-[hsl(var(--primary))] opacity-60 mb-1" />
+                            <span className="text-xs text-slate-300 font-bold">Nenhuma Conta Logada</span>
+                            <p className="text-[11px] text-slate-400 leading-relaxed max-w-[280px]">
+                              Faça login como organizador para poder acessar a gestão de questões e gerenciar o quiz online.
+                            </p>
+                            <button
+                              onClick={() => {
+                                setShowSettingsModal(false);
+                                setShowLoginModal(true);
+                                sfx.playClick();
+                              }}
+                              className="py-1.5 px-4 bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 rounded-lg text-[hsl(var(--primary))] text-xs font-bold hover:bg-[hsl(var(--primary))]/20 transition-all mt-1"
+                            >
+                              Fazer Login agora
+                        </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
