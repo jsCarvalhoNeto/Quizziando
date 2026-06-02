@@ -619,6 +619,18 @@ Garanta que:
   const [roomAnswers, setRoomAnswers] = useState<number[]>([0, 0, 0, 0]);
   const [totalAnswered, setTotalAnswered] = useState(0);
 
+  // Controle de expansão do painel de Lobby (retrátil)
+  const [isLobbyExpanded, setIsLobbyExpanded] = useState(false);
+
+  // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
+  const wheelSize = isLobbyExpanded ? 320 : 440;
+  const radius = wheelSize / 2;
+  const innerTranslate = wheelSize * 0.12;
+  const textBoxWidth = radius - innerTranslate - 8;
+  const textBoxHeight = wheelSize * 0.075;
+  const fontSize = isLobbyExpanded ? '11px' : '14px';
+
+
   // Efeito para som global
   useEffect(() => {
     sfx.enabled = soundEnabled;
@@ -2179,20 +2191,33 @@ Garanta que:
             4. TELA DA PARTIDA ATIVA (GAME SCREEN)
             ========================================== */}
         {screen === 'game-play' && (
-          <div className="max-w-4xl mx-auto w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`w-full mx-auto transition-all duration-500 ${isLobbyExpanded ? 'max-w-5xl' : 'max-w-4xl'}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
-            <div className="lg:col-span-2 flex flex-col gap-6">
-              
-              {/* STATUS DO JOGO */}
-              <div className="glass-card p-4 flex justify-between items-center">
-                <span className="text-xs font-bold text-[hsl(var(--secondary))] uppercase">
-                  Rodada {currentRoundIndex} de {gameRounds}
-                </span>
-                <span className="px-3 py-1 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-xs font-extrabold rounded-full tracking-wider uppercase">
-                  Modo {gameMode === 'duel' ? 'Duelo' : gameMode === 'team' ? 'Times' : 'Aberto'}
-                </span>
-              </div>
+              {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
+              <div className={`${isLobbyExpanded ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col gap-6 transition-all duration-500`}>
+                
+                {/* STATUS DO JOGO */}
+                <div className="glass-card p-4 flex justify-between items-center relative overflow-hidden">
+                  <span className="text-xs font-bold text-[hsl(var(--secondary))] uppercase">
+                    Rodada {currentRoundIndex} de {gameRounds}
+                  </span>
+                  
+                  {/* Botão de Controle do Lobby Retrátil */}
+                  <button
+                    onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md hover:border-purple-500/30"
+                    title={isLobbyExpanded ? "Ocultar lista de jogadores" : "Mostrar lista de jogadores"}
+                  >
+                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                    {isLobbyExpanded ? 'Recolher Lobby' : 'Expandir Lobby'}
+                  </button>
+
+                  <span className="px-3 py-1 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-xs font-extrabold rounded-full tracking-wider uppercase">
+                    Modo {gameMode === 'duel' ? 'Duelo' : gameMode === 'team' ? 'Times' : 'Aberto'}
+                  </span>
+                </div>
+
 
               {/* ROLETA DE CATEGORIAS */}
               {roundState === 'idle' || roundState === 'spinning' ? (
@@ -2200,7 +2225,7 @@ Garanta que:
                   <h3 className="text-lg font-bold mb-4 text-[hsl(var(--text-secondary))]">Roleta das Categorias</h3>
                   
                   {/* ===== ROLETA PREMIUM ===== */}
-                  <div style={{ position: 'relative', width: '320px', height: '320px', margin: '0 auto 24px auto' }}>
+                  <div style={{ position: 'relative', width: `${wheelSize}px`, height: `${wheelSize}px`, margin: '0 auto 24px auto', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
 
                     {/* Ponteiro Seta — lateral direita apontando para esquerda */}
                     <div style={{
@@ -2221,13 +2246,13 @@ Garanta que:
                       position: 'absolute',
                       top: 0,
                       left: 0,
-                      width: '320px',
-                      height: '320px',
+                      width: `${wheelSize}px`,
+                      height: `${wheelSize}px`,
                       borderRadius: '50%',
                       border: '5px solid white',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                       transform: `rotate(${rouletteAngle}deg)`,
-                      transition: isSpinning ? 'transform 3.5s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'none',
+                      transition: isSpinning ? 'transform 3.5s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                       background: categories.length > 0
                         ? `conic-gradient(${categories.map((c, i) => `${c.color} ${i * (360 / categories.length)}deg ${(i + 1) * (360 / categories.length)}deg`).join(', ')})`
                         : '#555',
@@ -2241,21 +2266,23 @@ Garanta que:
                             position: 'absolute',
                             top: '50%',
                             left: '50%',
-                            width: '115px',
-                            height: '24px',
+                            width: `${textBoxWidth}px`,
+                            height: `${textBoxHeight}px`,
                             transformOrigin: '0% 50%',
-                            transform: `rotate(${angle}deg) translate(38px, -50%)`,
+                            transform: `rotate(${angle}deg) translate(${innerTranslate}px, -50%)`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}>
                             <span style={{
-                              fontSize: '11px',
+                              fontSize: fontSize,
                               fontWeight: '800',
                               color: 'white',
                               textShadow: '0 1px 3px rgba(0,0,0,0.9)',
                               letterSpacing: '0.02em',
                               whiteSpace: 'nowrap',
+                              transition: 'font-size 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                             }}>
                               {cat.name}
                             </span>
@@ -2270,13 +2297,14 @@ Garanta que:
                       top: '50%',
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
-                      width: '60px',
-                      height: '60px',
+                      width: `${wheelSize * 0.18}px`,
+                      height: `${wheelSize * 0.18}px`,
                       borderRadius: '50%',
                       background: 'white',
                       zIndex: 20,
                       boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.3)',
-                      border: '3px solid rgba(0,0,0,0.05)'
+                      border: '3px solid rgba(0,0,0,0.05)',
+                      transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                     }} />
                   </div>
 
@@ -2364,8 +2392,12 @@ Garanta que:
                   {/* Categoria Sorteada */}
                   <div className="flex justify-between items-center">
                     <span 
-                      className="px-4 py-1.5 rounded-full text-xs font-bold text-white shadow-md"
-                      style={{ backgroundColor: selectedCategory?.color }}
+                      className="px-5 py-2 rounded-full text-xs font-black text-white shadow-lg tracking-widest uppercase transition-all duration-300 animate-pulse-glow"
+                      style={{ 
+                        backgroundColor: selectedCategory?.color,
+                        boxShadow: `0 0 20px ${selectedCategory?.color}60`,
+                        border: `1px solid rgba(255,255,255,0.2)`
+                      }}
                     >
                       {selectedCategory?.name}
                     </span>
@@ -2388,33 +2420,36 @@ Garanta que:
                     </div>
                   </div>
 
-                  {/* Enunciado */}
-                  <h3 className="text-xl font-bold text-white leading-relaxed">
-                    {currentQuestion.question_text}
-                  </h3>
+                  {/* Enunciado Premium Destacado */}
+                  <div className="p-6 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <h3 className="text-2xl md:text-3xl font-black text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.2)] select-none">
+                      {currentQuestion.question_text}
+                    </h3>
+                  </div>
 
                   {/* Alternativas */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {currentQuestion.alternatives.map((alt, index) => {
                       const isSelectedBySelf = playerAnswered === alt.text;
                       const showAnswers = roundState === 'answered';
                       const isCorrectAnswer = alt.isCorrect;
                       
-                      let cardStyle = "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] text-[hsl(var(--text-secondary))]";
+                      let cardStyle = "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] text-[hsl(var(--text-secondary))] hover:border-white/10";
                       
                       if (role === 'player' && !showAnswers) {
                         cardStyle = isSelectedBySelf 
-                          ? "border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.08)] text-white"
-                          : "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] hover:border-white/10 hover:bg-white/[0.02]";
+                          ? "border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.08)] text-white shadow-[0_0_15px_hsla(var(--primary),0.3)]"
+                          : "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] hover:border-white/20 hover:bg-white/[0.03]";
                       }
 
                       if (showAnswers) {
                         if (isCorrectAnswer) {
-                          cardStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-300";
+                          cardStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
                         } else if (isSelectedBySelf) {
-                          cardStyle = "border-red-500 bg-red-500/10 text-red-300";
+                          cardStyle = "border-red-500 bg-red-500/10 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
                         } else {
-                          cardStyle = "border-[rgba(255,255,255,0.03)] bg-[rgba(255,255,255,0.005)] opacity-50";
+                          cardStyle = "border-[rgba(255,255,255,0.03)] bg-[rgba(255,255,255,0.005)] opacity-40";
                         }
                       }
 
@@ -2423,7 +2458,7 @@ Garanta que:
                           key={index}
                           disabled={role !== 'player' || showAnswers || playerAnswered !== null}
                           onClick={() => handlePlayerAnswer(index)}
-                          className={`w-full p-4 rounded-xl border text-left font-semibold text-sm transition flex justify-between items-center ${cardStyle}`}
+                          className={`w-full p-5 rounded-2xl border text-left font-bold text-sm md:text-base transition-all duration-300 flex justify-between items-center hover:scale-[1.01] ${cardStyle}`}
                         >
                           <span>{alt.text}</span>
                           
@@ -2437,7 +2472,6 @@ Garanta que:
                       );
                     })}
                   </div>
-
                   {/* Painel de Respostas dos Competidores (Visível apenas para o Host/Operador) */}
                   {role === 'operator' && (
                     <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4">
@@ -2578,22 +2612,25 @@ Garanta que:
             </div>
 
             {/* LADO DIREITO: LATERAL INFO / JOGADORES NA PARTIDA */}
-            <div className="glass-card p-6 flex flex-col gap-4 h-fit">
-              <h3 className="text-md font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
-                <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                Lobby Ativo ({activePlayers.length})
-              </h3>
-              
-              <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
-                {activePlayers.map(p => (
-                  <div key={p.id} className="flex justify-between items-center p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
-                    <span className="text-xs font-semibold text-[hsl(var(--text-secondary))] truncate">{p.nickname}</span>
-                    <span className="text-xs font-mono font-bold text-[hsl(var(--text-muted))]">{p.score} pts</span>
-                  </div>
-                ))}
+            {isLobbyExpanded && (
+              <div className="lg:col-span-4 glass-card p-6 flex flex-col gap-4 h-fit animate-fade-in">
+                <h3 className="text-md font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                  Lobby Ativo ({activePlayers.length})
+                </h3>
+                
+                <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
+                  {activePlayers.map(p => (
+                    <div key={p.id} className="flex justify-between items-center p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
+                      <span className="text-xs font-semibold text-[hsl(var(--text-secondary))] truncate">{p.nickname}</span>
+                      <span className="text-xs font-mono font-bold text-[hsl(var(--text-muted))]">{p.score} pts</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
+            </div>
           </div>
         )}
 
