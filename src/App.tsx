@@ -1880,11 +1880,11 @@ Garanta que:
             ========================================== */}
         {screen === 'operator-dashboard' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
-            {/* Esquerda: Nova Partida */}
+            {/* Esquerda: Novo Quiz */}
             <div className="glass-card p-6 flex flex-col gap-5 h-fit">
               <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
                 <Play className="w-5 h-5 text-[hsl(var(--primary))]" />
-                Iniciar Nova Partida
+                Iniciar Novo Quiz
               </h3>
               
               <div className="flex flex-col gap-4">
