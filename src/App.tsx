@@ -2466,7 +2466,7 @@ Garanta que:
                     <h3 
                       className={`font-extrabold text-white text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 ${roundState === 'question-reveal' ? '' : 'text-3xl md:text-4xl leading-relaxed'}`}
                       style={{ 
-                        fontSize: roundState === 'question-reveal' ? '6vw' : undefined,
+                        fontSize: roundState === 'question-reveal' ? '120px' : undefined,
                         lineHeight: roundState === 'question-reveal' ? '1.2' : undefined,
                         padding: roundState === 'question-reveal' ? '0 3rem' : undefined,
                         width: '100%'
