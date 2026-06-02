@@ -622,6 +622,18 @@ Garanta que:
   // Controle de expansão do painel de Lobby (retrátil)
   const [isLobbyExpanded, setIsLobbyExpanded] = useState(false);
 
+  // Controle de expansão do painel de respostas/votos (retrátil)
+  const [isAnswersPanelExpanded, setIsAnswersPanelExpanded] = useState(true);
+
+  // Temas visuais e geométricos baseados no Kahoot para as alternativas
+  const KAHOOT_THEMES = [
+    { bg: 'bg-gradient-to-br from-[#e21b3c] to-[#b11029]', icon: '▲', color: '#e21b3c', shadow: 'rgba(226,27,60,0.5)' },
+    { bg: 'bg-gradient-to-br from-[#1368ce] to-[#0d4a94]', icon: '◆', color: '#1368ce', shadow: 'rgba(19,104,206,0.5)' },
+    { bg: 'bg-gradient-to-br from-[#d89e00] to-[#a07500]', icon: '●', color: '#d89e00', shadow: 'rgba(216,158,0,0.5)' },
+    { bg: 'bg-gradient-to-br from-[#26890c] to-[#1a5f08]', icon: '■', color: '#26890c', shadow: 'rgba(38,137,12,0.5)' }
+  ];
+
+
   // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
   const wheelSize = isLobbyExpanded ? 320 : 440;
   const radius = wheelSize / 2;
@@ -2421,9 +2433,9 @@ Garanta que:
                   </div>
 
                   {/* Enunciado Premium Destacado */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden">
+                  <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                    <h3 className="text-2xl md:text-3xl font-black text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.2)] select-none">
+                    <h3 className="text-3xl md:text-4xl font-extrabold text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none">
                       {currentQuestion.question_text}
                     </h3>
                   </div>
@@ -2434,22 +2446,23 @@ Garanta que:
                       const isSelectedBySelf = playerAnswered === alt.text;
                       const showAnswers = roundState === 'answered';
                       const isCorrectAnswer = alt.isCorrect;
+                      const theme = KAHOOT_THEMES[index] || KAHOOT_THEMES[0];
                       
-                      let cardStyle = "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] text-[hsl(var(--text-secondary))] hover:border-white/10";
+                      let cardStyle = `${theme.bg} text-white shadow-[0_4px_15px_${theme.shadow}] border-transparent`;
                       
                       if (role === 'player' && !showAnswers) {
-                        cardStyle = isSelectedBySelf 
-                          ? "border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.08)] text-white shadow-[0_0_15px_hsla(var(--primary),0.3)]"
-                          : "border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] hover:border-white/20 hover:bg-white/[0.03]";
+                        if (isSelectedBySelf) {
+                          cardStyle = `${theme.bg} text-white shadow-[0_0_20px_white] border-white scale-[1.02]`;
+                        } else {
+                          cardStyle = `${theme.bg} text-white opacity-90 hover:opacity-100 hover:scale-[1.01] border-transparent`;
+                        }
                       }
 
                       if (showAnswers) {
                         if (isCorrectAnswer) {
-                          cardStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
-                        } else if (isSelectedBySelf) {
-                          cardStyle = "border-red-500 bg-red-500/10 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.2)]";
+                          cardStyle = `${theme.bg} text-white shadow-[0_0_25px_${theme.shadow}] border-white border-2 scale-[1.01]`;
                         } else {
-                          cardStyle = "border-[rgba(255,255,255,0.03)] bg-[rgba(255,255,255,0.005)] opacity-40";
+                          cardStyle = `${theme.bg} text-white opacity-20 border-transparent saturate-50 pointer-events-none`;
                         }
                       }
 
@@ -2458,15 +2471,18 @@ Garanta que:
                           key={index}
                           disabled={role !== 'player' || showAnswers || playerAnswered !== null}
                           onClick={() => handlePlayerAnswer(index)}
-                          className={`w-full p-5 rounded-2xl border text-left font-bold text-sm md:text-base transition-all duration-300 flex justify-between items-center hover:scale-[1.01] ${cardStyle}`}
+                          className={`w-full p-5 rounded-2xl border-2 text-left font-bold text-base md:text-lg transition-all duration-300 flex justify-between items-center ${cardStyle}`}
                         >
-                          <span>{alt.text}</span>
+                          <div className="flex items-center">
+                            <span className="text-xl md:text-2xl font-black mr-4 select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{theme.icon}</span>
+                            <span>{alt.text}</span>
+                          </div>
                           
                           {showAnswers && isCorrectAnswer && (
-                            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                            <CheckCircle className="w-6 h-6 text-white flex-shrink-0 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
                           )}
                           {showAnswers && !isCorrectAnswer && isSelectedBySelf && (
-                            <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                            <XCircle className="w-6 h-6 text-white flex-shrink-0 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
                           )}
                         </button>
                       );
@@ -2474,70 +2490,84 @@ Garanta que:
                   </div>
                   {/* Painel de Respostas dos Competidores (Visível apenas para o Host/Operador) */}
                   {role === 'operator' && (
-                    <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4">
+                    <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4 transition-all duration-300">
                       <div className="flex justify-between items-center">
-                        <h4 className="text-xs font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
-                          Respostas Coletadas: <span className="font-mono text-sm text-[hsl(var(--accent))]">{totalAnswered} / {activePlayers.length}</span>
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
+                            Respostas Coletadas: <span className="font-mono text-sm text-[hsl(var(--accent))]">{totalAnswered} / {activePlayers.length}</span>
+                          </h4>
+                          
+                          {/* Botão retrátil para o gráfico de votos */}
+                          <button
+                            onClick={() => { setIsAnswersPanelExpanded(!isAnswersPanelExpanded); sfx.playClick(); }}
+                            className="ml-3 text-[10px] font-bold bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded border border-white/5 text-[hsl(var(--text-secondary))] hover:text-white transition-all"
+                            title={isAnswersPanelExpanded ? "Ocultar gráfico de respostas" : "Mostrar gráfico de respostas"}
+                          >
+                            {isAnswersPanelExpanded ? 'Recolher' : 'Expandir'}
+                          </button>
+                        </div>
+                        
                         <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full animate-pulse">
                           Realtime ativo
                         </span>
                       </div>
                       
-                      <div className="grid grid-cols-4 gap-3">
-                        {ANSWER_COLORS.map((col, idx) => {
-                          const count = roomAnswers[idx] || 0;
-                          const pct = totalAnswered > 0 ? Math.round((count / totalAnswered) * 100) : 0;
-                          return (
-                            <div 
-                              key={idx} 
-                              className="flex flex-col items-center gap-2.5 p-4 rounded-xl relative overflow-hidden transition-all duration-300 hover:scale-[1.02]"
-                              style={{
-                                background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
-                                border: '1px solid rgba(255,255,255,0.04)',
-                                boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.15)'
-                              }}
-                            >
-                              {/* Emblema com Letra em Cores Vibrantes */}
+                      {isAnswersPanelExpanded && (
+                        <div className="grid grid-cols-4 gap-3 animate-fade-in">
+                          {ANSWER_COLORS.map((col, idx) => {
+                            const count = roomAnswers[idx] || 0;
+                            const pct = totalAnswered > 0 ? Math.round((count / totalAnswered) * 100) : 0;
+                            return (
                               <div 
-                                className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shadow-md animate-bounce-gentle" 
-                                style={{ 
-                                  backgroundColor: col.bg, 
-                                  color: '#fff', 
-                                  textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-                                  boxShadow: `0 4px 10px ${col.bg}40`
+                                key={idx} 
+                                className="flex flex-col items-center gap-2.5 p-4 rounded-xl relative overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+                                style={{
+                                  background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                                  border: '1px solid rgba(255,255,255,0.04)',
+                                  boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.15)'
                                 }}
                               >
-                                {['A', 'B', 'C', 'D'][idx]}
-                              </div>
-                              
-                              {/* Contador de Votos */}
-                              <div className="flex flex-col items-center mt-1">
-                                <span className="text-2xl font-extrabold text-white leading-none">{count}</span>
-                                <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase mt-1 tracking-wider">votos</span>
-                              </div>
+                                {/* Emblema com Letra em Cores Vibrantes */}
+                                <div 
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shadow-md animate-bounce-gentle" 
+                                  style={{ 
+                                    backgroundColor: col.bg, 
+                                    color: '#fff', 
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                                    boxShadow: `0 4px 10px ${col.bg}40`
+                                  }}
+                                >
+                                  {['A', 'B', 'C', 'D'][idx]}
+                                </div>
+                                
+                                {/* Contador de Votos */}
+                                <div className="flex flex-col items-center mt-1">
+                                  <span className="text-2xl font-extrabold text-white leading-none">{count}</span>
+                                  <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase mt-1 tracking-wider">votos</span>
+                                </div>
 
-                              {/* Percentagem em Badge Estilizado */}
-                              <span 
-                                className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/5 mt-0.5" 
-                                style={{ color: col.bg }}
-                              >
-                                {pct}%
-                              </span>
+                                {/* Percentagem em Badge Estilizado */}
+                                <span 
+                                  className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/5 mt-0.5" 
+                                  style={{ color: col.bg }}
+                                >
+                                  {pct}%
+                                </span>
 
-                              {/* Barra de Progresso com Brilho Sutil */}
-                              <div 
-                                style={{ 
-                                  position: 'absolute', bottom: 0, left: 0, right: 0, 
-                                  height: '4px', backgroundColor: col.bg,
-                                  width: `${pct}%`, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                                  boxShadow: `0 -1px 8px ${col.bg}`
-                                }} 
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
+                                {/* Barra de Progresso com Brilho Sutil */}
+                                <div 
+                                  style={{ 
+                                    position: 'absolute', bottom: 0, left: 0, right: 0, 
+                                    height: '4px', backgroundColor: col.bg,
+                                    width: `${pct}%`, transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: `0 -1px 8px ${col.bg}`
+                                  }} 
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
