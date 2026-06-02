@@ -1035,13 +1035,14 @@ export default function App() {
           {/* DROPDOWN DE CONFIGURAÇÕES */}
           {showSettingsDropdown && (
             <div 
-              className="absolute p-4 flex flex-col gap-3.5 z-[100] shadow-2xl rounded-2xl border border-[rgba(255,255,255,0.08)] bg-[#0c1222]/95 backdrop-blur-xl animate-fade-in"
+              className="absolute p-4 flex flex-col gap-3.5 z-[100] shadow-2xl rounded-2xl border border-[rgba(255,255,255,0.08)] animate-fade-in"
               style={{
                 top: '100%',
                 right: 0,
                 marginTop: '10px',
                 width: '290px',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+                backgroundColor: '#0d1326', // Fundo escuro 100% sólido e opaco
+                boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
                 animation: 'slideUpModal 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
               }}
             >
