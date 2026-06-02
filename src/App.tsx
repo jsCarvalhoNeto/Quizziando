@@ -292,11 +292,22 @@ export default function App() {
   const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  useEffect(() => {
-    if (useRealSupabase) {
-      console.log("Supabase inicializado na URL real:", supabase.auth);
-    }
-  }, [useRealSupabase]);
+  // Estados de Categorias (declarados aqui para o useEffect)
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  
+  const handleToggleCategorySelect = (id: string) => {
+    setSelectedCategoryIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(c => c !== id);
+      }
+      if (prev.length >= 14) {
+        alert('Você só pode selecionar até 14 categorias para o jogo.');
+        return prev;
+      }
+      return [...prev, id];
+    });
+  };
 
   // Carregar dados reais do Supabase se ativo
   useEffect(() => {
@@ -308,14 +319,17 @@ export default function App() {
             .from('categories')
             .select('*');
           if (catData && catData.length > 0) {
-            setCategories(catData.map(c => ({
+            const mappedCats = catData.map(c => ({
               id: c.id,
               name: c.name,
               color: c.color,
               icon: c.icon
-            })));
+            }));
+            setCategories(mappedCats);
+            setSelectedCategoryIds(mappedCats.slice(0, 14).map(c => c.id));
           } else {
             setCategories([]);
+            setSelectedCategoryIds([]);
           }
 
           // 2. Carregar Perguntas com suas respectivas alternativas
@@ -352,6 +366,7 @@ export default function App() {
         // Resetar para padrões do mockup local
         setCategories(DEFAULT_CATEGORIES);
         setQuestions(DEFAULT_QUESTIONS);
+        setSelectedCategoryIds(DEFAULT_CATEGORIES.slice(0, 14).map(c => c.id));
       }
     };
     
@@ -378,7 +393,6 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Estados de Configuração do Painel do Operador
-  const [categories, setCategories] = useState<Category[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
@@ -1246,6 +1260,10 @@ Garanta que:
   };
 
   const handleStartGameSetup = async () => {
+    if (role === 'operator' && selectedCategoryIds.length === 0) {
+      alert('Selecione pelo menos uma categoria para iniciar o jogo.');
+      return;
+    }
     if (role === 'player' && !nickname.trim()) {
       alert('Por favor, informe seu nickname para entrar no jogo!');
       return;
@@ -1312,7 +1330,7 @@ Garanta que:
 
   // Girar a Roleta de Categorias
   const handleSpinRoulette = async () => {
-    if (categories.length === 0) {
+    if (selectedCategoryIds.length === 0) {
       alert('Adicione pelo menos uma categoria antes de rodar!');
       return;
     }
@@ -1337,9 +1355,10 @@ Garanta que:
       setIsSpinning(false);
       
       // Determinar a categoria selecionada com base no ângulo final e na seta à direita (3 horas / 90 graus)
+      const selectedCats = categories.filter(c => selectedCategoryIds.includes(c.id));
       const normalizedAngle = (90 - (finalAngle % 360) + 360) % 360;
-      const index = Math.floor((normalizedAngle / 360) * categories.length);
-      const cat = categories[index] || categories[0];
+      const index = Math.floor((normalizedAngle / 360) * selectedCats.length);
+      const cat = selectedCats[index] || selectedCats[0];
       
       setSelectedCategory(cat);
       
@@ -1947,7 +1966,7 @@ Garanta que:
               <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.05)] pb-3">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <List className="w-5 h-5 text-[hsl(var(--secondary))]" />
-                  Categorias ({categories.length}/20)
+                  Categorias Selecionadas ({selectedCategoryIds.length}/14)
                 </h3>
               </div>
 
@@ -1994,9 +2013,15 @@ Garanta que:
                         </>
                       ) : (
                         <>
-                          <div className="flex items-center gap-3 cursor-pointer flex-grow animate-fade-in" onClick={() => startEditCategory(cat)}>
-                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform hover:scale-110" style={{ backgroundColor: cat.color }} />
-                            <span className="font-semibold text-sm text-[hsl(var(--text-primary))] hover:text-[hsl(var(--primary))] transition-colors truncate">{cat.name}</span>
+                          <div className="flex items-center gap-3 cursor-pointer flex-grow animate-fade-in">
+                            <input 
+                              type="checkbox"
+                              checked={selectedCategoryIds.includes(cat.id)}
+                              onChange={() => handleToggleCategorySelect(cat.id)}
+                              className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0"
+                            />
+                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform hover:scale-110" style={{ backgroundColor: cat.color }} onClick={() => startEditCategory(cat)} />
+                            <span className="font-semibold text-sm text-[hsl(var(--text-primary))] hover:text-[hsl(var(--primary))] transition-colors truncate" onClick={() => startEditCategory(cat)}>{cat.name}</span>
                           </div>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <button 
@@ -2352,14 +2377,14 @@ Garanta que:
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                       transform: `rotate(${rouletteAngle}deg)`,
                       transition: isSpinning ? 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                      background: categories.length > 0
-                        ? `conic-gradient(${categories.map((c, i) => `${c.color} ${i * (360 / categories.length)}deg ${(i + 1) * (360 / categories.length)}deg`).join(', ')})`
+                      background: selectedCategoryIds.length > 0
+                        ? `conic-gradient(${categories.filter(c => selectedCategoryIds.includes(c.id)).map((c, i, arr) => `${c.color} ${i * (360 / arr.length)}deg ${(i + 1) * (360 / arr.length)}deg`).join(', ')})`
                         : '#555',
                       overflow: 'hidden'
                     }}>
                       {/* Textos radiais dentro do disco */}
-                      {categories.map((cat, i) => {
-                        const angle = i * (360 / categories.length) + (180 / categories.length) - 90;
+                      {categories.filter(c => selectedCategoryIds.includes(c.id)).map((cat, i, arr) => {
+                        const angle = i * (360 / arr.length) + (180 / arr.length) - 90;
                         return (
                           <div key={cat.id} style={{
                             position: 'absolute',
