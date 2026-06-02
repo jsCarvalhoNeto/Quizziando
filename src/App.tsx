@@ -57,10 +57,13 @@ class SoundFX {
 
   playSpin() {
     if (!this.enabled) return;
-    if (this.spinAudio) {
-      this.spinAudio.currentTime = 0;
-      this.spinAudio.volume = 1.0;
-      this.spinAudio.play().catch(e => console.warn('Erro ao tocar spin.mp3:', e));
+    try {
+      // Cria um novo objeto Audio a cada vez para evitar problemas de estado de mídia
+      const audio = new Audio('/spin.mp3');
+      audio.volume = 1.0;
+      audio.play().catch(e => console.warn('Erro ao tocar spin.mp3:', e));
+    } catch (e) {
+      console.warn('Erro ao instanciar Audio:', e);
     }
   }
 
@@ -2460,7 +2463,15 @@ Garanta que:
                   {/* Enunciado Premium Destacado */}
                   <div className={`p-6 md:p-12 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden transition-all duration-500 ${roundState === 'question-reveal' ? 'my-auto flex-1 flex flex-col justify-center' : ''}`}>
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                    <h3 className={`font-extrabold text-white leading-relaxed text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 ${roundState === 'question-reveal' ? 'text-5xl md:text-7xl lg:text-[5rem] px-4 md:px-12' : 'text-3xl md:text-4xl'}`}>
+                    <h3 
+                      className={`font-extrabold text-white text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 ${roundState === 'question-reveal' ? '' : 'text-3xl md:text-4xl leading-relaxed'}`}
+                      style={{ 
+                        fontSize: roundState === 'question-reveal' ? 'clamp(3rem, 7vw, 100px)' : undefined,
+                        lineHeight: roundState === 'question-reveal' ? '1.3' : undefined,
+                        padding: roundState === 'question-reveal' ? '0 2rem' : undefined,
+                        width: '100%'
+                      }}
+                    >
                       {currentQuestion.question_text}
                     </h3>
                   </div>
