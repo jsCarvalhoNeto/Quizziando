@@ -161,7 +161,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     } else if (room.round_state === 'answered') {
       // Revelar resultado
       if (chosenIndex !== null && room.current_question) {
-        const correct = room.current_question.alternatives[chosenIndex]?.isCorrect;
+        const correct = room.current_question.alternatives?.[chosenIndex]?.isCorrect;
         
         // Evitar soma dupla caso o evento chegue mais de uma vez
         if (wasCorrect === null) {
@@ -240,7 +240,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     setChosenIndex(answerIndex);
     setPlayerScreen('answered');
 
-    const isCorrect = roomState.current_question.alternatives[answerIndex]?.isCorrect || false;
+    const isCorrect = roomState.current_question?.alternatives?.[answerIndex]?.isCorrect || false;
 
     await supabase.from('player_answers').insert({
       room_code: roomCode,
@@ -341,12 +341,6 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   if (playerScreen === 'spinning') {
     return (
       <div style={styles.fullscreen}>
-        <style>{`
-          @keyframes spin-infinite {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
           <div style={{ textAlign: 'center' }}>
@@ -403,16 +397,6 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     const cat = roomState.selected_category;
     return (
       <div style={styles.fullscreen}>
-        <style>{`
-          @keyframes bounce-gentle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-          }
-          @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.9); }
-            to { opacity: 1; transform: scale(1); }
-          }
-        `}</style>
         <div style={{
           ...styles.waitingCard,
           border: `1px solid ${cat.color}66`,
@@ -529,7 +513,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
               >
                 <span style={styles.answerLabel}>{color.label}</span>
                 <span style={styles.answerText}>
-                  {roomState.current_question!.alternatives[color.index]?.text || '—'}
+                  {roomState.current_question!.alternatives?.[color.index]?.text || '—'}
                 </span>
               </button>
             ))}
