@@ -142,25 +142,13 @@ class SoundFX {
 
   playVictory() {
     if (!this.enabled) return;
-    this.init();
-    if (!this.ctx) return;
-    
-    const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
-    notes.forEach((freq, index) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-      osc.connect(gain);
-      gain.connect(this.ctx!.destination);
-      
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, this.ctx!.currentTime + index * 0.15);
-      
-      gain.gain.setValueAtTime(0.1, this.ctx!.currentTime + index * 0.15);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx!.currentTime + index * 0.15 + 0.6);
-      
-      osc.start(this.ctx!.currentTime + index * 0.15);
-      osc.stop(this.ctx!.currentTime + index * 0.15 + 0.6);
-    });
+    try {
+      const audio = new Audio('/victory.mp3');
+      audio.volume = 0.5; // Adjust volume as needed
+      audio.play().catch(e => console.error("Error playing victory.mp3:", e));
+    } catch (e) {
+      console.error("Audio not supported:", e);
+    }
   }
 }
 
