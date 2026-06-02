@@ -5,7 +5,7 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
-  Pencil, Check, X, Settings
+  Pencil, Check, X, Settings, Upload, FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -387,6 +387,177 @@ export default function App() {
   
   // Estado para Dropdown de Configurações
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  
+  // Estados para Integração Gemini IA
+  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
+  const [managerTab, setManagerTab] = useState<'manual' | 'ai'>('manual');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiError, setAiError] = useState('');
+  const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [aiTestingKey, setAiTestingKey] = useState(false);
+
+  // Função para testar conexão com o Gemini
+  const testGeminiConnection = async (keyToTest: string) => {
+    if (!keyToTest.trim()) {
+      setAiTestStatus('error');
+      return;
+    }
+    setAiTestingKey(true);
+    setAiTestStatus('idle');
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keyToTest}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Hello, respond with exactly "OK"' }] }]
+        })
+      });
+      if (response.ok) {
+        setAiTestStatus('success');
+        localStorage.setItem('geminiApiKey', keyToTest);
+      } else {
+        setAiTestStatus('error');
+      }
+    } catch (e) {
+      setAiTestStatus('error');
+    } finally {
+      setAiTestingKey(false);
+    }
+  };
+
+  // Função para extrair texto do arquivo PDF localmente usando pdf.js
+  const extractTextFromPdf = async (file: File): Promise<string> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!(window as any).pdfjsLib) {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+          document.head.appendChild(script);
+          await new Promise((res) => {
+            script.onload = () => {
+              (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+              res(true);
+            };
+          });
+        }
+
+        const pdfjsLib = (window as any).pdfjsLib;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        const maxPages = Math.min(pdf.numPages, 10); // Limitar para 10 páginas para performance
+
+        for (let i = 1; i <= maxPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item: any) => item.str).join(' ');
+          text += pageText + '\n';
+        }
+        resolve(text);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  };
+
+  // Função para gerar questão usando IA do Gemini
+  const generateQuestionWithAI = async () => {
+    if (!geminiApiKey.trim()) {
+      setAiError('Chave de API do Gemini não configurada! Adicione-a nas configurações (ícone de engrenagem no topo).');
+      return;
+    }
+    if (!managerQCatId) {
+      setAiError('Por favor, selecione uma Categoria da Questão no formulário.');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError('');
+
+    try {
+      let contextText = '';
+      if (aiFile) {
+        contextText = await extractTextFromPdf(aiFile);
+      }
+
+      const categoryName = categories.find(c => c.id === managerQCatId)?.name || 'Geral';
+      const promptText = `Crie uma questão de múltipla escolha inédita de alta qualidade, adequada para um jogo de quiz dinâmico.
+A questão deve pertencer ou se relacionar à categoria: "${categoryName}".
+${aiPrompt.trim() ? `O tema/prompt de contexto especificado pelo usuário é: "${aiPrompt.trim()}".` : ''}
+${contextText ? `Use o seguinte contexto extraído de um documento PDF do usuário para embasar a questão:
+---
+${contextText.slice(0, 10000)}
+---` : ''}
+
+Você DEVE retornar a resposta estritamente no formato JSON abaixo, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
+Estrutura JSON:
+{
+  "question_text": "Escreva aqui o enunciado da questão...",
+  "alternatives": [
+    { "text": "Alternativa correta...", "isCorrect": true },
+    { "text": "Alternativa incorreta 1...", "isCorrect": false },
+    { "text": "Alternativa incorreta 2...", "isCorrect": false },
+    { "text": "Alternativa incorreta 3...", "isCorrect": false }
+  ]
+}
+
+Garanta que:
+1. Haja exatamente 4 alternativas.
+2. Exatamente uma alternativa tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
+3. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Falha na API do Gemini: ${response.statusText} (${response.status})`);
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error('Nenhuma resposta retornada do Gemini.');
+      }
+
+      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+
+      if (!parsed.question_text || !Array.isArray(parsed.alternatives) || parsed.alternatives.length !== 4) {
+        throw new Error('O formato da questão gerada é inválido.');
+      }
+
+      const correctCount = parsed.alternatives.filter((a: any) => a.isCorrect).length;
+      if (correctCount !== 1) {
+        parsed.alternatives.forEach((a: any, idx: number) => {
+          a.isCorrect = idx === 0;
+        });
+      }
+
+      setManagerQText(parsed.question_text);
+      setManagerQAlts(parsed.alternatives.map((alt: any) => ({
+        text: alt.text,
+        isCorrect: alt.isCorrect
+      })));
+
+      setManagerTab('manual');
+      sfx.playCorrect();
+      setAiPrompt('');
+      setAiFile(null);
+      
+    } catch (e: any) {
+      console.error(e);
+      setAiError(e.message || 'Erro ao gerar questão. Tente novamente.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
   
   // Nova Pergunta Formulário
   const [newQText, setNewQText] = useState('');
@@ -1286,6 +1457,48 @@ export default function App() {
                   Gerenciar Questões
                 </button>
               )}
+
+              {/* Integração Gemini AI */}
+              <div className="flex flex-col gap-2 pt-2.5 border-t border-[rgba(255,255,255,0.06)]">
+                <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest block">
+                  Integração Gemini AI
+                </span>
+                <div className="flex flex-col gap-2">
+                  <div className="relative">
+                    <input
+                      type="password"
+                      placeholder="API Key do Gemini..."
+                      value={geminiApiKey}
+                      onChange={(e) => {
+                        setGeminiApiKey(e.target.value);
+                        localStorage.setItem('geminiApiKey', e.target.value);
+                        if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+                      }}
+                      className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                      style={{ paddingRight: '24px' }}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => testGeminiConnection(geminiApiKey)}
+                      disabled={aiTestingKey}
+                      className="flex-1 py-1.5 px-3 rounded-xl bg-white/5 border border-white/10 text-[hsl(var(--text-secondary))] hover:bg-white/10 text-[10px] font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {aiTestingKey ? 'Testando...' : 'Testar Conexão'}
+                    </button>
+                    {aiTestStatus === 'success' && (
+                      <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-lg border border-emerald-500/20 flex items-center">
+                        Conectado
+                      </span>
+                    )}
+                    {aiTestStatus === 'error' && (
+                      <span className="px-2.5 py-1 bg-red-500/10 text-red-400 text-[10px] font-bold rounded-lg border border-red-500/20 flex items-center">
+                        Inválida
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               {/* Informações da Conta */}
               {authUser && (
@@ -2663,19 +2876,44 @@ export default function App() {
               ×
             </button>
 
-            {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO) */}
+            {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO / GERADOR IA) */}
             <div className="w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-[rgba(255,255,255,0.06)]">
               <div>
                 <span className="text-xs font-bold text-[hsl(var(--primary))] tracking-widest uppercase">
-                  {editingQuestionId ? 'Modo de Edição' : 'Nova Pergunta'}
+                  {editingQuestionId ? 'Modo de Edição' : 'Painel de Criação'}
                 </span>
                 <h3 className="text-xl font-extrabold text-white mt-1">
                   {editingQuestionId ? 'Editar Pergunta' : 'Criar Pergunta'}
                 </h3>
               </div>
 
+              {/* TABS DE SELEÇÃO */}
+              <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
+                <button
+                  onClick={() => { setManagerTab('manual'); sfx.playClick(); }}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                    managerTab === 'manual'
+                      ? 'bg-[hsl(var(--primary))] text-white'
+                      : 'text-[hsl(var(--text-muted))] hover:text-white'
+                  }`}
+                >
+                  Manual
+                </button>
+                <button
+                  onClick={() => { setManagerTab('ai'); sfx.playClick(); }}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    managerTab === 'ai'
+                      ? 'bg-[hsl(var(--secondary))] text-white shadow-[0_0_15px_rgba(236,72,153,0.3)]'
+                      : 'text-[hsl(var(--text-muted))] hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Gerar com IA
+                </button>
+              </div>
+
               <div className="flex flex-col gap-3">
-                {/* Selecionar Categoria */}
+                {/* Selecionar Categoria (Comum a ambos) */}
                 <div>
                   <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
                     Categoria da Questão <span className="text-red-400">*</span>
@@ -2694,89 +2932,201 @@ export default function App() {
                   </select>
                 </div>
 
-                {/* Texto da Pergunta */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
-                    Enunciado da Pergunta <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    placeholder="Digite a pergunta aqui de forma clara..."
-                    value={managerQText}
-                    onChange={(e) => setManagerQText(e.target.value)}
-                    className="input-glow py-2 px-3 text-xs h-24 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none font-semibold text-white"
-                  />
-                </div>
+                {managerTab === 'manual' ? (
+                  <>
+                    {/* Texto da Pergunta */}
+                    <div>
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
+                        Enunciado da Pergunta <span className="text-red-400">*</span>
+                      </label>
+                      <textarea
+                        placeholder="Digite a pergunta aqui de forma clara..."
+                        value={managerQText}
+                        onChange={(e) => setManagerQText(e.target.value)}
+                        className="input-glow py-2 px-3 text-xs h-24 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none font-semibold text-white"
+                      />
+                    </div>
 
-                {/* Alternativas */}
-                <div>
-                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
-                    Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
-                  </label>
-                  <div className="flex flex-col gap-2.5">
-                    {managerQAlts.map((alt, index) => (
-                      <div key={index} className="flex gap-3 items-center">
-                        <input
-                          type="radio"
-                          name="manager-correct-alt"
-                          checked={alt.isCorrect}
-                          onChange={() => {
-                            setManagerQAlts((prev) =>
-                              prev.map((a, i) => ({ ...a, isCorrect: i === index }))
-                            );
+                    {/* Alternativas */}
+                    <div>
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
+                        Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
+                      </label>
+                      <div className="flex flex-col gap-2.5">
+                        {managerQAlts.map((alt, index) => (
+                          <div key={index} className="flex gap-3 items-center">
+                            <input
+                              type="radio"
+                              name="manager-correct-alt"
+                              checked={alt.isCorrect}
+                              onChange={() => {
+                                setManagerQAlts((prev) =>
+                                  prev.map((a, i) => ({ ...a, isCorrect: i === index }))
+                                );
+                                sfx.playClick();
+                              }}
+                              className="w-4 h-4 accent-[hsl(var(--primary))] cursor-pointer"
+                              title="Marcar como correta"
+                            />
+                            <input
+                              type="text"
+                              placeholder={
+                                index === 0
+                                  ? 'Ex: Alternativa correta da pergunta...'
+                                  : `Alternativa incorreta ${index}...`
+                              }
+                              value={alt.text}
+                              onChange={(e) => {
+                                const newText = e.target.value;
+                                setManagerQAlts((prev) =>
+                                  prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
+                                );
+                              }}
+                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-medium text-white"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Botões do Form */}
+                    <div className="flex gap-2 mt-2">
+                      {editingQuestionId && (
+                        <button
+                          onClick={() => {
+                            setEditingQuestionId(null);
+                            setManagerQText('');
+                            setManagerQAlts([
+                              { text: '', isCorrect: true },
+                              { text: '', isCorrect: false },
+                              { text: '', isCorrect: false },
+                              { text: '', isCorrect: false }
+                            ]);
                             sfx.playClick();
                           }}
-                          className="w-4 h-4 accent-[hsl(var(--primary))] cursor-pointer"
-                          title="Marcar como correta"
-                        />
-                        <input
-                          type="text"
-                          placeholder={
-                            index === 0
-                              ? 'Ex: Alternativa correta da pergunta...'
-                              : `Alternativa incorreta ${index}...`
-                          }
-                          value={alt.text}
-                          onChange={(e) => {
-                            const newText = e.target.value;
-                            setManagerQAlts((prev) =>
-                              prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
-                            );
-                          }}
-                          className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-medium text-white"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          className="flex-1 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 text-xs font-bold transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                      <button
+                        onClick={handleManagerSaveQuestion}
+                        className="flex-grow btn-glow justify-center py-2.5 text-xs font-bold"
+                      >
+                        {editingQuestionId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in">
+                    <div className="absolute -top-10 -right-10 w-24 h-24 bg-[hsl(var(--secondary))]/10 rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div>
+                      <h4 className="text-xs font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--secondary))]" />
+                        Assistente de IA Gemini
+                      </h4>
+                      <p className="text-[11px] text-[hsl(var(--text-muted))] mt-1 leading-relaxed">
+                        Selecione a categoria acima e digite um tema ou anexe um PDF para que a inteligência artificial formule uma pergunta premium completa com alternativas.
+                      </p>
+                    </div>
 
-                {/* Botões do Form */}
-                <div className="flex gap-2 mt-2">
-                  {editingQuestionId && (
+                    {/* API Key Warning */}
+                    {!geminiApiKey && (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-[11px] text-amber-300 leading-relaxed">
+                        ⚠️ <strong>Atenção:</strong> Chave de API do Gemini não configurada! Insira a chave nas Configurações (ícone de engrenagem no topo direito) para utilizar esta ferramenta.
+                      </div>
+                    )}
+
+                    {/* Prompt de Contexto/Tema */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
+                        Tema ou Prompt de Contexto (Opcional)
+                      </label>
+                      <textarea
+                        placeholder="Ex: Teorema de Pitágoras com aplicação prática do dia a dia, ou Revolução Francesa focado na Tomada da Bastilha..."
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        className="input-glow py-2 px-3 text-xs h-20 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none text-white font-medium"
+                      />
+                    </div>
+
+                    {/* Upload de Arquivo PDF */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
+                        Documento PDF de Contexto (Opcional)
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        {aiFile ? (
+                          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs text-white">
+                            <div className="flex items-center gap-2 truncate">
+                              <FileText className="w-4 h-4 text-[hsl(var(--secondary))] flex-shrink-0" />
+                              <span className="truncate font-semibold text-white">{aiFile.name}</span>
+                              <span className="text-[10px] text-[hsl(var(--text-muted))]">({Math.round(aiFile.size / 1024)} KB)</span>
+                            </div>
+                            <button
+                              onClick={() => { setAiFile(null); sfx.playClick(); }}
+                              className="text-red-400 hover:text-red-300 font-bold p-1 text-sm"
+                              title="Remover arquivo"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="border border-dashed border-white/15 hover:border-[hsl(var(--secondary))]/50 bg-white/[0.01] hover:bg-[hsl(var(--secondary))]/5 transition rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center group">
+                            <Upload className="w-5 h-5 text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--secondary))] transition-colors" />
+                            <span className="text-[11px] font-bold text-[hsl(var(--text-secondary))]">Fazer upload de PDF</span>
+                            <span className="text-[9px] text-[hsl(var(--text-muted))]">Processamento 100% local e seguro</span>
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0] || null;
+                                if (file) {
+                                  setAiFile(file);
+                                  sfx.playClick();
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* AI Error Display */}
+                    {aiError && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-[11px] text-red-300 leading-relaxed">
+                        {aiError}
+                      </div>
+                    )}
+
+                    {/* Gerar Button */}
                     <button
-                      onClick={() => {
-                        setEditingQuestionId(null);
-                        setManagerQText('');
-                        setManagerQAlts([
-                          { text: '', isCorrect: true },
-                          { text: '', isCorrect: false },
-                          { text: '', isCorrect: false },
-                          { text: '', isCorrect: false }
-                        ]);
-                        sfx.playClick();
-                      }}
-                      className="flex-1 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 text-xs font-bold transition-all"
+                      onClick={generateQuestionWithAI}
+                      disabled={aiLoading || !geminiApiKey || !managerQCatId}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                        aiLoading
+                          ? 'bg-[hsl(var(--secondary))]/50 text-white cursor-not-allowed'
+                          : 'bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] hover:opacity-95 text-white shadow-lg shadow-purple-900/25'
+                      }`}
+                      style={{ opacity: !geminiApiKey || !managerQCatId ? 0.5 : 1 }}
                     >
-                      Cancelar
+                      {aiLoading ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processando com Gemini...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Gerar Questão Premium
+                        </>
+                      )}
                     </button>
-                  )}
-                  <button
-                    onClick={handleManagerSaveQuestion}
-                    className="flex-grow btn-glow justify-center py-2.5 text-xs font-bold"
-                  >
-                    {editingQuestionId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                    {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
