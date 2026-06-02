@@ -392,6 +392,20 @@ export default function App() {
     { text: '', isCorrect: false }
   ]);
 
+  // Estados para Modal de Gerenciamento de Questões
+  const [showQuestionManagerModal, setShowQuestionManagerModal] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [managerQText, setManagerQText] = useState('');
+  const [managerQCatId, setManagerQCatId] = useState('');
+  const [managerQAlts, setManagerQAlts] = useState<Alternative[]>([
+    { text: '', isCorrect: true },
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false }
+  ]);
+  const [managerSearchTerm, setManagerSearchTerm] = useState('');
+  const [managerSelectedCatFilter, setManagerSelectedCatFilter] = useState('');
+
   // Estados de Partida Ativa
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
@@ -718,7 +732,7 @@ export default function App() {
     sfx.playClick();
   };
 
-  const handleAddQuestion = () => {
+  const handleAddQuestion = async () => {
     if (!newQText.trim() || !newQCatId) {
       alert('Preencha o texto da pergunta e selecione uma categoria.');
       return;
@@ -727,8 +741,49 @@ export default function App() {
       alert('Preencha todas as 4 alternativas!');
       return;
     }
+
+    let savedId = Math.random().toString();
+    if (useRealSupabase) {
+      try {
+        const { data: qData, error: qError } = await supabase
+          .from('questions')
+          .insert({
+            category_id: newQCatId,
+            question_text: newQText.trim()
+          })
+          .select()
+          .single();
+
+        if (qError || !qData) {
+          alert('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
+          return;
+        }
+
+        savedId = qData.id.toString();
+
+        const { error: insError } = await supabase
+          .from('alternatives')
+          .insert(
+            newQAlts.map(alt => ({
+              question_id: savedId,
+              alternative_text: alt.text.trim(),
+              is_correct: alt.isCorrect
+            }))
+          );
+
+        if (insError) {
+          alert('Erro ao cadastrar alternativas no banco: ' + insError.message);
+          await supabase.from('questions').delete().eq('id', savedId);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao salvar pergunta: ' + err.message);
+        return;
+      }
+    }
+
     const newQuestion: Question = {
-      id: Math.random().toString(),
+      id: savedId,
       category_id: newQCatId,
       question_text: newQText.trim(),
       alternatives: [...newQAlts]
@@ -744,10 +799,153 @@ export default function App() {
     sfx.playCorrect();
   };
 
-  // const handleDeleteQuestion = (id: string) => {
-  //   setQuestions(questions.filter(q => q.id !== id));
-  //   sfx.playClick();
-  // };
+  const handleManagerSaveQuestion = async () => {
+    if (!managerQText.trim() || !managerQCatId) {
+      alert('Preencha o texto da pergunta e selecione uma categoria.');
+      return;
+    }
+    if (managerQAlts.some(a => !a.text.trim())) {
+      alert('Preencha todas as 4 alternativas!');
+      return;
+    }
+
+    let savedQuestionId = editingQuestionId || Math.random().toString();
+    const updatedAlts = [...managerQAlts];
+
+    if (useRealSupabase) {
+      try {
+        if (editingQuestionId) {
+          // Atualizar pergunta existente
+          const { error: qError } = await supabase
+            .from('questions')
+            .update({
+              category_id: managerQCatId,
+              question_text: managerQText.trim()
+            })
+            .eq('id', editingQuestionId);
+
+          if (qError) {
+            alert('Erro ao atualizar pergunta no banco: ' + qError.message);
+            return;
+          }
+
+          // Deletar alternativas anteriores
+          const { error: delError } = await supabase
+            .from('alternatives')
+            .delete()
+            .eq('question_id', editingQuestionId);
+
+          if (delError) {
+            alert('Erro ao atualizar alternativas no banco (limpeza): ' + delError.message);
+            return;
+          }
+
+          // Inserir novas alternativas
+          const { error: insError } = await supabase
+            .from('alternatives')
+            .insert(
+              updatedAlts.map(alt => ({
+                question_id: editingQuestionId,
+                alternative_text: alt.text.trim(),
+                is_correct: alt.isCorrect
+              }))
+            );
+
+          if (insError) {
+            alert('Erro ao atualizar alternativas no banco (inserção): ' + insError.message);
+            return;
+          }
+        } else {
+          // Inserir nova pergunta
+          const { data: qData, error: qError } = await supabase
+            .from('questions')
+            .insert({
+              category_id: managerQCatId,
+              question_text: managerQText.trim()
+            })
+            .select()
+            .single();
+
+          if (qError || !qData) {
+            alert('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
+            return;
+          }
+
+          savedQuestionId = qData.id.toString();
+
+          // Inserir alternativas
+          const { error: insError } = await supabase
+            .from('alternatives')
+            .insert(
+              updatedAlts.map(alt => ({
+                question_id: savedQuestionId,
+                alternative_text: alt.text.trim(),
+                is_correct: alt.isCorrect
+              }))
+            );
+
+          if (insError) {
+            alert('Erro ao cadastrar alternativas no banco: ' + insError.message);
+            // Rollback da pergunta criada para evitar órfãs
+            await supabase.from('questions').delete().eq('id', savedQuestionId);
+            return;
+          }
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao salvar pergunta: ' + err.message);
+        return;
+      }
+    }
+
+    const questionObj: Question = {
+      id: savedQuestionId,
+      category_id: managerQCatId,
+      question_text: managerQText.trim(),
+      alternatives: updatedAlts
+    };
+
+    if (editingQuestionId) {
+      setQuestions(questions.map(q => q.id === editingQuestionId ? questionObj : q));
+    } else {
+      setQuestions([...questions, questionObj]);
+    }
+
+    // Resetar campos
+    setEditingQuestionId(null);
+    setManagerQText('');
+    setManagerQAlts([
+      { text: '', isCorrect: true },
+      { text: '', isCorrect: false },
+      { text: '', isCorrect: false },
+      { text: '', isCorrect: false }
+    ]);
+    
+    sfx.playCorrect();
+  };
+
+  const handleManagerDeleteQuestion = async (id: string) => {
+    if (!confirm('Deseja realmente excluir esta pergunta?')) return;
+
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('questions')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          alert('Erro ao excluir pergunta do banco: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao excluir pergunta: ' + err.message);
+        return;
+      }
+    }
+
+    setQuestions(questions.filter(q => q.id !== id));
+    sfx.playClick();
+  };
 
   // ==========================================
   // 🏗️ FUNÇÕES DO SISTEMA DE SALAS
@@ -1067,6 +1265,21 @@ export default function App() {
                   }`} />
                 </button>
               </div>
+
+              {/* Gerenciador de Questões (Disponível apenas para Operador) */}
+              {(role === 'operator' || authUser) && (
+                <button
+                  onClick={() => {
+                    setShowQuestionManagerModal(true);
+                    setShowSettingsDropdown(false);
+                    sfx.playClick();
+                  }}
+                  className="w-full mt-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/20 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] text-xs font-bold transition-all duration-200"
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Gerenciar Questões
+                </button>
+              )}
 
               {/* Informações da Conta */}
               {authUser && (
@@ -2384,6 +2597,328 @@ export default function App() {
             >
               ×
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          📚 MODAL DE GERENCIAMENTO DE QUESTÕES (PREMIUM)
+          ========================================== */}
+      {showQuestionManagerModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(0,0,0,0.82)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeInModal 0.25s ease'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowQuestionManagerModal(false); }}
+        >
+          <div
+            className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl"
+            style={{
+              background: 'rgba(8,12,28,0.95)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '24px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.12)',
+              padding: '32px',
+              position: 'relative',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            {/* Fechar */}
+            <button
+              onClick={() => {
+                setShowQuestionManagerModal(false);
+                setEditingQuestionId(null);
+                setManagerQText('');
+                setManagerQAlts([
+                  { text: '', isCorrect: true },
+                  { text: '', isCorrect: false },
+                  { text: '', isCorrect: false },
+                  { text: '', isCorrect: false }
+                ]);
+              }}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '8px', width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'white', fontSize: '20px',
+                transition: 'all 0.2s', zIndex: 10
+              }}
+              className="hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/20"
+              title="Fechar"
+            >
+              ×
+            </button>
+
+            {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO) */}
+            <div className="w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-[rgba(255,255,255,0.06)]">
+              <div>
+                <span className="text-xs font-bold text-[hsl(var(--primary))] tracking-widest uppercase">
+                  {editingQuestionId ? 'Modo de Edição' : 'Nova Pergunta'}
+                </span>
+                <h3 className="text-xl font-extrabold text-white mt-1">
+                  {editingQuestionId ? 'Editar Pergunta' : 'Criar Pergunta'}
+                </h3>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {/* Selecionar Categoria */}
+                <div>
+                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
+                    Categoria da Questão <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={managerQCatId}
+                    onChange={(e) => setManagerQCatId(e.target.value)}
+                    className="input-glow py-2 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                  >
+                    <option value="">Selecione a categoria...</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Texto da Pergunta */}
+                <div>
+                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
+                    Enunciado da Pergunta <span className="text-red-400">*</span>
+                  </label>
+                  <textarea
+                    placeholder="Digite a pergunta aqui de forma clara..."
+                    value={managerQText}
+                    onChange={(e) => setManagerQText(e.target.value)}
+                    className="input-glow py-2 px-3 text-xs h-24 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none font-semibold text-white"
+                  />
+                </div>
+
+                {/* Alternativas */}
+                <div>
+                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
+                    Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex flex-col gap-2.5">
+                    {managerQAlts.map((alt, index) => (
+                      <div key={index} className="flex gap-3 items-center">
+                        <input
+                          type="radio"
+                          name="manager-correct-alt"
+                          checked={alt.isCorrect}
+                          onChange={() => {
+                            setManagerQAlts((prev) =>
+                              prev.map((a, i) => ({ ...a, isCorrect: i === index }))
+                            );
+                            sfx.playClick();
+                          }}
+                          className="w-4 h-4 accent-[hsl(var(--primary))] cursor-pointer"
+                          title="Marcar como correta"
+                        />
+                        <input
+                          type="text"
+                          placeholder={
+                            index === 0
+                              ? 'Ex: Alternativa correta da pergunta...'
+                              : `Alternativa incorreta ${index}...`
+                          }
+                          value={alt.text}
+                          onChange={(e) => {
+                            const newText = e.target.value;
+                            setManagerQAlts((prev) =>
+                              prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
+                            );
+                          }}
+                          className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-medium text-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Botões do Form */}
+                <div className="flex gap-2 mt-2">
+                  {editingQuestionId && (
+                    <button
+                      onClick={() => {
+                        setEditingQuestionId(null);
+                        setManagerQText('');
+                        setManagerQAlts([
+                          { text: '', isCorrect: true },
+                          { text: '', isCorrect: false },
+                          { text: '', isCorrect: false },
+                          { text: '', isCorrect: false }
+                        ]);
+                        sfx.playClick();
+                      }}
+                      className="flex-1 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 text-xs font-bold transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    onClick={handleManagerSaveQuestion}
+                    className="flex-grow btn-glow justify-center py-2.5 text-xs font-bold"
+                  >
+                    {editingQuestionId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* LADO DIREITO: LISTAGEM E PESQUISA */}
+            <div className="w-full lg:w-7/12 flex flex-col gap-4 pl-0 lg:pl-4 overflow-hidden">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <div>
+                  <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
+                    Banco de Dados
+                  </span>
+                  <h3 className="text-xl font-extrabold text-white mt-1">
+                    Questões Cadastradas ({questions.length})
+                  </h3>
+                </div>
+
+                {/* Filtro por Categoria */}
+                <select
+                  value={managerSelectedCatFilter}
+                  onChange={(e) => setManagerSelectedCatFilter(e.target.value)}
+                  className="input-glow py-1.5 px-3 text-xs bg-[#0d1326] border border-white/10 rounded-xl w-fit"
+                >
+                  <option value="">Todas Categorias</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Campo de Busca */}
+              <input
+                type="text"
+                placeholder="Pesquisar pergunta pelo enunciado..."
+                value={managerSearchTerm}
+                onChange={(e) => setManagerSearchTerm(e.target.value)}
+                className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+              />
+
+              {/* Lista Scrollable */}
+              <div className="flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
+                {questions
+                  .filter((q) => {
+                    const matchesSearch = q.question_text
+                      .toLowerCase()
+                      .includes(managerSearchTerm.toLowerCase());
+                    const matchesCategory = managerSelectedCatFilter
+                      ? q.category_id === managerSelectedCatFilter
+                      : true;
+                    return matchesSearch && matchesCategory;
+                  })
+                  .map((q) => {
+                    const cat = categories.find((c) => c.id === q.category_id);
+                    return (
+                      <div
+                        key={q.id}
+                        className={`p-4 bg-[rgba(255,255,255,0.02)] border rounded-xl flex flex-col gap-3 transition-all ${
+                          editingQuestionId === q.id
+                            ? 'border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.02)]'
+                            : 'border-white/5 hover:border-white/10 hover:bg-white/[0.03]'
+                        }`}
+                      >
+                        {/* Enunciado e Categoria */}
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex flex-col gap-1.5 flex-grow">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: cat?.color || 'gray' }}
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--text-secondary))]">
+                                {cat?.name || 'Sem Categoria'}
+                              </span>
+                            </div>
+                            <p className="text-sm font-semibold text-white leading-relaxed">
+                              {q.question_text}
+                            </p>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => {
+                                setEditingQuestionId(q.id);
+                                setManagerQText(q.question_text);
+                                setManagerQCatId(q.category_id);
+                                setManagerQAlts(q.alternatives.map(alt => ({
+                                  text: alt.text,
+                                  isCorrect: alt.isCorrect
+                                })));
+                                sfx.playClick();
+                              }}
+                              className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 text-[hsl(var(--text-muted))] transition"
+                              title="Editar Pergunta"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleManagerDeleteQuestion(q.id)}
+                              className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-[hsl(var(--text-muted))] transition"
+                              title="Excluir Pergunta"
+                            >
+                              <Trash className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Alternativas compactas */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                          {q.alternatives.map((alt, idx) => (
+                            <div
+                              key={idx}
+                              className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium ${
+                                alt.isCorrect
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-white/5 text-[hsl(var(--text-secondary))] border border-transparent'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  alt.isCorrect ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'
+                                }`}
+                              />
+                              <span className="truncate" title={alt.text}>
+                                {alt.text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {questions.filter((q) => {
+                  const matchesSearch = q.question_text
+                    .toLowerCase()
+                    .includes(managerSearchTerm.toLowerCase());
+                  const matchesCategory = managerSelectedCatFilter
+                    ? q.category_id === managerSelectedCatFilter
+                    : true;
+                  return matchesSearch && matchesCategory;
+                }).length === 0 && (
+                  <div className="text-center p-8 border border-dashed border-white/10 rounded-xl text-[hsl(var(--text-muted))] text-sm">
+                    Nenhuma pergunta encontrada para os filtros selecionados.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
