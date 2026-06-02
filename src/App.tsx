@@ -593,8 +593,8 @@ Garanta que:
   const [currentRoundIndex, setCurrentRoundIndex] = useState(1);
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([]);
   
-  // Status da rodada ativa: 'idle' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'ranking'
-  const [roundState, setRoundState] = useState<'idle' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'ranking'>('idle');
+  // Status da rodada ativa: 'idle' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'ranking'
+  const [roundState, setRoundState] = useState<'idle' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'ranking'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(15);
@@ -1302,13 +1302,17 @@ Garanta que:
       setTimeout(async () => {
         setRoundState('category-reveal');
         setTimeout(async () => {
-          setRoundState('question');
-          setTimeLeft(gameTimeLimit);
-          setTimerRunning(true);
-          setPlayerAnswered(null);
-          setRoomAnswers([0, 0, 0, 0]);
-          setTotalAnswered(0);
-          await publishRoomState({ round_state: 'question' });
+          setRoundState('question-reveal');
+          await publishRoomState({ round_state: 'question-reveal' });
+          setTimeout(async () => {
+            setRoundState('question');
+            setTimeLeft(gameTimeLimit);
+            setTimerRunning(true);
+            setPlayerAnswered(null);
+            setRoomAnswers([0, 0, 0, 0]);
+            setTotalAnswered(0);
+            await publishRoomState({ round_state: 'question' });
+          }, 5000);
         }, 2200);
       }, 0);
 
@@ -2405,7 +2409,7 @@ Garanta que:
               )}
 
               {/* PERGUNTA & CRONÔMETRO */}
-              {(roundState === 'question' || roundState === 'answered') && currentQuestion && (
+              {(roundState === 'question-reveal' || roundState === 'question' || roundState === 'answered') && currentQuestion && (
                 <div className="glass-card p-6 flex flex-col gap-6" style={{ flex: 1, minHeight: 0 }}>
                   {/* Categoria Sorteada */}
                   <div className="flex justify-between items-center">
@@ -2465,6 +2469,7 @@ Garanta que:
                   </div>
 
                   {/* Alternativas — Estilo Kahoot com cores vibrantes */}
+                  {roundState !== 'question-reveal' && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '16px', flex: 1, minHeight: 0 }}>
                     {currentQuestion.alternatives.map((alt, index) => {
                       const isSelectedBySelf = playerAnswered === alt.text;
@@ -2569,6 +2574,7 @@ Garanta que:
                       );
                     })}
                   </div>
+                  )}
                   {/* Painel de Respostas dos Competidores (Visível apenas para o Host/Operador) */}
                   {role === 'operator' && (
                     <div className="mt-4 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 flex flex-col gap-4 transition-all duration-300">

@@ -33,7 +33,7 @@ interface RoomState {
   selected_category: { name: string; color: string } | null;
 }
 
-type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question' | 'answered' | 'round-result' | 'finished';
+type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'finished';
 
 // ==========================================
 // 🎮 COMPONENTE PRINCIPAL DO JOGADOR
@@ -140,6 +140,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         setAnsweredCount(0);
         setPlayerScreen('category-reveal');
       }
+    } else if (room.round_state === 'question-reveal') {
+      const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
+      if (isNewQuestion || playerScreen !== 'question-reveal') {
+        setChosenIndex(null);
+        setWasCorrect(null);
+        setAnsweredCount(0);
+        setPlayerScreen('question-reveal');
+      }
     } else if (room.round_state === 'question') {
       // Nova pergunta — resetar resposta APENAS se mudou a pergunta!
       const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
@@ -211,6 +219,8 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
 
     if (room.round_state === 'question') {
       setPlayerScreen('question');
+    } else if (room.round_state === 'question-reveal') {
+      setPlayerScreen('question-reveal');
     } else if (room.round_state === 'spinning') {
       setPlayerScreen('spinning');
     } else if (room.round_state === 'category-reveal') {
@@ -446,6 +456,20 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
               Prepare-se para a pergunta...
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pergunta sendo lida (sem alternativas) ──
+  if (playerScreen === 'question-reveal' && roomState?.current_question) {
+    return (
+      <div style={styles.fullscreen}>
+        <div style={{...styles.questionContainer, justifyContent: 'center', alignItems: 'center', minHeight: '60vh'}}>
+          <ConnectedBadge connected={connected} />
+          <h3 style={{ color: 'white', fontSize: 24, fontWeight: 800, lineHeight: 1.5, textAlign: 'center', marginTop: 'auto', marginBottom: 'auto' }}>
+            {roomState.current_question.question_text}
+          </h3>
         </div>
       </div>
     );
