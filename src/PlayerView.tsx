@@ -162,11 +162,15 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       // Revelar resultado
       if (chosenIndex !== null && room.current_question) {
         const correct = room.current_question.alternatives[chosenIndex]?.isCorrect;
-        setWasCorrect(correct);
-        if (correct) {
-          const pts = 100;
-          setPointsEarned(pts);
-          setMyScore(prev => prev + pts);
+        
+        // Evitar soma dupla caso o evento chegue mais de uma vez
+        if (wasCorrect === null) {
+          setWasCorrect(correct);
+          if (correct) {
+            const pts = 100;
+            setPointsEarned(pts);
+            setMyScore(prev => prev + pts);
+          }
         }
       }
       setPlayerScreen('round-result');
