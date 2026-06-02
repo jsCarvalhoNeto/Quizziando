@@ -2429,9 +2429,27 @@ Garanta que:
                         </div>
                       )}
                       
-                      <div className="relative w-12 h-12 flex items-center justify-center rounded-full border border-[rgba(255,255,255,0.1)]">
-                        <Clock className="w-4 h-4 text-[hsl(var(--text-secondary))] absolute left-1.5 top-1.5 opacity-40" />
-                        <span className="font-mono font-bold text-sm text-[hsl(var(--secondary))]">
+                      <div style={{
+                        position: 'relative',
+                        width: '72px',
+                        height: '72px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        border: '2px solid rgba(255,255,255,0.15)',
+                        background: 'rgba(255,255,255,0.03)',
+                        boxShadow: timeLeft <= 5 ? '0 0 20px rgba(239,68,68,0.4)' : '0 0 12px rgba(124,58,237,0.2)',
+                        transition: 'box-shadow 0.3s ease',
+                      }}>
+                        <Clock style={{ width: 18, height: 18, position: 'absolute', left: 8, top: 8, opacity: 0.35, color: 'hsl(var(--text-secondary))' }} />
+                        <span style={{
+                          fontFamily: "'Outfit', monospace",
+                          fontWeight: 800,
+                          fontSize: '24px',
+                          color: timeLeft <= 5 ? '#f87171' : 'hsl(var(--secondary))',
+                          transition: 'color 0.3s ease',
+                        }}>
                           {timeLeft}s
                         </span>
                       </div>
