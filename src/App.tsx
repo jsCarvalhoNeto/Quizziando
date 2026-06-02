@@ -1007,7 +1007,7 @@ export default function App() {
       {/* HEADER PREMIUM */}
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Quizziando Logo" className="w-12 h-12 object-contain rounded-xl shadow-lg shadow-purple-900/20 animate-bounce-gentle" />
+          <img src="/logo.png" alt="Quizziando Logo" className="h-11 w-auto object-contain animate-bounce-gentle" style={{ filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
               Quizziando

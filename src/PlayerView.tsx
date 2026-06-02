@@ -253,7 +253,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={styles.joinCard}>
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-            <img src="/logo.png" alt="Quizziando Logo" style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto 12px' }} />
+            <img src="/logo.png" alt="Quizziando Logo" style={{ height: '64px', width: 'auto', objectFit: 'contain', margin: '0 auto 12px', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
             <h1 style={styles.title}>Quizziando</h1>
             <p style={styles.subtitle}>Sala <span style={{ color: '#A78BFA', fontWeight: 800 }}>{roomCode.toUpperCase()}</span></p>
           </div>
@@ -295,7 +295,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
           <div style={{ textAlign: 'center' }}>
-            <img src="/logo.png" alt="Quizziando Logo" style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto 16px' }} />
+            <img src="/logo.png" alt="Quizziando Logo" style={{ height: '64px', width: 'auto', objectFit: 'contain', margin: '0 auto 16px', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
             <h2 style={styles.title}>Você está dentro!</h2>
             <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Olá, <strong style={{ color: 'white' }}>{nickname}</strong></p>
           </div>
