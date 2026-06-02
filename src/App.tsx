@@ -3605,6 +3605,7 @@ Garanta que:
                                   text: alt.text,
                                   isCorrect: alt.isCorrect
                                 })));
+                                setManagerTab('manual');
                                 sfx.playClick();
                               }}
                               className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 text-[hsl(var(--text-muted))] transition"
