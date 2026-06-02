@@ -397,6 +397,7 @@ export default function App() {
   const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-1.5-flash');
   const [managerTab, setManagerTab] = useState<'manual' | 'ai'>('manual');
   const [aiPrompt, setAiPrompt] = useState('');
+  const [aiQuantity, setAiQuantity] = useState<number>(1);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiError, setAiError] = useState('');
@@ -488,30 +489,33 @@ export default function App() {
       }
 
       const categoryName = categories.find(c => c.id === managerQCatId)?.name || 'Geral';
-      const promptText = `Crie uma questão de múltipla escolha inédita de alta qualidade, adequada para um jogo de quiz dinâmico.
-A questão deve pertencer ou se relacionar à categoria: "${categoryName}".
+      const promptText = `Crie ${aiQuantity} questão(ões) de múltipla escolha inédita(s) de alta qualidade, adequada(s) para um jogo de quiz dinâmico.
+A(s) questão(ões) deve(m) pertencer ou se relacionar à categoria: "${categoryName}".
 ${aiPrompt.trim() ? `O tema/prompt de contexto especificado pelo usuário é: "${aiPrompt.trim()}".` : ''}
-${contextText ? `Use o seguinte contexto extraído de um documento PDF do usuário para embasar a questão:
+${contextText ? `Use o seguinte contexto extraído de um documento PDF do usuário para embasar a(s) questão(ões):
 ---
 ${contextText.slice(0, 10000)}
 ---` : ''}
 
-Você DEVE retornar a resposta estritamente no formato JSON abaixo, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
+Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
 Estrutura JSON:
-{
-  "question_text": "Escreva aqui o enunciado da questão...",
-  "alternatives": [
-    { "text": "Alternativa correta...", "isCorrect": true },
-    { "text": "Alternativa incorreta 1...", "isCorrect": false },
-    { "text": "Alternativa incorreta 2...", "isCorrect": false },
-    { "text": "Alternativa incorreta 3...", "isCorrect": false }
-  ]
-}
+[
+  {
+    "question_text": "Escreva aqui o enunciado da questão...",
+    "alternatives": [
+      { "text": "Alternativa correta...", "isCorrect": true },
+      { "text": "Alternativa incorreta 1...", "isCorrect": false },
+      { "text": "Alternativa incorreta 2...", "isCorrect": false },
+      { "text": "Alternativa incorreta 3...", "isCorrect": false }
+    ]
+  }
+]
 
 Garanta que:
-1. Haja exatamente 4 alternativas.
-2. Exatamente uma alternativa tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
-3. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
+1. O array contenha exatamente ${aiQuantity} objeto(s) de questão. As questões devem ser variadas e diferentes entre si.
+2. Haja exatamente 4 alternativas por questão.
+3. Exatamente uma alternativa por questão tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
+4. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
@@ -532,29 +536,90 @@ Garanta que:
       }
 
       const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-
-      if (!parsed.question_text || !Array.isArray(parsed.alternatives) || parsed.alternatives.length !== 4) {
-        throw new Error('O formato da questão gerada é inválido.');
+      let parsedArray = JSON.parse(cleanJson);
+      
+      // Fallback in case AI returned a single object instead of an array
+      if (!Array.isArray(parsedArray)) {
+        parsedArray = [parsedArray];
       }
 
-      const correctCount = parsed.alternatives.filter((a: any) => a.isCorrect).length;
-      if (correctCount !== 1) {
-        parsed.alternatives.forEach((a: any, idx: number) => {
-          a.isCorrect = idx === 0;
+      const newQuestions: Question[] = [];
+
+      for (const parsed of parsedArray) {
+        if (!parsed.question_text || !Array.isArray(parsed.alternatives) || parsed.alternatives.length !== 4) {
+          continue; // Pular questões mal formatadas
+        }
+
+        const correctCount = parsed.alternatives.filter((a: any) => a.isCorrect).length;
+        if (correctCount !== 1) {
+          parsed.alternatives.forEach((a: any, idx: number) => {
+            a.isCorrect = idx === 0;
+          });
+        }
+
+        let savedQuestionId = Math.random().toString();
+        const updatedAlts = parsed.alternatives.map((alt: any) => ({
+          text: alt.text,
+          isCorrect: alt.isCorrect
+        }));
+
+        if (useRealSupabase) {
+          const { data: qData, error: qError } = await supabase
+            .from('questions')
+            .insert({
+              category_id: managerQCatId,
+              question_text: parsed.question_text.trim()
+            })
+            .select()
+            .single();
+
+          if (qError || !qData) {
+            throw new Error('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
+          }
+
+          savedQuestionId = qData.id.toString();
+
+          const { error: insError } = await supabase
+            .from('alternatives')
+            .insert(
+              updatedAlts.map((alt: any) => ({
+                question_id: savedQuestionId,
+                alternative_text: alt.text.trim(),
+                is_correct: alt.isCorrect
+              }))
+            );
+
+          if (insError) {
+            await supabase.from('questions').delete().eq('id', savedQuestionId);
+            throw new Error('Erro ao cadastrar alternativas no banco: ' + insError.message);
+          }
+        }
+
+        newQuestions.push({
+          id: savedQuestionId,
+          category_id: managerQCatId,
+          question_text: parsed.question_text.trim(),
+          alternatives: updatedAlts.map((alt: any) => ({
+            id: Math.random().toString(),
+            question_id: savedQuestionId,
+            alternative_text: alt.text.trim(),
+            is_correct: alt.isCorrect
+          }))
         });
       }
 
-      setManagerQText(parsed.question_text);
-      setManagerQAlts(parsed.alternatives.map((alt: any) => ({
-        text: alt.text,
-        isCorrect: alt.isCorrect
-      })));
+      if (newQuestions.length === 0) {
+        throw new Error('Nenhuma questão válida foi gerada.');
+      }
 
-      setManagerTab('manual');
+      // Adicionar as novas questões ao estado
+      setQuestions(prev => [...newQuestions, ...prev]);
+
       sfx.playCorrect();
       setAiPrompt('');
       setAiFile(null);
+      setAiQuantity(1);
+      alert(`${newQuestions.length} questão(ões) gerada(s) e salva(s) com sucesso!`);
       
     } catch (e: any) {
       console.error(e);
@@ -3401,6 +3466,28 @@ Garanta que:
                       </div>
                     </div>
 
+                    {/* Quantidade de Questões */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
+                        Quantidade de Questões (1 a 25)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="25"
+                        value={aiQuantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val)) {
+                            setAiQuantity(Math.min(25, Math.max(1, val)));
+                          } else {
+                            setAiQuantity(1);
+                          }
+                        }}
+                        className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
+                      />
+                    </div>
+
                     {/* AI Error Display */}
                     {aiError && (
                       <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-[11px] text-red-300 leading-relaxed">
@@ -3427,7 +3514,7 @@ Garanta que:
                       ) : (
                         <>
                           <Sparkles className="w-3.5 h-3.5" />
-                          Gerar Questão Premium
+                          Gerar {aiQuantity} Quest{aiQuantity > 1 ? 'ões' : 'ão'} Premium
                         </>
                       )}
                     </button>
