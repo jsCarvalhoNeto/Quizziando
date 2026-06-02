@@ -1007,9 +1007,7 @@ export default function App() {
       {/* HEADER PREMIUM */}
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-tr from-[hsl(var(--primary))] to-[hsl(var(--accent))] p-2.5 rounded-xl shadow-lg shadow-purple-900/20">
-            <Trophy className="w-7 h-7 text-white animate-bounce-gentle" />
-          </div>
+          <img src="/logo.png" alt="Quizziando Logo" className="w-12 h-12 object-contain rounded-xl shadow-lg shadow-purple-900/20 animate-bounce-gentle" />
           <div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
               Quizziando

@@ -253,9 +253,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={styles.joinCard}>
           {/* Logo */}
           <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-            <div style={styles.logoBadge}>
-              <Trophy style={{ width: 32, height: 32, color: 'white' }} />
-            </div>
+            <img src="/logo.png" alt="Quizziando Logo" style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto 12px' }} />
             <h1 style={styles.title}>Quizziando</h1>
             <p style={styles.subtitle}>Sala <span style={{ color: '#A78BFA', fontWeight: 800 }}>{roomCode.toUpperCase()}</span></p>
           </div>
@@ -297,9 +295,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ ...styles.logoBadge, margin: '0 auto 16px' }}>
-              <Trophy style={{ width: 32, height: 32, color: 'white' }} />
-            </div>
+            <img src="/logo.png" alt="Quizziando Logo" style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto 16px' }} />
             <h2 style={styles.title}>Você está dentro!</h2>
             <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Olá, <strong style={{ color: 'white' }}>{nickname}</strong></p>
           </div>
