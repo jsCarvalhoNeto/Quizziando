@@ -625,22 +625,24 @@ Garanta que:
   // Controle de expansão do painel de respostas/votos (retrátil)
   const [isAnswersPanelExpanded, setIsAnswersPanelExpanded] = useState(true);
 
-  // Temas visuais e geométricos baseados no Kahoot para as alternativas
+  // Temas visuais e geométricos baseados no Kahoot para as alternativas (inline styles)
   const KAHOOT_THEMES = [
-    { bg: 'bg-gradient-to-br from-[#e21b3c] to-[#b11029]', icon: '▲', color: '#e21b3c', shadow: 'rgba(226,27,60,0.5)' },
-    { bg: 'bg-gradient-to-br from-[#1368ce] to-[#0d4a94]', icon: '◆', color: '#1368ce', shadow: 'rgba(19,104,206,0.5)' },
-    { bg: 'bg-gradient-to-br from-[#d89e00] to-[#a07500]', icon: '●', color: '#d89e00', shadow: 'rgba(216,158,0,0.5)' },
-    { bg: 'bg-gradient-to-br from-[#26890c] to-[#1a5f08]', icon: '■', color: '#26890c', shadow: 'rgba(38,137,12,0.5)' }
+    { gradient: 'linear-gradient(135deg, #e21b3c 0%, #b11029 100%)', icon: '▲', color: '#e21b3c', shadow: 'rgba(226,27,60,0.5)' },
+    { gradient: 'linear-gradient(135deg, #1368ce 0%, #0d4a94 100%)', icon: '◆', color: '#1368ce', shadow: 'rgba(19,104,206,0.5)' },
+    { gradient: 'linear-gradient(135deg, #d89e00 0%, #a07500 100%)', icon: '●', color: '#d89e00', shadow: 'rgba(216,158,0,0.5)' },
+    { gradient: 'linear-gradient(135deg, #26890c 0%, #1a5f08 100%)', icon: '■', color: '#26890c', shadow: 'rgba(38,137,12,0.5)' }
   ];
 
+  // Flag: se está na tela de jogo ativo (fullscreen)
+  const isGamePlayFullscreen = screen === 'game-play';
 
   // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
-  const wheelSize = isLobbyExpanded ? 320 : 440;
+  const wheelSize = isLobbyExpanded ? 380 : 520;
   const radius = wheelSize / 2;
   const innerTranslate = wheelSize * 0.12;
   const textBoxWidth = radius - innerTranslate - 8;
   const textBoxHeight = wheelSize * 0.075;
-  const fontSize = isLobbyExpanded ? '11px' : '14px';
+  const fontSize = isLobbyExpanded ? '12px' : '15px';
 
 
   // Efeito para som global
@@ -1404,9 +1406,13 @@ Garanta que:
   }
 
   return (
-    <div className="app-container min-h-screen flex flex-col justify-between">
-      {/* HEADER PREMIUM */}
-      <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
+    <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen ? '' : 'app-container'}`}
+      style={isGamePlayFullscreen ? { maxWidth: '100%', margin: 0, padding: '0' } : undefined}
+    >
+      {/* HEADER PREMIUM — oculto durante game-play fullscreen */}
+      <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6"
+        style={isGamePlayFullscreen ? { display: 'none' } : undefined}
+      >
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
           <div>
@@ -1684,7 +1690,7 @@ Garanta que:
       </header>
 
       {/* CONTEÚDO PRINCIPAL DINÂMICO */}
-      <main className="flex-grow flex flex-col justify-center py-4">
+      <main className={`flex-grow flex flex-col justify-center ${isGamePlayFullscreen ? 'py-0' : 'py-4'}`}>
         
         {/* ==========================================
             1. TELA DE ENTRADA (WELCOME)
@@ -2203,8 +2209,8 @@ Garanta que:
             4. TELA DA PARTIDA ATIVA (GAME SCREEN)
             ========================================== */}
         {screen === 'game-play' && (
-          <div className={`w-full mx-auto transition-all duration-500 ${isLobbyExpanded ? 'max-w-5xl' : 'max-w-4xl'}`}>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="w-full transition-all duration-500" style={{ maxWidth: '100%', padding: '0 24px' }}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" style={{ minHeight: 'calc(100vh - 40px)' }}>
             
               {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
               <div className={`${isLobbyExpanded ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col gap-6 transition-all duration-500`}>
@@ -2440,29 +2446,67 @@ Garanta que:
                     </h3>
                   </div>
 
-                  {/* Alternativas */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Alternativas — Estilo Kahoot com cores vibrantes */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     {currentQuestion.alternatives.map((alt, index) => {
                       const isSelectedBySelf = playerAnswered === alt.text;
                       const showAnswers = roundState === 'answered';
                       const isCorrectAnswer = alt.isCorrect;
                       const theme = KAHOOT_THEMES[index] || KAHOOT_THEMES[0];
                       
-                      let cardStyle = `${theme.bg} text-white shadow-[0_4px_15px_${theme.shadow}] border-transparent`;
-                      
-                      if (role === 'player' && !showAnswers) {
-                        if (isSelectedBySelf) {
-                          cardStyle = `${theme.bg} text-white shadow-[0_0_20px_white] border-white scale-[1.02]`;
-                        } else {
-                          cardStyle = `${theme.bg} text-white opacity-90 hover:opacity-100 hover:scale-[1.01] border-transparent`;
-                        }
+                      // Estilo base com gradiente inline
+                      let btnStyle: React.CSSProperties = {
+                        background: theme.gradient,
+                        color: 'white',
+                        border: '3px solid transparent',
+                        borderRadius: '16px',
+                        padding: '24px 20px',
+                        cursor: role === 'player' && !showAnswers && !playerAnswered ? 'pointer' : 'default',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        textAlign: 'left' as const,
+                        fontWeight: 700,
+                        fontSize: '18px',
+                        lineHeight: 1.4,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: `0 6px 20px ${theme.shadow}`,
+                        width: '100%',
+                        minHeight: '80px',
+                        opacity: 1,
+                        transform: 'scale(1)',
+                        filter: 'none',
+                        fontFamily: "'Plus Jakarta Sans', 'Outfit', sans-serif",
+                      };
+
+                      // Jogador selecionou esta alternativa
+                      if (role === 'player' && !showAnswers && isSelectedBySelf) {
+                        btnStyle = {
+                          ...btnStyle,
+                          border: '3px solid white',
+                          boxShadow: `0 0 25px white, 0 6px 20px ${theme.shadow}`,
+                          transform: 'scale(1.03)',
+                        };
                       }
 
+                      // Revelação da resposta
                       if (showAnswers) {
                         if (isCorrectAnswer) {
-                          cardStyle = `${theme.bg} text-white shadow-[0_0_25px_${theme.shadow}] border-white border-2 scale-[1.01]`;
+                          btnStyle = {
+                            ...btnStyle,
+                            border: '3px solid #48BB78',
+                            boxShadow: `0 0 30px ${theme.shadow}, 0 0 15px rgba(72, 187, 120, 0.5)`,
+                            transform: 'scale(1.02)',
+                          };
                         } else {
-                          cardStyle = `${theme.bg} text-white opacity-20 border-transparent saturate-50 pointer-events-none`;
+                          btnStyle = {
+                            ...btnStyle,
+                            opacity: 0.25,
+                            filter: 'saturate(0.4)',
+                            transform: 'scale(0.97)',
+                            cursor: 'default',
+                            pointerEvents: 'none',
+                          };
                         }
                       }
 
@@ -2471,18 +2515,36 @@ Garanta que:
                           key={index}
                           disabled={role !== 'player' || showAnswers || playerAnswered !== null}
                           onClick={() => handlePlayerAnswer(index)}
-                          className={`w-full p-5 rounded-2xl border-2 text-left font-bold text-base md:text-lg transition-all duration-300 flex justify-between items-center ${cardStyle}`}
+                          style={btnStyle}
+                          onMouseEnter={(e) => {
+                            if (role === 'player' && !showAnswers && !playerAnswered) {
+                              e.currentTarget.style.transform = 'scale(1.03)';
+                              e.currentTarget.style.boxShadow = `0 8px 28px ${theme.shadow}`;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (role === 'player' && !showAnswers && !isSelectedBySelf) {
+                              e.currentTarget.style.transform = 'scale(1)';
+                              e.currentTarget.style.boxShadow = `0 6px 20px ${theme.shadow}`;
+                            }
+                          }}
                         >
-                          <div className="flex items-center">
-                            <span className="text-xl md:text-2xl font-black mr-4 select-none filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]">{theme.icon}</span>
-                            <span>{alt.text}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <span style={{
+                              fontSize: '28px',
+                              fontWeight: 900,
+                              userSelect: 'none',
+                              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                              lineHeight: 1,
+                            }}>{theme.icon}</span>
+                            <span style={{ textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>{alt.text}</span>
                           </div>
                           
                           {showAnswers && isCorrectAnswer && (
-                            <CheckCircle className="w-6 h-6 text-white flex-shrink-0 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
+                            <CheckCircle style={{ width: 28, height: 28, color: 'white', flexShrink: 0, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           )}
                           {showAnswers && !isCorrectAnswer && isSelectedBySelf && (
-                            <XCircle className="w-6 h-6 text-white flex-shrink-0 filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]" />
+                            <XCircle style={{ width: 28, height: 28, color: 'white', flexShrink: 0, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           )}
                         </button>
                       );
@@ -2754,8 +2816,10 @@ Garanta que:
 
       </main>
 
-      {/* FOOTER */}
-      <footer className="text-center py-4 border-t border-[hsl(var(--border-color))] mt-6 text-xs text-[hsl(var(--text-muted))] flex flex-col sm:flex-row justify-between items-center gap-2">
+      {/* FOOTER — oculto durante game-play fullscreen */}
+      <footer className="text-center py-4 border-t border-[hsl(var(--border-color))] mt-6 text-xs text-[hsl(var(--text-muted))] flex flex-col sm:flex-row justify-between items-center gap-2"
+        style={isGamePlayFullscreen ? { display: 'none' } : undefined}
+      >
         <span>© 2026 Quizziando. Criado com design de alta fidelidade e tempo real.</span>
         <div className="flex gap-4">
           <span className="hover:text-[hsl(var(--text-primary))] transition cursor-pointer">Termos</span>
