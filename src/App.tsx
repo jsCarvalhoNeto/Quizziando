@@ -22,12 +22,18 @@ class SoundFX {
   private ctx: AudioContext | null = null;
   public enabled: boolean = true;
   private spinAudio: HTMLAudioElement | null = null;
+  public lobbyAudio: HTMLAudioElement | null = null;
 
   constructor() {
     // Inicializar áudio para pre-carregamento
     if (typeof window !== 'undefined') {
       this.spinAudio = new Audio('/spin.mp3');
       this.spinAudio.preload = 'auto';
+      
+      this.lobbyAudio = new Audio('/lobby.mp3');
+      this.lobbyAudio.preload = 'auto';
+      this.lobbyAudio.loop = true;
+      this.lobbyAudio.volume = 0.4;
     }
   }
 
@@ -138,6 +144,17 @@ class SoundFX {
     gain.connect(this.ctx.destination);
     
     noise.start();
+  }
+
+  playLobby() {
+    if (!this.enabled || !this.lobbyAudio) return;
+    this.lobbyAudio.play().catch(e => console.error("Error playing lobby.mp3:", e));
+  }
+
+  stopLobby() {
+    if (!this.lobbyAudio) return;
+    this.lobbyAudio.pause();
+    this.lobbyAudio.currentTime = 0;
   }
 
   playVictory() {
@@ -1200,6 +1217,7 @@ Garanta que:
       }
 
       setScreen('game-lobby');
+      sfx.playLobby();
     } else {
       // Jogador entra na fila
       if (joinRoomCode.trim()) {
@@ -1215,11 +1233,13 @@ Garanta que:
       };
       setActivePlayers([newPlayer]);
       setScreen('game-lobby');
+      sfx.playLobby();
     }
   };
 
   const handleStartMatch = async () => {
     sfx.playClick();
+    sfx.stopLobby();
     setCurrentRoundIndex(1);
     setUsedQuestionIds([]);
     setRoundState('idle');
@@ -2181,7 +2201,7 @@ Garanta que:
             {/* Controles */}
             <div className="flex justify-between items-center gap-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
               <button 
-                onClick={() => { setScreen(role === 'operator' ? 'operator-dashboard' : 'welcome'); sfx.playClick(); }}
+                onClick={() => { setScreen(role === 'operator' ? 'operator-dashboard' : 'welcome'); sfx.stopLobby(); sfx.playClick(); }}
                 className="btn-secondary-glow"
               >
                 Voltar
@@ -2835,6 +2855,7 @@ Garanta que:
                   setActivePlayers([]);
                   setSelectedCategory(null);
                   setCurrentQuestion(null);
+                  sfx.stopLobby();
                   sfx.playClick();
                 }}
                 className="btn-glow"
