@@ -2944,68 +2944,72 @@ Garanta que:
 
               {/* PLACAR PARCIAL / LEADERBOARD DA RODADA */}
               {roundState === 'ranking' && (
-                <div className="w-full max-w-3xl mx-auto mt-10 relative">
+                <div style={{ width: '100%', maxWidth: '800px', margin: '40px auto 0', position: 'relative' }}>
                   
                   {/* Floating Header as seen in the image */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
-                    <Crown className="w-12 h-12 text-amber-400 mb-[-10px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
-                    <div className="bg-gradient-to-b from-amber-400 to-amber-600 border-[4px] border-amber-800 rounded-full px-10 py-3 shadow-[0_6px_0_rgba(146,64,14,1)]">
-                      <h3 className="text-3xl font-black text-white uppercase tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] m-0 leading-none">
+                  <div style={{ position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <Crown style={{ width: '48px', height: '48px', color: '#fbbf24', marginBottom: '-10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+                    <div style={{ background: 'linear-gradient(to bottom, #fbbf24, #d97706)', border: '4px solid #92400e', borderRadius: '9999px', padding: '12px 40px', boxShadow: '0 6px 0 rgba(146,64,14,1)' }}>
+                      <h3 style={{ fontSize: '32px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)' }}>
                         Leaderboard
                       </h3>
                     </div>
                   </div>
 
                   {/* Main Board Container */}
-                  <div 
-                    className="pt-20 pb-8 px-6 flex flex-col gap-3 rounded-[32px] border-[6px] border-indigo-900/80 relative shadow-[0_12px_0_rgba(49,46,129,0.8),0_20px_40px_rgba(0,0,0,0.5)]"
-                    style={{ backgroundColor: '#2a1b54' }} /* A deep purple board color */
-                  >
+                  <div style={{ paddingTop: '70px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', gap: '16px', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54' }}>
                     
-                    <div className="flex flex-col gap-3 z-10">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 10 }}>
                       <AnimatePresence>
-                        {sortedPlayers.map((p, idx) => (
-                          <motion.div 
-                            key={p.id}
-                            layout
-                            initial={{ opacity: 0, x: -50 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                            className="flex justify-between items-center bg-[#3a2673] border-b-[4px] border-[#25164d] rounded-2xl px-4 py-3 shadow-md relative overflow-hidden"
-                          >
-                            <div className="flex items-center gap-4">
-                              {/* Rank Badge */}
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border-b-[4px] text-white shadow-inner
-                                ${idx === 0 ? 'bg-amber-500 border-amber-700' : 
-                                  idx === 1 ? 'bg-slate-400 border-slate-600' : 
-                                  idx === 2 ? 'bg-orange-600 border-orange-800' : 
-                                  'bg-pink-600 border-pink-800'}`
-                              }>
-                                {idx + 1}
+                        {sortedPlayers.map((p, idx) => {
+                          // Definir cores das medalhas
+                          let badgeBg = '#db2777'; let badgeBorder = '#9d174d';
+                          if (idx === 0) { badgeBg = '#f59e0b'; badgeBorder = '#b45309'; }
+                          else if (idx === 1) { badgeBg = '#94a3b8'; badgeBorder = '#475569'; }
+                          else if (idx === 2) { badgeBg = '#ea580c'; badgeBorder = '#9a3412'; }
+
+                          return (
+                            <motion.div 
+                              key={p.id}
+                              layout
+                              initial={{ opacity: 0, x: -50 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#3a2673', borderBottom: '4px solid #25164d', borderRadius: '16px', padding: '12px 20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                {/* Rank Badge */}
+                                <div style={{ width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px', color: 'white', backgroundColor: badgeBg, borderBottom: `4px solid ${badgeBorder}`, boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)' }}>
+                                  {idx + 1}
+                                </div>
+                                
+                                {/* Player Name */}
+                                <span style={{ fontWeight: 900, fontSize: '24px', letterSpacing: '0.05em', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                                  {p.nickname}
+                                </span>
                               </div>
                               
-                              {/* Player Name */}
-                              <span className="font-black text-2xl tracking-wide text-white uppercase drop-shadow-md">
-                                {p.nickname}
-                              </span>
-                            </div>
-                            
-                            {/* Score Pill */}
-                            <div className="bg-[#1f1340] border-[3px] border-[#4a348c] rounded-full px-6 py-2 shadow-inner">
-                              <span className="font-mono text-2xl font-black text-white drop-shadow-md">
-                                {p.score}
-                              </span>
-                            </div>
-                          </motion.div>
-                        ))}
+                              {/* Score Pill */}
+                              <div style={{ backgroundColor: '#1f1340', border: '3px solid #4a348c', borderRadius: '9999px', padding: '8px 24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)' }}>
+                                <span style={{ fontFamily: 'monospace', fontSize: '24px', fontWeight: 900, color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                                  {p.score}
+                                </span>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
                       </AnimatePresence>
                     </div>
 
                     {role === 'operator' && (
                       <button 
                         onClick={handleNextRound}
-                        className="mt-6 mx-auto bg-gradient-to-b from-emerald-400 to-emerald-600 border-[4px] border-emerald-800 text-white font-black text-xl uppercase tracking-widest px-8 py-4 rounded-2xl shadow-[0_6px_0_rgba(6,78,59,1)] hover:translate-y-[2px] hover:shadow-[0_4px_0_rgba(6,78,59,1)] transition-all active:translate-y-[6px] active:shadow-none"
+                        style={{ marginTop: '24px', marginLeft: 'auto', marginRight: 'auto', background: 'linear-gradient(to bottom, #34d399, #059669)', border: '4px solid #064e3b', color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 32px', borderRadius: '16px', boxShadow: '0 6px 0 rgba(6,78,59,1)', cursor: 'pointer', transition: 'all 0.1s ease' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                        onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(6px)'; e.currentTarget.style.boxShadow = 'none'; }}
+                        onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; e.currentTarget.style.filter = 'none'; }}
                       >
                         {currentRoundIndex < gameRounds ? 'Avançar Rodada' : 'Ver Vencedores'}
                       </button>
