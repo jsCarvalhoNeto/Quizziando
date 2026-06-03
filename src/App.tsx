@@ -2400,13 +2400,13 @@ Garanta que:
                     {/* Ponteiro Seta — lateral direita apontando para esquerda */}
                     <div style={{
                       position: 'absolute',
-                      right: '-36px',
+                      right: '-12px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       transformOrigin: 'right center',
                       zIndex: 30,
                       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-                      animation: isSpinning ? 'pointer-strike 0.1s linear infinite' : 'none'
+                      animation: isSpinning ? 'pointer-strike 0.1s linear infinite' : 'pointer-idle 2s ease-in-out infinite'
                     }}>
                       <svg width="40" height="40" viewBox="0 0 24 24" fill="#93c572" stroke="white" strokeWidth="2.5" strokeLinejoin="round">
                         <path d="M22 4L4 12L22 20V4Z"/>
@@ -2461,7 +2461,8 @@ Garanta que:
                             transform: `rotate(${angle}deg) translate(${innerTranslate}px, -50%)`,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
+                            justifyContent: 'flex-end',
+                            paddingRight: isLobbyExpanded ? '15px' : '30px',
                             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}>
                             <span style={{

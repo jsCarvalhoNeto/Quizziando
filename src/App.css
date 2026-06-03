@@ -4,3 +4,8 @@
   50% { transform: translateY(-50%) rotate(25deg); }
   100% { transform: translateY(-50%) rotate(0deg); }
 }
+
+@keyframes pointer-idle {
+  0%, 100% { transform: translateY(-50%) rotate(0deg); }
+  50% { transform: translateY(-50%) rotate(5deg); }
+}
