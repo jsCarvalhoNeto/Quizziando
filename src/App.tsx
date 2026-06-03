@@ -790,7 +790,14 @@ Garanta que:
           if (ans.is_correct) {
             setActivePlayers(prev => prev.map(p => {
               if (p.nickname === ans.player_nickname) {
-                return { ...p, score: p.score + (ans.points_earned || 100) };
+                const newScore = p.score + (ans.points_earned || 100);
+                // Atualizar o banco de dados para evitar que celulares fiquem dessincronizados ao dar refresh
+                supabase.from('room_players').update({ score: newScore })
+                  .eq('room_code', roomCode)
+                  .eq('nickname', p.nickname)
+                  .then();
+                
+                return { ...p, score: newScore };
               }
               return p;
             }));

@@ -211,15 +211,26 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       return;
     }
 
-    // Inserir jogador na sala
-    const { error: playerErr } = await supabase
+    // Inserir jogador na sala ou recuperar score se existir
+    const { data: existingPlayer } = await supabase
       .from('room_players')
-      .upsert({ room_code: roomCode.toUpperCase(), nickname: nickname.trim(), score: 0 }, { onConflict: 'room_code,nickname' });
+      .select('score')
+      .eq('room_code', roomCode.toUpperCase())
+      .eq('nickname', nickname.trim())
+      .maybeSingle();
 
-    if (playerErr) {
-      setJoinError('Erro ao entrar na sala. Tente novamente.');
-      setJoining(false);
-      return;
+    if (existingPlayer) {
+      setMyScore(existingPlayer.score || 0);
+    } else {
+      const { error: playerErr } = await supabase
+        .from('room_players')
+        .insert({ room_code: roomCode.toUpperCase(), nickname: nickname.trim(), score: 0 });
+
+      if (playerErr) {
+        setJoinError('Erro ao entrar na sala. Tente novamente.');
+        setJoining(false);
+        return;
+      }
     }
 
     nickRef.current = nickname.trim();
