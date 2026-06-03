@@ -717,8 +717,8 @@ Garanta que:
   // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
   const wheelSize = isLobbyExpanded ? 380 : 700;
   const radius = wheelSize / 2;
-  const innerTranslate = wheelSize * 0.12;
-  const textBoxWidth = radius - innerTranslate - 8;
+  const innerTranslate = wheelSize * 0.15;
+  const textBoxWidth = radius - innerTranslate - 16;
   const textBoxHeight = wheelSize * 0.075;
   const fontSize = isLobbyExpanded ? '12px' : '18px';
 
@@ -2442,7 +2442,7 @@ Garanta que:
                             height: '4px',
                             backgroundColor: 'white',
                             transformOrigin: '0% 50%',
-                            transform: `rotate(${angle}deg)`
+                            transform: `rotate(${angle - 90}deg)`
                           }} />
                         );
                       })}
