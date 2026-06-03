@@ -1393,16 +1393,16 @@ Garanta que:
       setCurrentQuestion(selectedQ);
       setUsedQuestionIds(prev => prev.includes(selectedQ!.id) ? prev : [...prev, selectedQ!.id]);
 
-      // Publicar categoria e pergunta no Supabase para os jogadores verem
-      await publishRoomState({
-        round_state: 'category-reveal',
-        current_round: currentRoundIndex,
-        selected_category: cat,
-        current_question: selectedQ,
-      });
-
-      // ⏳ Aguardar um momento exibindo a categoria antes de mostrar a pergunta
+      // ⏳ Aguardar 2 segundos exibindo a roleta parada antes de revelar a categoria
       setTimeout(async () => {
+        // Publicar categoria e pergunta no Supabase para os jogadores verem
+        await publishRoomState({
+          round_state: 'category-reveal',
+          current_round: currentRoundIndex,
+          selected_category: cat,
+          current_question: selectedQ,
+        });
+
         setRoundState('category-reveal');
         setTimeout(async () => {
           setRoundState('question-reveal');
@@ -1417,7 +1417,7 @@ Garanta que:
             await publishRoomState({ round_state: 'question' });
           }, 5000);
         }, 2200);
-      }, 0);
+      }, 2000);
 
     }, 4000);
   };
