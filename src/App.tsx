@@ -715,12 +715,12 @@ Garanta que:
   const isGamePlayFullscreen = screen === 'game-play';
 
   // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
-  const wheelSize = isLobbyExpanded ? 380 : 520;
+  const wheelSize = isLobbyExpanded ? 380 : 700;
   const radius = wheelSize / 2;
   const innerTranslate = wheelSize * 0.12;
   const textBoxWidth = radius - innerTranslate - 8;
   const textBoxHeight = wheelSize * 0.075;
-  const fontSize = isLobbyExpanded ? '12px' : '15px';
+  const fontSize = isLobbyExpanded ? '12px' : '18px';
 
 
   // Efeito para som global
