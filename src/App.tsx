@@ -2533,8 +2533,8 @@ Garanta que:
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: `${wheelSize * 0.22}px`,
-                        height: `${wheelSize * 0.22}px`,
+                        width: `${wheelSize * 0.15}px`,
+                        height: `${wheelSize * 0.15}px`,
                         borderRadius: '50%',
                         background: '#2563EB',
                         border: '6px solid white',
@@ -2557,11 +2557,11 @@ Garanta que:
                         e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
                       }}
                     >
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '2px' }}>
+                      <svg width={isLobbyExpanded ? "16" : "28"} height={isLobbyExpanded ? "16" : "28"} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '2px' }}>
                         <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
                         <path d="M13 13l6 6"/>
                       </svg>
-                      <span style={{ color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      <span style={{ color: 'white', fontWeight: 900, fontSize: isLobbyExpanded ? '12px' : '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                         Rodar
                       </span>
                     </button>
