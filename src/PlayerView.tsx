@@ -138,7 +138,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       setPlayerScreen('spinning');
     } else if (room.round_state === 'category-reveal') {
       const isNewCategory = !roomState || roomState.selected_category?.name !== room.selected_category?.name;
-      if (isNewCategory) {
+      if (isNewCategory || playerScreen !== 'category-reveal') {
         setChosenIndex(null);
         setWasCorrect(null);
         setAnsweredCount(0);
