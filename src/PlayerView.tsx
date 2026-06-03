@@ -31,6 +31,7 @@ interface RoomState {
     alternatives: { text: string; isCorrect: boolean }[];
   } | null;
   selected_category: { name: string; color: string } | null;
+  time_limit?: number;
 }
 
 type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'finished';
@@ -52,6 +53,9 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [connected, setConnected] = useState(false);
+
+  const earnedRef = useRef<number>(0);
+  const questionStartTimeRef = useRef<number>(0);
 
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -156,6 +160,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         setChosenIndex(null);
         setWasCorrect(null);
         setAnsweredCount(0);
+        questionStartTimeRef.current = Date.now();
         setPlayerScreen('question');
       }
     } else if (room.round_state === 'answered') {
@@ -167,7 +172,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         if (wasCorrect === null) {
           setWasCorrect(correct);
           if (correct) {
-            const pts = 100;
+            const pts = earnedRef.current;
             setPointsEarned(pts);
             setMyScore(prev => prev + pts);
           }
@@ -242,13 +247,24 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
 
     const isCorrect = roomState.current_question?.alternatives?.[answerIndex]?.isCorrect || false;
 
+    // Cálculo do bônus de velocidade
+    let totalPoints = 0;
+    if (isCorrect) {
+      const timeElapsed = Date.now() - questionStartTimeRef.current;
+      const timeLimitMs = (roomState?.time_limit || 15) * 1000;
+      const timeLeft = Math.max(0, timeLimitMs - timeElapsed);
+      const speedBonus = Math.floor((timeLeft / timeLimitMs) * 50);
+      totalPoints = 100 + speedBonus;
+    }
+    earnedRef.current = totalPoints;
+
     await supabase.from('player_answers').insert({
       room_code: roomCode,
       player_nickname: nickRef.current || nickname.trim(),
       round_index: roomState.current_round,
       answer_index: answerIndex,
       is_correct: isCorrect,
-      points_earned: isCorrect ? 100 : 0,
+      points_earned: totalPoints,
     });
   };
 
