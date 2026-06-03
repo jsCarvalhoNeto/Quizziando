@@ -2400,14 +2400,16 @@ Garanta que:
                     {/* Ponteiro Seta — lateral direita apontando para esquerda */}
                     <div style={{
                       position: 'absolute',
-                      right: '-28px',
+                      right: '-36px',
                       top: '50%',
                       transform: 'translateY(-50%)',
+                      transformOrigin: 'right center',
                       zIndex: 30,
-                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
+                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                      animation: isSpinning ? 'pointer-strike 0.1s linear infinite' : 'none'
                     }}>
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                        <path d="M22 4L4 12L22 20V4Z" fill="white" stroke="#444" strokeWidth="1.5" strokeLinejoin="round"/>
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#93c572" stroke="white" strokeWidth="2.5" strokeLinejoin="round">
+                        <path d="M22 4L4 12L22 20V4Z"/>
                       </svg>
                     </div>
 
@@ -2416,10 +2418,10 @@ Garanta que:
                       position: 'absolute',
                       top: 0,
                       left: 0,
-                      width: `${wheelSize}px`,
-                      height: `${wheelSize}px`,
+                      width: '100%',
+                      height: '100%',
                       borderRadius: '50%',
-                      border: '5px solid white',
+                      border: '6px solid white',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                       transform: `rotate(${rouletteAngle}deg)`,
                       transition: isSpinning ? 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -2428,6 +2430,23 @@ Garanta que:
                         : '#555',
                       overflow: 'hidden'
                     }}>
+                      {/* Margens (Linhas Brancas) */}
+                      {categories.filter(c => selectedCategoryIds.includes(c.id)).map((cat, i, arr) => {
+                        const angle = i * (360 / arr.length);
+                        return (
+                          <div key={`sep-${cat.id}`} style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            width: `${wheelSize / 2}px`,
+                            height: '4px',
+                            backgroundColor: 'white',
+                            transformOrigin: '0% 50%',
+                            transform: `rotate(${angle}deg)`
+                          }} />
+                        );
+                      })}
+
                       {/* Textos radiais dentro do disco */}
                       {categories.filter(c => selectedCategoryIds.includes(c.id)).map((cat, i, arr) => {
                         const angle = i * (360 / arr.length) + (180 / arr.length) - 90;
@@ -2459,34 +2478,65 @@ Garanta que:
                           </div>
                         );
                       })}
+
+                      {/* Pontos escuros nas extremidades */}
+                      {Array.from({length: 24}).map((_, i) => (
+                        <div key={`dot-${i}`} style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(0,0,0,0.5)',
+                          transformOrigin: `0% 50%`,
+                          transform: `rotate(${i * (360 / 24)}deg) translate(${wheelSize / 2 - 12}px, -50%)`
+                        }} />
+                      ))}
                     </div>
 
-                    {/* Pino Central Branco (Donut) */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      width: `${wheelSize * 0.18}px`,
-                      height: `${wheelSize * 0.18}px`,
-                      borderRadius: '50%',
-                      background: 'white',
-                      zIndex: 20,
-                      boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.3)',
-                      border: '3px solid rgba(0,0,0,0.05)',
-                      transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }} />
-                  </div>
-
-                  {role === 'operator' && roundState === 'idle' && (
+                    {/* Botão Central (Rodar) */}
                     <button 
-                      onClick={handleSpinRoulette}
-                      disabled={isSpinning}
-                      className="btn-glow animate-pulse-glow"
+                      onClick={role === 'operator' && roundState === 'idle' ? handleSpinRoulette : undefined}
+                      disabled={isSpinning || role !== 'operator' || roundState !== 'idle'}
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: `${wheelSize * 0.22}px`,
+                        height: `${wheelSize * 0.22}px`,
+                        borderRadius: '50%',
+                        background: '#2563EB',
+                        border: '6px solid white',
+                        zIndex: 20,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.3)',
+                        transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: (role === 'operator' && roundState === 'idle' && !isSpinning) ? 'pointer' : 'default',
+                        opacity: (role === 'operator' && roundState === 'idle') || isSpinning ? 1 : 0.8
+                      }}
+                      onMouseEnter={(e) => {
+                        if (role === 'operator' && roundState === 'idle' && !isSpinning) {
+                          e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.05)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      }}
                     >
-                      Girar Roleta!
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '2px' }}>
+                        <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/>
+                        <path d="M13 13l6 6"/>
+                      </svg>
+                      <span style={{ color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        Rodar
+                      </span>
                     </button>
-                  )}
+                  </div>
 
                   {roundState === 'spinning' && (
                     <div className="text-center font-bold text-[hsl(var(--secondary))] animate-pulse">

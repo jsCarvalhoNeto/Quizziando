@@ -1,1 +1,6 @@
 /* Estilos adicionais específicos do componente App, se necessário */
+@keyframes pointer-strike {
+  0% { transform: translateY(-50%) rotate(0deg); }
+  50% { transform: translateY(-50%) rotate(25deg); }
+  100% { transform: translateY(-50%) rotate(0deg); }
+}
