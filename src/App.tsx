@@ -2545,16 +2545,29 @@ Garanta que:
                 <div className="glass-card p-6 flex flex-col gap-6" style={{ flex: 1, minHeight: 0 }}>
                   {/* Categoria Sorteada */}
                   <div className="flex justify-between items-center">
-                    <span 
-                      className="px-5 py-2 rounded-full text-xs font-black text-white shadow-lg tracking-widest uppercase transition-all duration-300 animate-pulse-glow"
+                    <div 
+                      className="flex items-center gap-3 px-6 py-2.5 rounded-2xl border transition-all duration-500 hover:scale-105"
                       style={{ 
-                        backgroundColor: selectedCategory?.color,
-                        boxShadow: `0 0 20px ${selectedCategory?.color}60`,
-                        border: `1px solid rgba(255,255,255,0.2)`
+                        background: `linear-gradient(135deg, rgba(255,255,255,0.03) 0%, ${selectedCategory?.color}15 100%)`,
+                        borderColor: `${selectedCategory?.color}40`,
+                        boxShadow: `0 8px 32px 0 ${selectedCategory?.color}20, inset 0 1px 0 0 rgba(255,255,255,0.1)`,
+                        backdropFilter: 'blur(12px)'
                       }}
                     >
-                      {selectedCategory?.name}
-                    </span>
+                      {/* Indicador Neon / Pulsante */}
+                      <div className="relative flex items-center justify-center w-3 h-3">
+                        <div className="absolute w-full h-full rounded-full animate-ping opacity-60" style={{ backgroundColor: selectedCategory?.color }} />
+                        <div className="w-2 h-2 rounded-full z-10" style={{ backgroundColor: selectedCategory?.color, boxShadow: `0 0 12px ${selectedCategory?.color}, 0 0 4px #fff` }} />
+                      </div>
+                      
+                      {/* Texto Moderno */}
+                      <span 
+                        className="text-[11px] font-black tracking-[0.25em] uppercase text-white drop-shadow-md"
+                        style={{ textShadow: `0 0 15px ${selectedCategory?.color}` }}
+                      >
+                        {selectedCategory?.name}
+                      </span>
+                    </div>
 
                     {/* Cronômetro Circular Editável */}
                     {roundState !== 'question-reveal' && (
