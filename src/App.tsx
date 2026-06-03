@@ -2998,7 +2998,7 @@ Garanta que:
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{ 
-                                layout: { type: "spring", stiffness: 300, damping: 25 },
+                                layout: { type: "spring", stiffness: 40, damping: 11 }, // Reduzido drasticamente para movimento bem lento e perceptível
                                 opacity: { duration: 0.2 }
                               }}
                               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#3a2673', borderBottom: '4px solid #25164d', borderRadius: '16px', padding: '12px 20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', zIndex: sortedPlayers.length - idx }}
