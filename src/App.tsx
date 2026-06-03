@@ -2420,8 +2420,16 @@ Garanta que:
 
               {/* ROLETA DE CATEGORIAS */}
               {roundState === 'idle' || roundState === 'spinning' ? (
-                <div className="glass-card p-8 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden">
-                  <h3 className="text-lg font-bold mb-4 text-[hsl(var(--text-secondary))]">Roleta das Categorias</h3>
+                <div style={{ paddingTop: '60px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54', minHeight: '350px' }}>
+                  
+                  {/* Floating Header */}
+                  <div style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ background: 'linear-gradient(to bottom, #8b5cf6, #6d28d9)', border: '4px solid #4c1d95', borderRadius: '9999px', padding: '12px 32px', boxShadow: '0 6px 0 rgba(76,29,149,1)' }}>
+                      <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)' }}>
+                        Roleta das Categorias
+                      </h3>
+                    </div>
+                  </div>
                   
                   {/* ===== ROLETA PREMIUM ===== */}
                   <div style={{ position: 'relative', width: `${wheelSize}px`, height: `${wheelSize}px`, margin: '0 auto 24px auto', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
@@ -2534,13 +2542,13 @@ Garanta que:
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: `${wheelSize * 0.15}px`,
-                        height: `${wheelSize * 0.15}px`,
+                        width: `${wheelSize * 0.18}px`,
+                        height: `${wheelSize * 0.18}px`,
                         borderRadius: '50%',
-                        background: '#2563EB',
-                        border: '6px solid white',
+                        background: 'linear-gradient(to bottom, #3b82f6, #1d4ed8)',
+                        border: '4px solid #1e40af',
                         zIndex: 20,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.3)',
+                        boxShadow: '0 6px 0 #1e3a8a, inset 0 2px 4px rgba(255,255,255,0.3), 0 10px 20px rgba(0,0,0,0.5)',
                         transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s',
                         display: 'flex',
                         flexDirection: 'column',
@@ -2551,11 +2559,25 @@ Garanta que:
                       }}
                       onMouseEnter={(e) => {
                         if (role === 'operator' && roundState === 'idle' && !isSpinning) {
-                          e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.05)';
+                          e.currentTarget.style.filter = 'brightness(1.1)';
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (role === 'operator' && roundState === 'idle' && !isSpinning) {
+                          e.currentTarget.style.transform = 'translate(-50%, calc(-50% + 6px))';
+                          e.currentTarget.style.boxShadow = '0 0px 0 #1e3a8a, inset 0 2px 4px rgba(255,255,255,0.3), 0 4px 10px rgba(0,0,0,0.5)';
+                        }
+                      }}
+                      onMouseUp={(e) => {
+                        if (role === 'operator' && roundState === 'idle' && !isSpinning) {
+                          e.currentTarget.style.transform = 'translate(-50%, -50%)';
+                          e.currentTarget.style.boxShadow = '0 6px 0 #1e3a8a, inset 0 2px 4px rgba(255,255,255,0.3), 0 10px 20px rgba(0,0,0,0.5)';
                         }
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                        e.currentTarget.style.transform = 'translate(-50%, -50%)';
+                        e.currentTarget.style.boxShadow = '0 6px 0 #1e3a8a, inset 0 2px 4px rgba(255,255,255,0.3), 0 10px 20px rgba(0,0,0,0.5)';
+                        e.currentTarget.style.filter = 'none';
                       }}
                     >
                       <svg width={isLobbyExpanded ? "16" : "28"} height={isLobbyExpanded ? "16" : "28"} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '2px' }}>
