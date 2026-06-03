@@ -10,6 +10,7 @@ import {
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
+import './App.css';
 
 // Detectar se o jogador está acessando via link de sala
 const urlParams = new URLSearchParams(window.location.search);
@@ -2436,7 +2437,7 @@ Garanta que:
                         return (
                           <div key={`sep-${cat.id}`} style={{
                             position: 'absolute',
-                            top: '50%',
+                            top: `calc(50% - 2px)`,
                             left: '50%',
                             width: `${wheelSize / 2}px`,
                             height: '4px',
@@ -2453,12 +2454,12 @@ Garanta que:
                         return (
                           <div key={cat.id} style={{
                             position: 'absolute',
-                            top: '50%',
+                            top: `calc(50% - ${textBoxHeight / 2}px)`,
                             left: '50%',
                             width: `${textBoxWidth}px`,
                             height: `${textBoxHeight}px`,
                             transformOrigin: '0% 50%',
-                            transform: `rotate(${angle}deg) translate(${innerTranslate}px, -50%)`,
+                            transform: `rotate(${angle}deg) translateX(${innerTranslate}px)`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'flex-end',
