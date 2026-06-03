@@ -24,6 +24,7 @@ class SoundFX {
   public enabled: boolean = true;
   private spinAudio: HTMLAudioElement | null = null;
   public lobbyAudio: HTMLAudioElement | null = null;
+  public gameAudio: HTMLAudioElement | null = null;
 
   constructor() {
     // Inicializar áudio para pre-carregamento
@@ -35,6 +36,11 @@ class SoundFX {
       this.lobbyAudio.preload = 'auto';
       this.lobbyAudio.loop = true;
       this.lobbyAudio.volume = 0.4;
+      
+      this.gameAudio = new Audio('/game.mp3');
+      this.gameAudio.preload = 'auto';
+      this.gameAudio.loop = true;
+      this.gameAudio.volume = 0.5;
     }
   }
 
@@ -71,6 +77,25 @@ class SoundFX {
       audio.play().catch(e => console.warn('Erro ao tocar spin.mp3:', e));
     } catch (e) {
       console.warn('Erro ao instanciar Audio:', e);
+    }
+  }
+
+  playGameSound() {
+    if (!this.enabled || !this.gameAudio) return;
+    try {
+      this.gameAudio.currentTime = 0;
+      this.gameAudio.play().catch(e => console.warn('Erro ao tocar game.mp3:', e));
+    } catch (e) {
+      console.warn('Erro na música de jogo:', e);
+    }
+  }
+
+  stopGameSound() {
+    if (!this.gameAudio) return;
+    try {
+      this.gameAudio.pause();
+    } catch (e) {
+      console.warn('Erro ao parar música de jogo:', e);
     }
   }
 
@@ -1362,6 +1387,7 @@ Garanta que:
     
     setTimeout(async () => {
       setIsSpinning(false);
+      sfx.playGameSound();
       
       // Determinar a categoria selecionada com base no ângulo final e na seta à direita (3 horas / 90 graus)
       const selectedCats = categories.filter(c => selectedCategoryIds.includes(c.id));
@@ -1445,6 +1471,7 @@ Garanta que:
   };
 
   const revealAnswer = async () => {
+    sfx.stopGameSound();
     setTimerRunning(false);
     setRoundState('answered');
     await publishRoomState({ round_state: 'answered' });
