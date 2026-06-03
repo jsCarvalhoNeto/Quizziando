@@ -3059,134 +3059,120 @@ Garanta que:
             5. O PÓDIO DE CAMPEÕES (PODIUM)
             ========================================== */}
         {screen === 'podium' && (
-          <div className="max-w-3xl mx-auto w-full glass-card p-10 flex flex-col gap-8 text-center relative overflow-hidden">
+          <div style={{ width: '100%', maxWidth: '850px', margin: '60px auto 0', position: 'relative' }}>
             
-            {/* Cortinas de Suspense */}
-            <div 
-              className="absolute inset-y-0 left-0 w-1/2 bg-[#0B0E14] z-50 transition-transform duration-1000 ease-in-out border-r border-amber-500/20 shadow-[10px_0_30px_rgba(0,0,0,0.5)] flex items-center justify-end pr-4"
-              style={{ transform: podiumStep >= 1 ? 'translateX(-100%)' : 'translateX(0)' }}
-            >
-              <div className="text-amber-500/50 flex flex-col gap-6">
-                {[...Array(3)].map((_, i) => <Sparkles key={i} className="w-8 h-8 animate-pulse" />)}
-              </div>
-            </div>
-            <div 
-              className="absolute inset-y-0 right-0 w-1/2 bg-[#0B0E14] z-50 transition-transform duration-1000 ease-in-out border-l border-amber-500/20 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] flex items-center justify-start pl-4"
-              style={{ transform: podiumStep >= 1 ? 'translateX(100%)' : 'translateX(0)' }}
-            >
-              <div className="text-amber-500/50 flex flex-col gap-6">
-                {[...Array(3)].map((_, i) => <Sparkles key={i} className="w-8 h-8 animate-pulse" />)}
+            {/* Floating Header */}
+            <div style={{ position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)', zIndex: 60, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Crown style={{ width: '64px', height: '64px', color: '#fbbf24', marginBottom: '-15px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+              <div style={{ background: 'linear-gradient(to bottom, #fbbf24, #d97706)', border: '4px solid #92400e', borderRadius: '9999px', padding: '16px 48px', boxShadow: '0 6px 0 rgba(146,64,14,1)' }}>
+                <h2 style={{ fontSize: '36px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)' }}>
+                  Vencedores
+                </h2>
               </div>
             </div>
 
-            {/* Raios de luz e celebração */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-b from-[hsla(var(--primary),0.2)] to-transparent rounded-full filter blur-3xl pointer-events-none" />
-
-            <div className={`transition-opacity duration-700 ${podiumStep >= 1 ? 'opacity-100' : 'opacity-0'}`}>
-              <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
-                Fim do Desafio
-              </span>
-              <h2 className="text-4xl font-extrabold mt-1 bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent">
-                Grandes Campeões!
-              </h2>
-            </div>
-
-            {/* PÓDIO 3D REAL-TIME */}
-            <div 
-              className="flex flex-col md:flex-row justify-center items-end gap-6 md:gap-4 my-10 pt-16 min-h-[300px]"
-              style={{
-                opacity: podiumStep >= 1 ? 1 : 0,
-                transition: 'opacity 0.7s ease'
-              }}
-            >
+            {/* Main Board Container */}
+            <div style={{ borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54', overflow: 'hidden', paddingTop: '60px', paddingBottom: '30px' }}>
               
-              {/* 2º LUGAR */}
-              {secondPlace && (
-                <div 
-                  className="flex flex-col items-center flex-1 w-full md:w-auto"
-                  style={{
-                    opacity: podiumStep >= 3 ? 1 : 0,
-                    transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(40px)',
-                    transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <div className="w-14 h-14 rounded-full bg-slate-400/20 border-2 border-slate-300 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
-                    <Crown className="w-4 h-4 text-slate-300 absolute -top-3.5 rotate-[-12deg]" />
-                    2
-                  </div>
-                  <span className="font-bold text-sm max-w-[120px] truncate mb-2">{secondPlace.nickname}</span>
-                  <div className="w-32 bg-slate-700/40 border border-slate-500/20 rounded-t-xl py-6 flex flex-col items-center shadow-lg">
-                    <span className="text-2xl font-black text-slate-300">2º</span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">{secondPlace.score} pts</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 1º LUGAR */}
-              {firstPlace && (
-                <div 
-                  className="flex flex-col items-center flex-1 w-full md:w-auto relative z-10"
-                  style={{
-                    opacity: podiumStep >= 4 ? 1 : 0,
-                    transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(60px) scale(0.5)',
-                    transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <div className="w-18 h-18 rounded-full bg-yellow-500/20 border-4 border-yellow-400 flex items-center justify-center font-black text-white shadow-2xl mb-2 relative scale-110">
-                    <Crown className="w-6 h-6 text-yellow-400 absolute -top-5.5 animate-pulse" />
-                    1
-                  </div>
-                  <span className="font-bold text-base max-w-[140px] truncate mb-2">{firstPlace.nickname}</span>
-                  <div className="w-36 bg-gradient-to-t from-yellow-600/30 to-yellow-500/10 border border-yellow-400/30 rounded-t-2xl py-10 flex flex-col items-center shadow-2xl">
-                    <span className="text-4xl font-black text-yellow-400">1º</span>
-                    <span className="text-xs font-mono font-bold text-yellow-300">{firstPlace.score} pts</span>
-                  </div>
-                </div>
-              )}
-
-              {/* 3º LUGAR */}
-              {thirdPlace && (
-                <div 
-                  className="flex flex-col items-center flex-1 w-full md:w-auto"
-                  style={{
-                    opacity: podiumStep >= 2 ? 1 : 0,
-                    transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(40px)',
-                    transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                  }}
-                >
-                  <div className="w-12 h-12 rounded-full bg-amber-800/20 border-2 border-amber-600 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
-                    <Crown className="w-3.5 h-3.5 text-amber-600 absolute -top-3 rotate-[12deg]" />
-                    3
-                  </div>
-                  <span className="font-bold text-xs max-w-[100px] truncate mb-2">{thirdPlace.nickname}</span>
-                  <div className="w-28 bg-amber-900/30 border border-amber-700/20 rounded-t-xl py-4 flex flex-col items-center shadow-lg">
-                    <span className="text-xl font-black text-amber-600">3º</span>
-                    <span className="text-[10px] font-mono font-bold text-amber-500">{thirdPlace.score} pts</span>
-                  </div>
-                </div>
-              )}
-
-            </div>
-
-            {/* Ações */}
-            <div className="flex justify-center gap-4 pt-6 border-t border-[rgba(255,255,255,0.05)]">
-              <button 
-                onClick={() => {
-                  setScreen('welcome');
-                  setPodiumStep(0);
-                  setRoundState('idle');
-                  setActivePlayers([]);
-                  setSelectedCategory(null);
-                  setCurrentQuestion(null);
-                  sfx.stopLobby();
-                  sfx.playClick();
-                }}
-                className="btn-glow"
+              {/* Cortinas de Suspense */}
+              <div 
+                style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '50%', backgroundColor: '#0f172a', zIndex: 50, transition: 'transform 1s ease-in-out', borderRight: '2px solid rgba(245,158,11,0.2)', boxShadow: '10px 0 30px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyItems: 'flex-end', justifyContent: 'flex-end', paddingRight: '16px', transform: podiumStep >= 1 ? 'translateX(-100%)' : 'translateX(0)' }}
               >
-                <RotateCcw className="w-4 h-4" /> Jogar Novamente
-              </button>
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', color: 'rgba(245,158,11,0.5)' }}>
+                  {[...Array(3)].map((_, i) => <Sparkles key={i} style={{ width: '32px', height: '32px', animation: 'pulse-opac 1.5s infinite' }} />)}
+                </div>
+              </div>
+              <div 
+                style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: '50%', backgroundColor: '#0f172a', zIndex: 50, transition: 'transform 1s ease-in-out', borderLeft: '2px solid rgba(245,158,11,0.2)', boxShadow: '-10px 0 30px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyItems: 'flex-start', justifyContent: 'flex-start', paddingLeft: '16px', transform: podiumStep >= 1 ? 'translateX(100%)' : 'translateX(0)' }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', color: 'rgba(245,158,11,0.5)' }}>
+                  {[...Array(3)].map((_, i) => <Sparkles key={i} style={{ width: '32px', height: '32px', animation: 'pulse-opac 1.5s infinite' }} />)}
+                </div>
+              </div>
 
+              {/* Raios de luz e celebração */}
+              <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: '384px', height: '384px', background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%)', borderRadius: '50%', filter: 'blur(30px)', pointerEvents: 'none' }} />
+
+              <div style={{ opacity: podiumStep >= 1 ? 1 : 0, transition: 'opacity 0.7s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 24px' }}>
+                
+                {/* PÓDIO 3D REAL-TIME */}
+                <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: '16px', marginTop: '20px', minHeight: '350px', width: '100%', opacity: podiumStep >= 1 ? 1 : 0, transition: 'opacity 0.7s ease' }}>
+                  
+                  {/* 2º LUGAR */}
+                  {secondPlace && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, opacity: podiumStep >= 3 ? 1 : 0, transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(40px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#94a3b8', border: '4px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '28px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
+                          2
+                        </div>
+                        <span style={{ fontWeight: 900, fontSize: '20px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{secondPlace.nickname}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '140px', backgroundColor: '#334155', border: '4px solid #1e293b', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
+                        <span style={{ fontSize: '32px', fontWeight: 900, color: '#94a3b8', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>2º</span>
+                        <span style={{ fontSize: '16px', fontFamily: 'monospace', fontWeight: 900, color: '#cbd5e1' }}>{secondPlace.score} pts</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1º LUGAR */}
+                  {firstPlace && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 10, opacity: podiumStep >= 4 ? 1 : 0, transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(60px) scale(0.5)', transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '4px solid #b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '36px', color: 'white', boxShadow: '0 12px 24px rgba(245,158,11,0.4)', marginBottom: '16px', position: 'relative' }}>
+                          <Crown style={{ position: 'absolute', top: '-30px', color: '#fbbf24', width: '40px', height: '40px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                          1
+                        </div>
+                        <span style={{ fontWeight: 900, fontSize: '24px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{firstPlace.nickname}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '200px', background: 'linear-gradient(to bottom, #d97706, #b45309)', border: '4px solid #78350f', borderBottom: 'none', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 -8px 32px rgba(245,158,11,0.3)' }}>
+                        <span style={{ fontSize: '48px', fontWeight: 900, color: '#fde68a', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>1º</span>
+                        <span style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7' }}>{firstPlace.score} pts</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 3º LUGAR */}
+                  {thirdPlace && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, opacity: podiumStep >= 2 ? 1 : 0, transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(40px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#ea580c', border: '4px solid #9a3412', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
+                          3
+                        </div>
+                        <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{thirdPlace.nickname}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '110px', backgroundColor: '#7c2d12', border: '4px solid #431407', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
+                        <span style={{ fontSize: '28px', fontWeight: 900, color: '#fdba74', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>3º</span>
+                        <span style={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }}>{thirdPlace.score} pts</span>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Ações */}
+                <div style={{ width: '100%', display: 'flex', justifyItems: 'center', justifyContent: 'center', marginTop: '32px', paddingTop: '32px', borderTop: '4px solid rgba(255,255,255,0.05)' }}>
+                  <button 
+                    onClick={() => {
+                      setScreen('welcome');
+                      setPodiumStep(0);
+                      setRoundState('idle');
+                      setActivePlayers([]);
+                      setSelectedCategory(null);
+                      setCurrentQuestion(null);
+                      sfx.stopLobby();
+                      sfx.playClick();
+                    }}
+                    style={{ background: 'linear-gradient(to bottom, #ec4899, #be185d)', border: '4px solid #831843', color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 32px', borderRadius: '16px', boxShadow: '0 6px 0 rgba(131,24,67,1)', cursor: 'pointer', transition: 'all 0.1s ease', display: 'flex', alignItems: 'center', gap: '12px' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                    onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(6px)'; e.currentTarget.style.boxShadow = 'none'; }}
+                    onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(131,24,67,1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(131,24,67,1)'; e.currentTarget.style.filter = 'none'; }}
+                  >
+                    <RotateCcw style={{ width: '24px', height: '24px' }} /> Jogar Novamente
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
