@@ -375,6 +375,7 @@ export default function App() {
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
+  const [podiumStep, setPodiumStep] = useState(0); // 0: cortina, 1: abre, 2: 3º lugar, 3: 2º lugar, 4: 1º lugar
   const [role, setRole] = useState<'operator' | 'player'>('player');
   const [nickname, setNickname] = useState('');
   const [teamName, setTeamName] = useState('');
@@ -1482,9 +1483,16 @@ Garanta que:
     } else {
       // Fim do jogo! Chamar Pódio de Suspense
       setScreen('podium');
+      setPodiumStep(0);
       await publishRoomState({ status: 'finished', round_state: 'idle' });
       sfx.playDrumRoll();
+      
+      // Animação de suspense do pódio
+      setTimeout(() => setPodiumStep(1), 1000); // Abre as cortinas
+      setTimeout(() => setPodiumStep(2), 3000); // Mostra 3º
+      setTimeout(() => setPodiumStep(3), 5000); // Mostra 2º
       setTimeout(() => {
+        setPodiumStep(4); // Mostra 1º
         sfx.playVictory();
         // Efeito de confetes no pódio
         confetti({
@@ -1492,7 +1500,7 @@ Garanta que:
           spread: 80,
           origin: { y: 0.6 }
         });
-      }, 2500);
+      }, 7000);
     }
   };
 
@@ -2891,10 +2899,28 @@ Garanta que:
         {screen === 'podium' && (
           <div className="max-w-3xl mx-auto w-full glass-card p-10 flex flex-col gap-8 text-center relative overflow-hidden">
             
+            {/* Cortinas de Suspense */}
+            <div 
+              className="absolute inset-y-0 left-0 w-1/2 bg-[#0B0E14] z-50 transition-transform duration-1000 ease-in-out border-r border-amber-500/20 shadow-[10px_0_30px_rgba(0,0,0,0.5)] flex items-center justify-end pr-4"
+              style={{ transform: podiumStep >= 1 ? 'translateX(-100%)' : 'translateX(0)' }}
+            >
+              <div className="text-amber-500/50 flex flex-col gap-6">
+                {[...Array(3)].map((_, i) => <Sparkles key={i} className="w-8 h-8 animate-pulse" />)}
+              </div>
+            </div>
+            <div 
+              className="absolute inset-y-0 right-0 w-1/2 bg-[#0B0E14] z-50 transition-transform duration-1000 ease-in-out border-l border-amber-500/20 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] flex items-center justify-start pl-4"
+              style={{ transform: podiumStep >= 1 ? 'translateX(100%)' : 'translateX(0)' }}
+            >
+              <div className="text-amber-500/50 flex flex-col gap-6">
+                {[...Array(3)].map((_, i) => <Sparkles key={i} className="w-8 h-8 animate-pulse" />)}
+              </div>
+            </div>
+
             {/* Raios de luz e celebração */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-b from-[hsla(var(--primary),0.2)] to-transparent rounded-full filter blur-3xl pointer-events-none" />
 
-            <div>
+            <div className={`transition-opacity duration-700 ${podiumStep >= 1 ? 'opacity-100' : 'opacity-0'}`}>
               <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
                 Fim do Desafio
               </span>
@@ -2904,11 +2930,11 @@ Garanta que:
             </div>
 
             {/* PÓDIO 3D REAL-TIME */}
-            <div className="flex flex-col md:flex-row justify-center items-end gap-6 md:gap-4 my-10 pt-16 min-h-[300px]">
+            <div className={`flex flex-col md:flex-row justify-center items-end gap-6 md:gap-4 my-10 pt-16 min-h-[300px] transition-opacity duration-700 ${podiumStep >= 1 ? 'opacity-100' : 'opacity-0'}`}>
               
               {/* 2º LUGAR */}
               {secondPlace && (
-                <div className="flex flex-col items-center flex-1 w-full md:w-auto animate-bounce-gentle" style={{ animationDelay: '0.2s' }}>
+                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                   <div className="w-14 h-14 rounded-full bg-slate-400/20 border-2 border-slate-300 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
                     <Crown className="w-4 h-4 text-slate-300 absolute -top-3.5 rotate-[-12deg]" />
                     2
@@ -2923,7 +2949,7 @@ Garanta que:
 
               {/* 1º LUGAR */}
               {firstPlace && (
-                <div className="flex flex-col items-center flex-1 w-full md:w-auto animate-bounce-gentle">
+                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 4 ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-10'}`}>
                   <div className="w-18 h-18 rounded-full bg-yellow-500/20 border-4 border-yellow-400 flex items-center justify-center font-black text-white shadow-2xl mb-2 relative scale-110">
                     <Crown className="w-6 h-6 text-yellow-400 absolute -top-5.5 animate-pulse" />
                     1
@@ -2938,7 +2964,7 @@ Garanta que:
 
               {/* 3º LUGAR */}
               {thirdPlace && (
-                <div className="flex flex-col items-center flex-1 w-full md:w-auto animate-bounce-gentle" style={{ animationDelay: '0.4s' }}>
+                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                   <div className="w-12 h-12 rounded-full bg-amber-800/20 border-2 border-amber-600 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
                     <Crown className="w-3.5 h-3.5 text-amber-600 absolute -top-3 rotate-[12deg]" />
                     3
@@ -2958,6 +2984,7 @@ Garanta que:
               <button 
                 onClick={() => {
                   setScreen('welcome');
+                  setPodiumStep(0);
                   setRoundState('idle');
                   setActivePlayers([]);
                   setSelectedCategory(null);
