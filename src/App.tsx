@@ -10,6 +10,7 @@ import {
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
+import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
 // Detectar se o jogador está acessando via link de sala
@@ -2943,32 +2944,54 @@ Garanta que:
 
               {/* PLACAR PARCIAL / LEADERBOARD DA RODADA */}
               {roundState === 'ranking' && (
-                <div className="glass-card p-6 flex flex-col gap-4">
-                  <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-amber-400" />
+                <div className="glass-card p-10 flex flex-col gap-8 w-full max-w-4xl mx-auto shadow-2xl border border-[rgba(255,255,255,0.1)]">
+                  <h3 className="text-3xl font-black border-b border-[rgba(255,255,255,0.1)] pb-6 flex items-center gap-4 text-white uppercase tracking-wider justify-center" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.5)' }}>
+                    <Trophy className="w-10 h-10 text-amber-400 drop-shadow-md" />
                     Placar da Rodada {currentRoundIndex}
                   </h3>
 
-                  <div className="flex flex-col gap-3">
-                    {sortedPlayers.map((p, idx) => (
-                      <div key={p.id} className="flex justify-between items-center p-3.5 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 rounded-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center text-xs font-bold text-[hsl(var(--text-secondary))]">
-                            #{idx + 1}
+                  <div className="flex flex-col gap-4">
+                    <AnimatePresence>
+                      {sortedPlayers.map((p, idx) => (
+                        <motion.div 
+                          key={p.id}
+                          layout
+                          initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          className={`flex justify-between items-center p-6 bg-gradient-to-r border rounded-2xl shadow-lg
+                            ${idx === 0 ? 'from-amber-500/20 to-amber-900/40 border-amber-500/50' : 
+                              idx === 1 ? 'from-slate-300/20 to-slate-600/40 border-slate-400/50' : 
+                              idx === 2 ? 'from-amber-700/20 to-amber-900/50 border-amber-700/50' : 
+                              'from-[rgba(255,255,255,0.03)] to-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.1)]'}`
+                          }
+                        >
+                          <div className="flex items-center gap-6">
+                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-black text-xl shadow-inner
+                              ${idx === 0 ? 'bg-amber-400 text-amber-950 shadow-amber-300/50' : 
+                                idx === 1 ? 'bg-slate-300 text-slate-900 shadow-slate-200/50' : 
+                                idx === 2 ? 'bg-amber-600 text-amber-100 shadow-amber-500/50' : 
+                                'bg-[rgba(255,255,255,0.1)] text-white'}`
+                            }>
+                              #{idx + 1}
+                            </div>
+                            <span className="font-extrabold text-2xl tracking-wide" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                              {p.nickname}
+                            </span>
+                          </div>
+                          <span className="font-mono text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 drop-shadow-sm">
+                            {p.score} <span className="text-xl text-emerald-400/70">pts</span>
                           </span>
-                          <span className="font-bold text-sm">{p.nickname}</span>
-                        </div>
-                        <span className="font-mono text-sm font-extrabold text-[hsl(var(--secondary))]">
-                          {p.score} pts
-                        </span>
-                      </div>
-                    ))}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
 
                   {role === 'operator' && (
                     <button 
                       onClick={handleNextRound}
-                      className="btn-glow w-full justify-center mt-3 py-3"
+                      className="btn-glow w-full justify-center mt-6 py-5 text-xl font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-[1.02]"
                     >
                       {currentRoundIndex < gameRounds ? 'Avançar para Próxima Rodada' : 'Finalizar Partida e Ver Vencedores!'}
                     </button>
