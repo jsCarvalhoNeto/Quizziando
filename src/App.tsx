@@ -1487,10 +1487,26 @@ Garanta que:
       await publishRoomState({ status: 'finished', round_state: 'idle' });
       sfx.playDrumRoll();
       
-      // Animação de suspense do pódio
-      setTimeout(() => setPodiumStep(1), 1000); // Abre as cortinas
-      setTimeout(() => setPodiumStep(2), 3000); // Mostra 3º
-      setTimeout(() => setPodiumStep(3), 5000); // Mostra 2º
+      // Animação de suspense do pódio dinâmica conforme o número de jogadores
+      const pCount = activePlayers.length;
+      let delay = 1000;
+      setTimeout(() => setPodiumStep(1), delay); // Abre as cortinas
+      
+      if (pCount >= 3) {
+        delay += 2000;
+        setTimeout(() => setPodiumStep(2), delay); // Mostra 3º
+      } else {
+        setTimeout(() => setPodiumStep(2), delay + 100);
+      }
+      
+      if (pCount >= 2) {
+        delay += 2000;
+        setTimeout(() => setPodiumStep(3), delay); // Mostra 2º
+      } else {
+        setTimeout(() => setPodiumStep(3), delay + 100);
+      }
+      
+      delay += 2000;
       setTimeout(() => {
         setPodiumStep(4); // Mostra 1º
         sfx.playVictory();
@@ -1500,7 +1516,7 @@ Garanta que:
           spread: 80,
           origin: { y: 0.6 }
         });
-      }, 7000);
+      }, delay);
     }
   };
 
@@ -2943,11 +2959,24 @@ Garanta que:
             </div>
 
             {/* PÓDIO 3D REAL-TIME */}
-            <div className={`flex flex-col md:flex-row justify-center items-end gap-6 md:gap-4 my-10 pt-16 min-h-[300px] transition-opacity duration-700 ${podiumStep >= 1 ? 'opacity-100' : 'opacity-0'}`}>
+            <div 
+              className="flex flex-col md:flex-row justify-center items-end gap-6 md:gap-4 my-10 pt-16 min-h-[300px]"
+              style={{
+                opacity: podiumStep >= 1 ? 1 : 0,
+                transition: 'opacity 0.7s ease'
+              }}
+            >
               
               {/* 2º LUGAR */}
               {secondPlace && (
-                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                <div 
+                  className="flex flex-col items-center flex-1 w-full md:w-auto"
+                  style={{
+                    opacity: podiumStep >= 3 ? 1 : 0,
+                    transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(40px)',
+                    transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
                   <div className="w-14 h-14 rounded-full bg-slate-400/20 border-2 border-slate-300 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
                     <Crown className="w-4 h-4 text-slate-300 absolute -top-3.5 rotate-[-12deg]" />
                     2
@@ -2962,7 +2991,14 @@ Garanta que:
 
               {/* 1º LUGAR */}
               {firstPlace && (
-                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 4 ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-10'}`}>
+                <div 
+                  className="flex flex-col items-center flex-1 w-full md:w-auto relative z-10"
+                  style={{
+                    opacity: podiumStep >= 4 ? 1 : 0,
+                    transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(60px) scale(0.5)',
+                    transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
                   <div className="w-18 h-18 rounded-full bg-yellow-500/20 border-4 border-yellow-400 flex items-center justify-center font-black text-white shadow-2xl mb-2 relative scale-110">
                     <Crown className="w-6 h-6 text-yellow-400 absolute -top-5.5 animate-pulse" />
                     1
@@ -2977,7 +3013,14 @@ Garanta que:
 
               {/* 3º LUGAR */}
               {thirdPlace && (
-                <div className={`flex flex-col items-center flex-1 w-full md:w-auto transition-all duration-700 transform ${podiumStep >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                <div 
+                  className="flex flex-col items-center flex-1 w-full md:w-auto"
+                  style={{
+                    opacity: podiumStep >= 2 ? 1 : 0,
+                    transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(40px)',
+                    transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                  }}
+                >
                   <div className="w-12 h-12 rounded-full bg-amber-800/20 border-2 border-amber-600 flex items-center justify-center font-bold text-white shadow-lg mb-2 relative">
                     <Crown className="w-3.5 h-3.5 text-amber-600 absolute -top-3 rotate-[12deg]" />
                     3
