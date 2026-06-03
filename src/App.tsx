@@ -2944,58 +2944,73 @@ Garanta que:
 
               {/* PLACAR PARCIAL / LEADERBOARD DA RODADA */}
               {roundState === 'ranking' && (
-                <div className="glass-card p-10 flex flex-col gap-8 w-full max-w-4xl mx-auto shadow-2xl border border-[rgba(255,255,255,0.1)]">
-                  <h3 className="text-3xl font-black border-b border-[rgba(255,255,255,0.1)] pb-6 flex items-center gap-4 text-white uppercase tracking-wider justify-center" style={{ textShadow: '0 2px 15px rgba(0,0,0,0.5)' }}>
-                    <Trophy className="w-10 h-10 text-amber-400 drop-shadow-md" />
-                    Placar da Rodada {currentRoundIndex}
-                  </h3>
-
-                  <div className="flex flex-col gap-4">
-                    <AnimatePresence>
-                      {sortedPlayers.map((p, idx) => (
-                        <motion.div 
-                          key={p.id}
-                          layout
-                          initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                          className={`flex justify-between items-center p-6 bg-gradient-to-r border rounded-2xl shadow-lg
-                            ${idx === 0 ? 'from-amber-500/20 to-amber-900/40 border-amber-500/50' : 
-                              idx === 1 ? 'from-slate-300/20 to-slate-600/40 border-slate-400/50' : 
-                              idx === 2 ? 'from-amber-700/20 to-amber-900/50 border-amber-700/50' : 
-                              'from-[rgba(255,255,255,0.03)] to-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.1)]'}`
-                          }
-                        >
-                          <div className="flex items-center gap-6">
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center font-black text-xl shadow-inner
-                              ${idx === 0 ? 'bg-amber-400 text-amber-950 shadow-amber-300/50' : 
-                                idx === 1 ? 'bg-slate-300 text-slate-900 shadow-slate-200/50' : 
-                                idx === 2 ? 'bg-amber-600 text-amber-100 shadow-amber-500/50' : 
-                                'bg-[rgba(255,255,255,0.1)] text-white'}`
-                            }>
-                              #{idx + 1}
-                            </div>
-                            <span className="font-extrabold text-2xl tracking-wide" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                              {p.nickname}
-                            </span>
-                          </div>
-                          <span className="font-mono text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 drop-shadow-sm">
-                            {p.score} <span className="text-xl text-emerald-400/70">pts</span>
-                          </span>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                <div className="w-full max-w-3xl mx-auto mt-10 relative">
+                  
+                  {/* Floating Header as seen in the image */}
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
+                    <Crown className="w-12 h-12 text-amber-400 mb-[-10px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                    <div className="bg-gradient-to-b from-amber-400 to-amber-600 border-[4px] border-amber-800 rounded-full px-10 py-3 shadow-[0_6px_0_rgba(146,64,14,1)]">
+                      <h3 className="text-3xl font-black text-white uppercase tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] m-0 leading-none">
+                        Leaderboard
+                      </h3>
+                    </div>
                   </div>
 
-                  {role === 'operator' && (
-                    <button 
-                      onClick={handleNextRound}
-                      className="btn-glow w-full justify-center mt-6 py-5 text-xl font-bold uppercase tracking-widest shadow-xl transition-all hover:scale-[1.02]"
-                    >
-                      {currentRoundIndex < gameRounds ? 'Avançar para Próxima Rodada' : 'Finalizar Partida e Ver Vencedores!'}
-                    </button>
-                  )}
+                  {/* Main Board Container */}
+                  <div 
+                    className="pt-20 pb-8 px-6 flex flex-col gap-3 rounded-[32px] border-[6px] border-indigo-900/80 relative shadow-[0_12px_0_rgba(49,46,129,0.8),0_20px_40px_rgba(0,0,0,0.5)]"
+                    style={{ backgroundColor: '#2a1b54' }} /* A deep purple board color */
+                  >
+                    
+                    <div className="flex flex-col gap-3 z-10">
+                      <AnimatePresence>
+                        {sortedPlayers.map((p, idx) => (
+                          <motion.div 
+                            key={p.id}
+                            layout
+                            initial={{ opacity: 0, x: -50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            className="flex justify-between items-center bg-[#3a2673] border-b-[4px] border-[#25164d] rounded-2xl px-4 py-3 shadow-md relative overflow-hidden"
+                          >
+                            <div className="flex items-center gap-4">
+                              {/* Rank Badge */}
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-2xl border-b-[4px] text-white shadow-inner
+                                ${idx === 0 ? 'bg-amber-500 border-amber-700' : 
+                                  idx === 1 ? 'bg-slate-400 border-slate-600' : 
+                                  idx === 2 ? 'bg-orange-600 border-orange-800' : 
+                                  'bg-pink-600 border-pink-800'}`
+                              }>
+                                {idx + 1}
+                              </div>
+                              
+                              {/* Player Name */}
+                              <span className="font-black text-2xl tracking-wide text-white uppercase drop-shadow-md">
+                                {p.nickname}
+                              </span>
+                            </div>
+                            
+                            {/* Score Pill */}
+                            <div className="bg-[#1f1340] border-[3px] border-[#4a348c] rounded-full px-6 py-2 shadow-inner">
+                              <span className="font-mono text-2xl font-black text-white drop-shadow-md">
+                                {p.score}
+                              </span>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+
+                    {role === 'operator' && (
+                      <button 
+                        onClick={handleNextRound}
+                        className="mt-6 mx-auto bg-gradient-to-b from-emerald-400 to-emerald-600 border-[4px] border-emerald-800 text-white font-black text-xl uppercase tracking-widest px-8 py-4 rounded-2xl shadow-[0_6px_0_rgba(6,78,59,1)] hover:translate-y-[2px] hover:shadow-[0_4px_0_rgba(6,78,59,1)] transition-all active:translate-y-[6px] active:shadow-none"
+                      >
+                        {currentRoundIndex < gameRounds ? 'Avançar Rodada' : 'Ver Vencedores'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
