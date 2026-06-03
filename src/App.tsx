@@ -1830,7 +1830,7 @@ Garanta que:
           <div className="max-w-md mx-auto w-full glass-card p-8 flex flex-col gap-6">
             <div className="text-center">
               <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
-                Bem-vindo ao Arena
+                Bem-vindo ao Quizziando!
               </span>
               <h2 className="text-3xl font-extrabold mt-1">Escolha seu Papel</h2>
               <p className="text-sm text-[hsl(var(--text-secondary))] mt-2">
