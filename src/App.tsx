@@ -1022,12 +1022,20 @@ Garanta que:
 
     if (useRealSupabase) {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = authUser?.id || sessionData.session?.user?.id;
+
+        if (!userId) {
+          alert('Erro: Usuário não autenticado no Supabase.');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('category_folders')
           .insert({
             name: newFolder.name,
             color: newFolder.color,
-            created_by: authUser?.id
+            created_by: userId
           })
           .select()
           .single();
@@ -1088,6 +1096,14 @@ Garanta que:
 
     if (useRealSupabase) {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = authUser?.id || sessionData.session?.user?.id;
+
+        if (!userId) {
+          alert('Erro: Usuário não autenticado no Supabase.');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('categories')
           .insert({
@@ -1095,7 +1111,7 @@ Garanta que:
             color: newCat.color,
             icon: newCat.icon,
             folder_id: activeFolderId,
-            created_by: authUser?.id
+            created_by: userId
           })
           .select()
           .single();
