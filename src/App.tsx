@@ -211,11 +211,19 @@ const sfx = new SoundFX();
 // ==========================================
 // 📊 TIPAGENS E INTERFACES DO PROJETO
 // ==========================================
+interface CategoryFolder {
+  id: string;
+  name: string;
+  color: string;
+  created_by: string;
+}
+
 interface Category {
   id: string;
   name: string;
   color: string;
   icon: string;
+  folder_id?: string | null;
 }
 
 interface Question {
@@ -331,6 +339,10 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [gameTheme, setGameTheme] = useState(() => localStorage.getItem('gameTheme') || 'default');
 
+  // Estados de Pastas
+  const [folders, setFolders] = useState<CategoryFolder[]>([]);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -353,6 +365,16 @@ export default function App() {
     const fetchData = async () => {
       if (useRealSupabase) {
         try {
+          // 0. Carregar Pastas
+          const { data: folderData } = await supabase
+            .from('category_folders')
+            .select('*');
+          if (folderData && folderData.length > 0) {
+            setFolders(folderData);
+          } else {
+            setFolders([]);
+          }
+
           // 1. Carregar Categorias
           const { data: catData } = await supabase
             .from('categories')
@@ -362,7 +384,8 @@ export default function App() {
               id: c.id,
               name: c.name,
               color: c.color,
-              icon: c.icon
+              icon: c.icon,
+              folder_id: c.folder_id
             }));
             setCategories(mappedCats);
             setSelectedCategoryIds(mappedCats.slice(0, 14).map(c => c.id));
@@ -983,6 +1006,70 @@ Garanta que:
   // ⚙️ FUNÇÕES DE NEGÓCIO & EVENTOS
   // ==========================================
   
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('#7C3AED');
+
+  const handleAddFolder = async () => {
+    if (!newFolderName.trim()) return;
+
+    let newFolder: CategoryFolder = {
+      id: Math.random().toString(),
+      name: newFolderName.trim(),
+      color: newFolderColor,
+      created_by: ''
+    };
+
+    if (useRealSupabase) {
+      try {
+        const { data, error } = await supabase
+          .from('category_folders')
+          .insert({
+            name: newFolder.name,
+            color: newFolder.color
+          })
+          .select()
+          .single();
+
+        if (error) {
+          alert('Erro ao salvar pasta no banco: ' + error.message);
+          return;
+        }
+        if (data) {
+          newFolder = data;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao salvar pasta: ' + err.message);
+        return;
+      }
+    }
+
+    setFolders([...folders, newFolder]);
+    setNewFolderName('');
+    sfx.playCorrect();
+  };
+
+  const handleMoveCategory = async (catId: string, folderId: string | null) => {
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .update({ folder_id: folderId })
+          .eq('id', catId);
+        
+        if (error) {
+          alert('Erro ao mover categoria: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão ao mover: ' + err.message);
+        return;
+      }
+    }
+    
+    setCategories(prev => prev.map(c => c.id === catId ? { ...c, folder_id: folderId } : c));
+  };
+  
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
     if (categories.length >= 20) {
@@ -994,7 +1081,8 @@ Garanta que:
       id: Math.random().toString(),
       name: newCatName.trim(),
       color: newCatColor,
-      icon: 'HelpCircle'
+      icon: 'HelpCircle',
+      folder_id: activeFolderId
     };
 
     if (useRealSupabase) {
@@ -1004,7 +1092,8 @@ Garanta que:
           .insert({
             name: newCat.name,
             color: newCat.color,
-            icon: newCat.icon
+            icon: newCat.icon,
+            folder_id: activeFolderId
           })
           .select()
           .single();
@@ -1018,7 +1107,8 @@ Garanta que:
             id: data.id.toString(),
             name: data.name,
             color: data.color,
-            icon: data.icon
+            icon: data.icon,
+            folder_id: data.folder_id
           };
         }
       } catch (err: any) {
@@ -2105,134 +2195,193 @@ Garanta que:
 
             {/* Centro: Categorias (Limite 20) */}
             <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.05)] pb-3">
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="checkbox"
-                    checked={categories.length > 0 && selectedCategoryIds.length === categories.length}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedCategoryIds(categories.map(c => c.id));
-                      } else {
-                        setSelectedCategoryIds([]);
-                      }
-                    }}
-                    className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 mt-0.5"
-                    title="Selecionar todas"
-                  />
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <List className="w-5 h-5 text-[hsl(var(--secondary))]" />
-                    Categorias Selecionadas ({selectedCategoryIds.length}/{categories.length})
-                  </h3>
-                </div>
-              </div>
-
-              {/* Lista */}
-              <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
-                {categories.map(cat => {
-                  const isEditing = editingCatId === cat.id;
-                  return (
-                    <div key={cat.id} className="flex justify-between items-center p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl gap-3">
-                      {isEditing ? (
-                        <>
-                          <div className="flex items-center gap-2 flex-grow">
-                            <input 
-                              type="color" 
-                              value={editingCatColor} 
-                              onChange={e => setEditingCatColor(e.target.value)}
-                              className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0"
-                              title="Mudar cor"
-                            />
-                            <input 
-                              type="text" 
-                              value={editingCatName} 
-                              onChange={e => setEditingCatName(e.target.value)}
-                              className="input-glow py-1 px-2 text-xs flex-grow font-semibold"
-                              placeholder="Nome da categoria..."
-                            />
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button 
-                              onClick={() => handleSaveCategoryEdit(cat.id)}
-                              className="p-1 text-emerald-400 hover:text-emerald-300 transition"
-                              title="Salvar"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => setEditingCatId(null)}
-                              className="p-1 text-red-400 hover:text-red-300 transition"
-                              title="Cancelar"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-3 cursor-pointer flex-grow animate-fade-in">
-                            <input 
-                              type="checkbox"
-                              checked={selectedCategoryIds.includes(cat.id)}
-                              onChange={() => handleToggleCategorySelect(cat.id)}
-                              className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0"
-                            />
-                            <span className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-transform hover:scale-110" style={{ backgroundColor: cat.color }} onClick={() => startEditCategory(cat)} />
-                            <span className="font-semibold text-sm text-[hsl(var(--text-primary))] hover:text-[hsl(var(--primary))] transition-colors truncate" onClick={() => startEditCategory(cat)}>{cat.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button 
-                              onClick={() => startEditCategory(cat)}
-                              className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition"
-                              title="Editar"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
-                              title="Excluir"
-                            >
-                              <Trash className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </>
-                      )}
+              {activeFolderId === null ? (
+                <>
+                  <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.05)] pb-3">
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="checkbox"
+                        checked={categories.length > 0 && selectedCategoryIds.length === categories.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCategoryIds(categories.map(c => c.id));
+                          } else {
+                            setSelectedCategoryIds([]);
+                          }
+                        }}
+                        className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 mt-0.5"
+                        title="Selecionar todas"
+                      />
+                      <h3 className="text-lg font-bold flex items-center gap-2">
+                        <List className="w-5 h-5 text-[hsl(var(--secondary))]" />
+                        Categorias ({selectedCategoryIds.length}/{categories.length})
+                      </h3>
                     </div>
-                  );
-                })}
-              </div>
-
-              {/* Criar nova */}
-              <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                <input 
-                  type="text" 
-                  placeholder="Nova categoria..." 
-                  value={newCatName} 
-                  onChange={e => setNewCatName(e.target.value)}
-                  className="input-glow py-2 text-sm"
-                />
-                <div className="flex justify-between items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
-                    <input 
-                      type="color" 
-                      value={newCatColor} 
-                      onChange={e => setNewCatColor(e.target.value)}
-                      className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent"
-                    />
                   </div>
-                  <button 
-                    onClick={handleAddCategory}
-                    className="btn-glow py-2 px-4 text-xs"
-                  >
-                    <Plus className="w-4 h-4" /> Add
-                  </button>
-                </div>
-              </div>
+
+                  {/* Lista de Pastas e Categorias Raiz */}
+                  <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
+                    {folders.map(folder => (
+                      <div key={folder.id} onClick={() => setActiveFolderId(folder.id)} className="flex items-center justify-between p-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl cursor-pointer hover:bg-[rgba(255,255,255,0.08)] transition group">
+                        <div className="flex items-center gap-3">
+                          <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
+                          <span className="font-semibold text-sm">📁 {folder.name}</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white transition" />
+                      </div>
+                    ))}
+
+                    {categories.filter(c => !c.folder_id).map(cat => {
+                      const isEditing = editingCatId === cat.id;
+                      return (
+                        <div key={cat.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
+                          <div className="flex justify-between items-center gap-3">
+                            {isEditing ? (
+                              <>
+                                <div className="flex items-center gap-2 flex-grow">
+                                  <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
+                                  <input type="text" value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
+                                  <button onClick={() => setEditingCatId(null)} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-3 flex-grow">
+                                  <input type="checkbox" checked={selectedCategoryIds.includes(cat.id)} onChange={() => handleToggleCategorySelect(cat.id)} className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0" />
+                                  <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                                  <span className="font-semibold text-sm truncate">{cat.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <select 
+                                    className="bg-[rgba(255,255,255,0.1)] text-xs text-white rounded p-1 border-0 cursor-pointer max-w-[80px]"
+                                    onChange={(e) => handleMoveCategory(cat.id, e.target.value || null)}
+                                    value={cat.folder_id || ""}
+                                  >
+                                    <option value="" className="text-black">Raiz</option>
+                                    {folders.map(f => (
+                                      <option key={f.id} value={f.id} className="text-black">{f.name}</option>
+                                    ))}
+                                  </select>
+                                  <button onClick={() => startEditCategory(cat)} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Criar nova Pasta ou Categoria */}
+                  <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
+                    <div className="flex gap-2">
+                      <button onClick={() => setIsCreatingFolder(false)} className={`flex-1 text-xs py-1.5 rounded-lg font-bold transition ${!isCreatingFolder ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[rgba(255,255,255,0.05)] text-gray-400'}`}>+ Categoria</button>
+                      <button onClick={() => setIsCreatingFolder(true)} className={`flex-1 text-xs py-1.5 rounded-lg font-bold transition ${isCreatingFolder ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[rgba(255,255,255,0.05)] text-gray-400'}`}>+ Pasta</button>
+                    </div>
+
+                    {!isCreatingFolder ? (
+                      <>
+                        <input type="text" placeholder="Nova categoria..." value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                        <div className="flex justify-between items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
+                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
+                          </div>
+                          <button onClick={handleAddCategory} className="btn-glow py-2 px-4 text-xs"><Plus className="w-4 h-4" /> Add</button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <input type="text" placeholder="Nome da pasta..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="input-glow py-2 text-sm border-purple-500" />
+                        <div className="flex justify-between items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
+                            <input type="color" value={newFolderColor} onChange={e => setNewFolderColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
+                          </div>
+                          <button onClick={handleAddFolder} className="btn-glow py-2 px-4 text-xs bg-purple-600"><Plus className="w-4 h-4" /> Criar</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.05)] pb-3">
+                    <button onClick={() => setActiveFolderId(null)} className="p-1 rounded-lg bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition text-white" title="Voltar">
+                      <ChevronRight className="w-5 h-5 rotate-180" />
+                    </button>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: folders.find(f => f.id === activeFolderId)?.color }} />
+                      {folders.find(f => f.id === activeFolderId)?.name}
+                    </h3>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
+                    {categories.filter(c => c.folder_id === activeFolderId).map(cat => {
+                      const isEditing = editingCatId === cat.id;
+                      return (
+                        <div key={cat.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
+                          <div className="flex justify-between items-center gap-3">
+                            {isEditing ? (
+                              <>
+                                <div className="flex items-center gap-2 flex-grow">
+                                  <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
+                                  <input type="text" value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
+                                  <button onClick={() => setEditingCatId(null)} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-3 flex-grow">
+                                  <input type="checkbox" checked={selectedCategoryIds.includes(cat.id)} onChange={() => handleToggleCategorySelect(cat.id)} className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0" />
+                                  <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                                  <span className="font-semibold text-sm truncate">{cat.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <select 
+                                    className="bg-[rgba(255,255,255,0.1)] text-xs text-white rounded p-1 border-0 cursor-pointer max-w-[80px]"
+                                    onChange={(e) => handleMoveCategory(cat.id, e.target.value || null)}
+                                    value={cat.folder_id || ""}
+                                  >
+                                    <option value="" className="text-black">Raiz</option>
+                                    {folders.map(f => (
+                                      <option key={f.id} value={f.id} className="text-black">{f.name}</option>
+                                    ))}
+                                  </select>
+                                  <button onClick={() => startEditCategory(cat)} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {categories.filter(c => c.folder_id === activeFolderId).length === 0 && (
+                      <p className="text-center text-sm text-[hsl(var(--text-muted))] py-4">Nenhuma categoria nesta pasta.</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
+                    <input type="text" placeholder="Nova categoria nesta pasta..." value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                    <div className="flex justify-between items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
+                        <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
+                      </div>
+                      <button onClick={handleAddCategory} className="btn-glow py-2 px-4 text-xs"><Plus className="w-4 h-4" /> Add</button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-
-
 
           </div>
         )}

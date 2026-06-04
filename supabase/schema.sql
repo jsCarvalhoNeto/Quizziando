@@ -21,10 +21,33 @@ create policy "Permitir inserção pelo próprio usuário"
 create policy "Permitir atualização pelo próprio usuário" 
   on public.profiles for update using (auth.uid() = id);
 
--- 2. TABELA CATEGORIES
+-- 2. TABELA CATEGORY_FOLDERS
+create table public.category_folders (
+  id uuid default gen_random_uuid() primary key,
+  name text not null,
+  color text not null default '#7C3AED',
+  created_by uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.category_folders enable row level security;
+
+create policy "Permitir leitura pública de pastas de categorias" 
+  on public.category_folders for select using (true);
+
+create policy "Permitir que operadores gerenciem suas pastas" 
+  on public.category_folders for all using (
+    exists (
+      select 1 from public.profiles 
+      where profiles.id = auth.uid() and profiles.role = 'operator'
+    )
+  );
+
+-- 3. TABELA CATEGORIES
 create table public.categories (
   id uuid default gen_random_uuid() primary key,
   name text not null,
+  folder_id uuid references public.category_folders(id) on delete set null,
   color text not null default '#7C3AED', -- Cor padrão (Violeta)
   icon text not null default 'HelpCircle', -- Ícone padrão Lucide
   created_by uuid references public.profiles(id) on delete cascade not null,
