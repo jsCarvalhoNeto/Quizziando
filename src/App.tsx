@@ -320,15 +320,6 @@ export default function App() {
   const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // Sincronizar estado de som com a classe de efeitos sonoros
-  useEffect(() => {
-    sfx.enabled = soundEnabled;
-    if (!soundEnabled) {
-      sfx.stopLobby();
-      sfx.stopGameSound();
-    }
-  }, [soundEnabled]);
-
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -419,6 +410,21 @@ export default function App() {
   const [nickname, setNickname] = useState('');
   const [teamName, setTeamName] = useState('');
   const [joinRoomCode, setJoinRoomCode] = useState('');
+
+  // Sincronizar estado de som com a classe de efeitos sonoros
+  useEffect(() => {
+    sfx.enabled = soundEnabled;
+    if (!soundEnabled) {
+      sfx.stopLobby();
+      sfx.stopGameSound();
+    } else {
+      if (screen === 'game-lobby') {
+        sfx.playLobby();
+      } else if (screen === 'game-play') {
+        sfx.playGameSound();
+      }
+    }
+  }, [soundEnabled, screen]);
 
   // ==========================================
   // 🔐 ESTADOS DE AUTENTICAÇÃO DO GERENCIADOR
@@ -1750,9 +1756,9 @@ Garanta que:
                               <div className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/20 text-red-400'}`}>
                                 {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
                               </div>
-                              <div>
-                                <span className="block text-xs font-bold text-white mb-0.5">Sons da Arena</span>
-                                <span className="block text-[10px] text-slate-400">{soundEnabled ? 'O som está ativado' : 'O som está desativado'}</span>
+                              <div className="flex flex-col text-left">
+                                <span className="block text-sm font-bold text-white leading-tight">Sons da Arena</span>
+                                <span className="block text-[10.5px] text-slate-400 leading-tight mt-0.5">{soundEnabled ? 'O som está ativado' : 'O som está desativado'}</span>
                               </div>
                             </div>
                             <button
@@ -1788,9 +1794,9 @@ Garanta que:
                                 <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 group-hover:scale-110 transition-transform duration-300">
                                   <BookOpen className="w-5 h-5" />
                                 </div>
-                                <div className="text-left">
-                                  <span className="block text-sm font-bold text-white mb-0.5 group-hover:text-indigo-300 transition-colors">Gerenciar Banco de Questões</span>
-                                  <span className="block text-[10px] text-indigo-300/70 font-medium">Adicione, edite ou remova perguntas</span>
+                                <div className="flex flex-col text-left">
+                                  <span className="block text-sm font-bold text-white leading-tight group-hover:text-indigo-300 transition-colors">Gerenciar Banco de Questões</span>
+                                  <span className="block text-[10.5px] text-indigo-300/70 font-medium leading-tight mt-0.5">Adicione, edite ou remova perguntas</span>
                                 </div>
                               </div>
                               <div className="relative z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
