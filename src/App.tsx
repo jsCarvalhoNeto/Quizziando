@@ -2504,9 +2504,9 @@ Garanta que:
                         );
                       })}
 
-                      {/* Pontos escuros nas extremidades */}
-                      {Array.from({length: 24}).map((_, i) => (
-                        <div key={`dot-${i}`} style={{
+                      {/* Pontos luminosos nas extremidades */}
+                      {Array.from({length: 48}).map((_, i) => (
+                        <div key={`dot-${i}`} className="led-dot" style={{
                           position: 'absolute',
                           top: '50%',
                           left: '50%',
@@ -2515,7 +2515,8 @@ Garanta que:
                           borderRadius: '50%',
                           backgroundColor: 'rgba(0,0,0,0.5)',
                           transformOrigin: `0% 50%`,
-                          transform: `rotate(${i * (360 / 24)}deg) translate(${wheelSize / 2 - 12}px, -50%)`
+                          transform: `rotate(${i * (360 / 48)}deg) translate(${wheelSize / 2 - 12}px, -50%)`,
+                          animationDelay: `${(i % 2) * 0.5}s`
                         }} />
                       ))}
                     </div>
