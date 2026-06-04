@@ -481,6 +481,11 @@ export default function App() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editingCatName, setEditingCatName] = useState('');
   const [editingCatColor, setEditingCatColor] = useState('');
+
+  // Estados para Edição de Pastas
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editingFolderName, setEditingFolderName] = useState('');
+  const [editingFolderColor, setEditingFolderColor] = useState('');
   
   // Estados para Modal de Configurações
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -1138,6 +1143,64 @@ Garanta que:
     setCategories([...categories, newCat]);
     setNewCatName('');
     sfx.playCorrect();
+  };
+
+  const startEditFolder = (folder: CategoryFolder) => {
+    setEditingFolderId(folder.id);
+    setEditingFolderName(folder.name);
+    setEditingFolderColor(folder.color);
+    sfx.playClick();
+  };
+
+  const handleSaveFolderEdit = async (id: string) => {
+    if (!editingFolderName.trim()) {
+      alert('O nome da pasta não pode ser vazio!');
+      return;
+    }
+
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('category_folders')
+          .update({ name: editingFolderName.trim(), color: editingFolderColor })
+          .eq('id', id);
+        
+        if (error) {
+          alert('Erro ao atualizar pasta: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão: ' + err.message);
+        return;
+      }
+    }
+
+    setFolders(prev => prev.map(f => f.id === id ? { ...f, name: editingFolderName.trim(), color: editingFolderColor } : f));
+    setEditingFolderId(null);
+    sfx.playClick();
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('category_folders')
+          .delete()
+          .eq('id', id);
+        if (error) {
+          alert('Erro ao excluir pasta: ' + error.message);
+          return;
+        }
+      } catch (err: any) {
+        alert('Erro de conexão: ' + err.message);
+        return;
+      }
+    }
+    
+    // Categorias perdem o folder_id por causa de "on delete set null" no DB
+    setCategories(prev => prev.map(c => c.folder_id === id ? { ...c, folder_id: null } : c));
+    setFolders(prev => prev.filter(f => f.id !== id));
+    sfx.playClick();
   };
 
   const handleDeleteCategory = async (id: string) => {
@@ -2239,15 +2302,39 @@ Garanta que:
 
                   {/* Lista de Pastas e Categorias Raiz */}
                   <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
-                    {folders.map(folder => (
-                      <div key={folder.id} onClick={() => setActiveFolderId(folder.id)} className="flex items-center justify-between p-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl cursor-pointer hover:bg-[rgba(255,255,255,0.08)] transition group">
-                        <div className="flex items-center gap-3">
-                          <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
-                          <span className="font-semibold text-sm">📁 {folder.name}</span>
+                    {folders.map(folder => {
+                      const isEditing = editingFolderId === folder.id;
+                      return (
+                        <div key={folder.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl group transition hover:bg-[rgba(255,255,255,0.08)]">
+                          <div className="flex items-center justify-between gap-3">
+                            {isEditing ? (
+                              <>
+                                <div className="flex items-center gap-2 flex-grow">
+                                  <input type="color" value={editingFolderColor} onChange={e => setEditingFolderColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
+                                  <input type="text" value={editingFolderName} onChange={e => setEditingFolderName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold border-purple-500" placeholder="Nome da pasta..." autoFocus />
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <button onClick={(e) => { e.stopPropagation(); handleSaveFolderEdit(folder.id); }} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); setEditingFolderId(null); }} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-3 cursor-pointer flex-grow" onClick={() => setActiveFolderId(folder.id)}>
+                                  <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
+                                  <span className="font-semibold text-sm">📁 {folder.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={(e) => { e.stopPropagation(); startEditFolder(folder); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
+                                  <ChevronRight className="w-4 h-4 text-gray-400 ml-1 cursor-pointer" onClick={() => setActiveFolderId(folder.id)} />
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-white transition" />
-                      </div>
-                    ))}
+                      );
+                    })}
 
                     {categories.filter(c => !c.folder_id).map(cat => {
                       const isEditing = editingCatId === cat.id;
