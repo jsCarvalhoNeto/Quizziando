@@ -665,6 +665,32 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                 )}
               </>
             )}
+
+            {/* Resposta Correta */}
+            {roomState?.current_question && (
+              <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <p style={{ color: '#A0AEC0', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Resposta Correta</p>
+                {(() => {
+                  const correctIdx = roomState.current_question.alternatives?.findIndex((a: any) => a.isCorrect);
+                  if (correctIdx !== undefined && correctIdx !== -1) {
+                    const color = ANSWER_COLORS[correctIdx];
+                    const text = roomState.current_question.alternatives[correctIdx].text;
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          background: color.bg, color: 'white', width: '24px', height: '24px', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                          borderRadius: '6px', fontSize: '13px', fontWeight: 'bold',
+                          boxShadow: `0 2px 8px ${color.glow}`
+                        }}>{color.label}</span>
+                        <span style={{ color: 'white', fontWeight: 600, fontSize: '14px', textAlign: 'left', wordBreak: 'break-word' }}>{text}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            )}
           </div>
 
           <div style={styles.scoreCard}>
