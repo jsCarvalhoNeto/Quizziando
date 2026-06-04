@@ -1554,13 +1554,36 @@ Garanta que:
       }
       
       delay += 2000;
-      setTimeout(() => {
-        setPodiumStep(4); // Mostra 1º
-        sfx.playVictory();
-        // Efeito de confetes no pódio
+        // Efeito de confetes no pódio - Mais festivo e prolongado
+        const duration = 4000;
+        const end = Date.now() + duration;
+
+        const frame = () => {
+          confetti({
+            particleCount: 5,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+          });
+          confetti({
+            particleCount: 5,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+          });
+
+          if (Date.now() < end) {
+            requestAnimationFrame(frame);
+          }
+        };
+        frame();
+        
+        // Explosão central
         confetti({
           particleCount: 150,
-          spread: 80,
+          spread: 100,
           origin: { y: 0.6 }
         });
       }, delay);
@@ -3163,8 +3186,8 @@ Garanta que:
                         <span style={{ fontWeight: 900, fontSize: '20px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{secondPlace.nickname}</span>
                       </div>
                       <div style={{ width: '100%', height: '140px', backgroundColor: '#334155', border: '4px solid #1e293b', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
-                        <span style={{ fontSize: '32px', fontWeight: 900, color: '#94a3b8', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>2º</span>
-                        <span style={{ fontSize: '16px', fontFamily: 'monospace', fontWeight: 900, color: '#cbd5e1' }}>{secondPlace.score} pts</span>
+                        <span style={{ fontSize: '36px', fontWeight: 900, color: '#94a3b8', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>2º</span>
+                        <span style={{ fontSize: '28px', fontFamily: 'monospace', fontWeight: 900, color: '#cbd5e1' }}>{secondPlace.score} pts</span>
                       </div>
                     </div>
                   )}
@@ -3180,8 +3203,8 @@ Garanta que:
                         <span style={{ fontWeight: 900, fontSize: '24px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{firstPlace.nickname}</span>
                       </div>
                       <div style={{ width: '100%', height: '200px', background: 'linear-gradient(to bottom, #d97706, #b45309)', border: '4px solid #78350f', borderBottom: 'none', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 -8px 32px rgba(245,158,11,0.3)' }}>
-                        <span style={{ fontSize: '48px', fontWeight: 900, color: '#fde68a', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>1º</span>
-                        <span style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7' }}>{firstPlace.score} pts</span>
+                        <span style={{ fontSize: '56px', fontWeight: 900, color: '#fde68a', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>1º</span>
+                        <span style={{ fontSize: '40px', fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7' }}>{firstPlace.score} pts</span>
                       </div>
                     </div>
                   )}
@@ -3196,8 +3219,8 @@ Garanta que:
                         <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{thirdPlace.nickname}</span>
                       </div>
                       <div style={{ width: '100%', height: '110px', backgroundColor: '#7c2d12', border: '4px solid #431407', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
-                        <span style={{ fontSize: '28px', fontWeight: 900, color: '#fdba74', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>3º</span>
-                        <span style={{ fontSize: '14px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }}>{thirdPlace.score} pts</span>
+                        <span style={{ fontSize: '32px', fontWeight: 900, color: '#fdba74', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>3º</span>
+                        <span style={{ fontSize: '24px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }}>{thirdPlace.score} pts</span>
                       </div>
                     </div>
                   )}
