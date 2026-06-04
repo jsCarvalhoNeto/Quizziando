@@ -739,6 +739,7 @@ Garanta que:
   const [playerAnswered, setPlayerAnswered] = useState<string | null>(null);
   
   // Efeito de Rotação da Roleta
+  const [roundTransitionMessage, setRoundTransitionMessage] = useState<{ title: string, subtitle: string } | null>(null);
   const [rouletteAngle, setRouletteAngle] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   
@@ -1475,11 +1476,31 @@ Garanta que:
     sfx.playClick();
     if (currentRoundIndex < gameRounds) {
       const nextRound = currentRoundIndex + 1;
-      setCurrentRoundIndex(nextRound);
-      setRoundState('idle');
-      setSelectedCategory(null);
-      setCurrentQuestion(null);
-      await publishRoomState({ round_state: 'idle', current_round: nextRound });
+      const roundsLeft = gameRounds - nextRound;
+      
+      const motivationalMessages = [
+        "Vamos Lá!",
+        "Falta Pouco!",
+        "Continuem Firmes!",
+        "Preparem-se!",
+        "Vocês Conseguem!",
+        "Mantenham o Foco!"
+      ];
+      const randomMsg = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      
+      setRoundTransitionMessage({
+        title: `Rodada ${nextRound} de ${gameRounds}`,
+        subtitle: roundsLeft === 0 ? `Última rodada! ${randomMsg}` : `Faltam ${roundsLeft} rodadas. ${randomMsg}`
+      });
+
+      setTimeout(async () => {
+        setRoundTransitionMessage(null);
+        setCurrentRoundIndex(nextRound);
+        setRoundState('idle');
+        setSelectedCategory(null);
+        setCurrentQuestion(null);
+        await publishRoomState({ round_state: 'idle', current_round: nextRound });
+      }, 2500);
     } else {
       // Fim do jogo! Chamar Pódio de Suspense
       setScreen('podium');
@@ -3958,6 +3979,49 @@ Garanta que:
           </div>
         </div>
       )}
+
+      {/* OVERLAY DE TRANSIÇÃO DE RODADA */}
+      <AnimatePresence>
+        {roundTransitionMessage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              zIndex: 9999,
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            <motion.h2 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+              style={{ fontSize: '4rem', fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', textShadow: '0 4px 20px rgba(251, 191, 36, 0.4)', marginBottom: '24px', textAlign: 'center' }}
+            >
+              {roundTransitionMessage.title}
+            </motion.h2>
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              style={{ fontSize: '2rem', fontWeight: 'bold', color: 'white', textAlign: 'center', maxWidth: '80%' }}
+            >
+              {roundTransitionMessage.subtitle}
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
