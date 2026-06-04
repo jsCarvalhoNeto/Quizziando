@@ -320,6 +320,15 @@ export default function App() {
   const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // Sincronizar estado de som com a classe de efeitos sonoros
+  useEffect(() => {
+    sfx.enabled = soundEnabled;
+    if (!soundEnabled) {
+      sfx.stopLobby();
+      sfx.stopGameSound();
+    }
+  }, [soundEnabled]);
+
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
@@ -1726,42 +1735,63 @@ Garanta que:
                   {/* Content Panel */}
                   <div className="w-2/3 p-6 overflow-y-auto">
                     {settingsActiveTab === 'general' && (
-                      <div className="flex flex-col gap-4 animate-fade-in">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
-                          <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl">
-                          <div className="flex items-center gap-2">
-                            {soundEnabled ? <Volume2 className="w-4 h-4 text-[hsl(var(--primary))]" /> : <VolumeX className="w-4 h-4 text-red-400" />}
-                            <span className="text-xs font-semibold text-white">Sons da Arena</span>
+                      <div className="flex flex-col gap-6 animate-fade-in">
+                        <div className="flex flex-col gap-4">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
+                            <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
                           </div>
-                          <button
-                            onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
-                            className={`w-10 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                              soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-white/10'
-                            }`}
-                          >
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                              soundEnabled ? 'translate-x-4' : 'translate-x-0'
-                            }`} />
-                          </button>
+                          <div className="flex justify-between items-center p-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'bg-[hsl(var(--primary))]/20 text-[hsl(var(--primary))]' : 'bg-red-500/20 text-red-400'}`}>
+                                {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                              </div>
+                              <div>
+                                <span className="block text-xs font-bold text-white mb-0.5">Sons da Arena</span>
+                                <span className="block text-[10px] text-slate-400">{soundEnabled ? 'O som está ativado' : 'O som está desativado'}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
+                              className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
+                                soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-slate-700'
+                              }`}
+                            >
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${
+                                soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                              }`} />
+                            </button>
+                          </div>
                         </div>
 
                         {/* Gerenciador de Questões Shortcut */}
                         {(role === 'operator' || authUser) && (
-                          <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Painel Administrativo</span>
+                          <div className="pt-5 border-t border-white/5 flex flex-col gap-3">
+                            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                              <ShieldCheck className="w-3 h-3" />
+                              Acesso Restrito
+                            </span>
                             <button
                               onClick={() => {
-                                setShowQuestionManagerModal(true);
+                                setScreen('operator-dashboard');
                                 setShowSettingsModal(false);
                                 sfx.playClick();
                               }}
-                              className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[hsl(var(--primary))]/10 hover:bg-[hsl(var(--primary))]/20 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] text-xs font-bold transition-all duration-200"
+                              className="group relative w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 hover:border-purple-500/40 transition-all duration-300 overflow-hidden shadow-lg shadow-indigo-500/5"
                             >
-                              <BookOpen className="w-4 h-4" />
-                              Gerenciar Banco de Questões
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                              <div className="flex items-center gap-3 relative z-10">
+                                <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                                  <BookOpen className="w-5 h-5" />
+                                </div>
+                                <div className="text-left">
+                                  <span className="block text-sm font-bold text-white mb-0.5 group-hover:text-indigo-300 transition-colors">Gerenciar Banco de Questões</span>
+                                  <span className="block text-[10px] text-indigo-300/70 font-medium">Adicione, edite ou remova perguntas</span>
+                                </div>
+                              </div>
+                              <div className="relative z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
+                                <ChevronRight className="w-4 h-4 translate-x-0.5" />
+                              </div>
                             </button>
                           </div>
                         )}
