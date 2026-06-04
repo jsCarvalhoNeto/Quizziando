@@ -2981,7 +2981,7 @@ Garanta que:
                   {/* Main Board Container */}
                   <div style={{ paddingTop: '70px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', gap: '16px', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54' }}>
                     
-                    <motion.div layout style={{ display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 10 }}>
+                    <div style={{ position: 'relative', height: `${sortedPlayers.length * 88}px`, width: '100%', zIndex: 10 }}>
                       <AnimatePresence>
                         {sortedPlayers.map((p, idx) => {
                           // Definir cores das medalhas
@@ -2993,15 +2993,30 @@ Garanta que:
                           return (
                             <motion.div 
                               key={p.id}
-                              layout
-                              initial={{ opacity: 0, x: -50 }}
-                              animate={{ opacity: 1, x: 0 }}
+                              initial={{ opacity: 0, x: -50, y: idx * 88 }}
+                              animate={{ opacity: 1, x: 0, y: idx * 88 }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{ 
-                                layout: { type: "spring", stiffness: 40, damping: 11 }, // Reduzido drasticamente para movimento bem lento e perceptível
-                                opacity: { duration: 0.2 }
+                                y: { type: "spring", stiffness: 40, damping: 11 }, // Movimento lento e dramático
+                                opacity: { duration: 0.2 },
+                                x: { type: "spring", stiffness: 300, damping: 25 }
                               }}
-                              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#3a2673', borderBottom: '4px solid #25164d', borderRadius: '16px', padding: '12px 20px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', zIndex: sortedPlayers.length - idx }}
+                              style={{ 
+                                position: 'absolute', 
+                                top: 0, 
+                                left: 0, 
+                                width: '100%', 
+                                height: '76px',
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center', 
+                                backgroundColor: '#3a2673', 
+                                borderBottom: '4px solid #25164d', 
+                                borderRadius: '16px', 
+                                padding: '0 20px', 
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', 
+                                zIndex: sortedPlayers.length - idx 
+                              }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                 {/* Rank Badge */}
@@ -3019,7 +3034,7 @@ Garanta que:
                               </div>
                               
                               {/* Score Pill com Animação de Pop quando os pontos mudam */}
-                              <div style={{ backgroundColor: '#1f1340', border: '3px solid #4a348c', borderRadius: '9999px', padding: '8px 24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                              <div style={{ backgroundColor: '#1f1340', border: '3px solid #4a348c', borderRadius: '9999px', padding: '6px 24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
                                 <motion.div
                                   key={p.score} /* a mudança de score engatilha a animação inicial novamente */
                                   initial={{ y: -20, opacity: 0, color: '#34d399', scale: 1.5 }}
@@ -3034,7 +3049,7 @@ Garanta que:
                           );
                         })}
                       </AnimatePresence>
-                    </motion.div>
+                    </div>
 
                     {role === 'operator' && (
                       <button 
