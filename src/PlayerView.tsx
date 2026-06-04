@@ -58,6 +58,8 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const questionStartTimeRef = useRef<number>(0);
 
   const [categories, setCategories] = useState<any[]>([]);
+  const [playerRank, setPlayerRank] = useState<number | null>(null);
+  const [isWinner, setIsWinner] = useState(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -68,6 +70,32 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     };
     fetchCategories();
   }, []);
+
+  // Buscar posição e verificar se é o vencedor ao finalizar o jogo
+  useEffect(() => {
+    if (playerScreen === 'finished') {
+      const fetchRank = async () => {
+        const { data } = await supabase
+          .from('room_players')
+          .select('nickname, score')
+          .eq('room_code', roomCode)
+          .order('score', { ascending: false });
+        
+        if (data && data.length > 0) {
+          const rank = data.findIndex(p => p.nickname === nickRef.current || p.nickname === nickname) + 1;
+          setPlayerRank(rank);
+          
+          const topScore = data[0].score;
+          const myData = data.find(p => p.nickname === nickRef.current || p.nickname === nickname);
+          
+          if (myData && myData.score === topScore && topScore > 0) {
+            setIsWinner(true);
+          }
+        }
+      };
+      fetchRank();
+    }
+  }, [playerScreen, roomCode, nickname]);
 
   const channelRef = useRef<any>(null);
   const nickRef = useRef('');
@@ -716,14 +744,29 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       <div style={styles.fullscreen}>
         <div style={styles.waitingCard}>
           <div style={{ textAlign: 'center' }}>
-            <Trophy style={{ width: 64, height: 64, color: '#F6AD55', margin: '0 auto 16px' }} />
-            <h2 style={styles.title}>Jogo encerrado!</h2>
-            <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Obrigado por jogar, {nickname}!</p>
+            {isWinner ? (
+              <div style={{ animation: 'bounce-gentle 1.5s ease infinite', marginBottom: '16px' }}>
+                <Trophy style={{ width: 64, height: 64, color: '#F6E05E', margin: '0 auto', filter: 'drop-shadow(0 0 12px rgba(246, 224, 94, 0.6))' }} />
+                <h2 style={{ ...styles.title, color: '#F6E05E', marginTop: '12px', fontSize: '28px' }}>Parabéns, Campeão!</h2>
+                <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Você foi o grande vencedor, {nickname}!</p>
+              </div>
+            ) : (
+              <>
+                <Trophy style={{ width: 64, height: 64, color: '#F6AD55', margin: '0 auto 16px' }} />
+                <h2 style={styles.title}>Jogo encerrado!</h2>
+                <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Obrigado por jogar, {nickname}!</p>
+              </>
+            )}
           </div>
           <div style={styles.scoreCard}>
             <p style={{ color: '#718096', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Sua Pontuação Final</p>
             <p style={{ color: '#A78BFA', fontSize: 48, fontWeight: 900, fontFamily: 'Outfit, sans-serif' }}>{myScore}</p>
             <p style={{ color: '#4A5568', fontSize: 12 }}>pontos</p>
+            {playerRank !== null && !isWinner && (
+              <p style={{ color: '#A0AEC0', fontSize: 13, marginTop: '8px' }}>
+                Sua posição: <strong>{playerRank}º lugar</strong>
+              </p>
+            )}
           </div>
           <button onClick={() => window.location.href = '/'} style={styles.btnPrimary}>
             Voltar ao Início
