@@ -705,15 +705,7 @@ Garanta que:
     }
   };
   
-  // Nova Pergunta Formulário
-  const [newQText, setNewQText] = useState('');
-  const [newQCatId, setNewQCatId] = useState('');
-  const [newQAlts, setNewQAlts] = useState<Alternative[]>([
-    { text: '', isCorrect: true },
-    { text: '', isCorrect: false },
-    { text: '', isCorrect: false },
-    { text: '', isCorrect: false }
-  ]);
+
 
   // Estados para Modal de Gerenciamento de Questões
   const [showQuestionManagerModal, setShowQuestionManagerModal] = useState(false);
@@ -1098,72 +1090,7 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleAddQuestion = async () => {
-    if (!newQText.trim() || !newQCatId) {
-      alert('Preencha o texto da pergunta e selecione uma categoria.');
-      return;
-    }
-    if (newQAlts.some(a => !a.text.trim())) {
-      alert('Preencha todas as 4 alternativas!');
-      return;
-    }
 
-    let savedId = Math.random().toString();
-    if (useRealSupabase) {
-      try {
-        const { data: qData, error: qError } = await supabase
-          .from('questions')
-          .insert({
-            category_id: newQCatId,
-            question_text: newQText.trim()
-          })
-          .select()
-          .single();
-
-        if (qError || !qData) {
-          alert('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
-          return;
-        }
-
-        savedId = qData.id.toString();
-
-        const { error: insError } = await supabase
-          .from('alternatives')
-          .insert(
-            newQAlts.map(alt => ({
-              question_id: savedId,
-              alternative_text: alt.text.trim(),
-              is_correct: alt.isCorrect
-            }))
-          );
-
-        if (insError) {
-          alert('Erro ao cadastrar alternativas no banco: ' + insError.message);
-          await supabase.from('questions').delete().eq('id', savedId);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão ao salvar pergunta: ' + err.message);
-        return;
-      }
-    }
-
-    const newQuestion: Question = {
-      id: savedId,
-      category_id: newQCatId,
-      question_text: newQText.trim(),
-      alternatives: [...newQAlts]
-    };
-    setQuestions([...questions, newQuestion]);
-    setNewQText('');
-    setNewQAlts([
-      { text: '', isCorrect: true },
-      { text: '', isCorrect: false },
-      { text: '', isCorrect: false },
-      { text: '', isCorrect: false }
-    ]);
-    sfx.playCorrect();
-  };
 
   const handleManagerSaveQuestion = async () => {
     if (!managerQText.trim() || !managerQCatId) {
