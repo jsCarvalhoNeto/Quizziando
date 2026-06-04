@@ -2092,7 +2092,7 @@ Garanta que:
             2. PAINEL DE CONTROLE DO OPERADOR
             ========================================== */}
         {screen === 'operator-dashboard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
             {/* Esquerda: Novo Quiz */}
             <div className="glass-card p-6 flex flex-col gap-5 h-fit">
               <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
@@ -2284,81 +2284,7 @@ Garanta que:
               </div>
             </div>
 
-            {/* Direita: Banco de Perguntas */}
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-[hsl(var(--accent))]" />
-                Adicionar Perguntas
-              </h3>
 
-              {/* Form de criação de pergunta */}
-              <div className="flex flex-col gap-3 max-h-[20rem] overflow-y-auto pr-1">
-                <div>
-                  <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase block mb-1">Categoria Obrigatória</label>
-                  <select 
-                    value={newQCatId} 
-                    onChange={e => setNewQCatId(e.target.value)}
-                    className="input-glow py-2 text-xs"
-                  >
-                    <option value="">Selecione...</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase block mb-1">Enunciado da Pergunta</label>
-                  <textarea 
-                    placeholder="Escreva a pergunta aqui..." 
-                    value={newQText} 
-                    onChange={e => setNewQText(e.target.value)}
-                    className="input-glow py-2 text-xs h-16 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase block mb-1.5">Alternativas (4 Opções)</label>
-                  <div className="flex flex-col gap-2">
-                    {newQAlts.map((alt, index) => (
-                      <div key={index} className="flex gap-2 items-center">
-                        <input 
-                          type="radio" 
-                          name="correct-alt" 
-                          checked={alt.isCorrect} 
-                          onChange={() => {
-                            setNewQAlts(prev => prev.map((a, i) => ({ ...a, isCorrect: i === index })));
-                          }}
-                          className="accent-[hsl(var(--primary))]"
-                        />
-                        <input 
-                          type="text" 
-                          placeholder={index === 0 ? 'Opção Correta...' : `Opção Incorreta ${index}...`} 
-                          value={alt.text} 
-                          onChange={e => {
-                            const newText = e.target.value;
-                            setNewQAlts(prev => prev.map((a, i) => i === index ? { ...a, text: newText } : a));
-                          }}
-                          className="input-glow py-1 px-2 text-xs"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleAddQuestion}
-                  className="btn-glow py-2 w-full text-xs mt-2 justify-center"
-                >
-                  <Plus className="w-4 h-4" /> Salvar Pergunta
-                </button>
-              </div>
-
-              {/* Rodapé: Contagem */}
-              <div className="text-xs text-[hsl(var(--text-muted))] text-center pt-2 border-t border-[rgba(255,255,255,0.05)]">
-                Total de perguntas no banco: {questions.length}
-              </div>
-            </div>
 
           </div>
         )}
