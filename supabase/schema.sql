@@ -71,6 +71,7 @@ create table public.questions (
   id uuid default gen_random_uuid() primary key,
   category_id uuid references public.categories(id) on delete cascade not null,
   question_text text not null,
+  time_limit integer not null default 20,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

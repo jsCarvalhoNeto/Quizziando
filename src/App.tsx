@@ -213,6 +213,7 @@ interface Question {
   category_id: string;
   question_text: string;
   alternatives: Alternative[];
+  time_limit?: number;
 }
 
 interface Alternative {
@@ -366,6 +367,7 @@ export default function App() {
               id,
               category_id,
               question_text,
+              time_limit,
               alternatives (
                 alternative_text,
                 is_correct
@@ -376,6 +378,7 @@ export default function App() {
               id: q.id,
               category_id: q.category_id,
               question_text: q.question_text,
+              time_limit: q.time_limit,
               alternatives: q.alternatives.map((alt: any) => ({
                 text: alt.alternative_text,
                 isCorrect: alt.is_correct
@@ -538,12 +541,19 @@ ${contextText ? `Use o seguinte contexto extraído de um documento PDF do usuár
 ---
 ${contextText.slice(0, 10000)}
 ---` : ''}
+REGRAS IMPORTANTES PARA A GERAÇÃO:
+1. Enunciado da Questão (Pergunta): Limite de 120 caracteres. Seja objetivo, curto e direto, sem longos textos de contextualização.
+2. Alternativas de Resposta: Limite de 75 caracteres por alternativa.
+3. Alterne sempre a posição das alternativas corretas no array.
+4. Seja o mais objetivo possível e priorize respostas claras e pequenas.
+5. As alternativas corretas não devem ser sempre as que possuem maior número de caracteres.
 
-Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
+Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (```json) ou comentários.
 Estrutura JSON:
 [
   {
     "question_text": "Escreva aqui o enunciado da questão...",
+    "time_limit": 20,
     "alternatives": [
       { "text": "Alternativa correta...", "isCorrect": true },
       { "text": "Alternativa incorreta 1...", "isCorrect": false },
@@ -557,7 +567,8 @@ Garanta que:
 1. O array contenha exatamente ${aiQuantity} objeto(s) de questão. As questões devem ser variadas e diferentes entre si.
 2. Haja exatamente 4 alternativas por questão.
 3. Exatamente uma alternativa por questão tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
-4. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
+4. Inclua o campo "time_limit" com o valor numérico em segundos de tempo de espera. O padrão é 20.
+5. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
@@ -610,7 +621,8 @@ Garanta que:
             .from('questions')
             .insert({
               category_id: managerQCatId,
-              question_text: parsed.question_text.trim()
+              question_text: parsed.question_text.trim(),
+              time_limit: parsed.time_limit || 20
             })
             .select()
             .single();
@@ -641,6 +653,7 @@ Garanta que:
           id: savedQuestionId,
           category_id: managerQCatId,
           question_text: parsed.question_text.trim(),
+          time_limit: parsed.time_limit || 20,
           alternatives: updatedAlts
         });
       }
@@ -681,6 +694,7 @@ Garanta que:
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [managerQText, setManagerQText] = useState('');
   const [managerQCatId, setManagerQCatId] = useState('');
+  const [managerQTimeLimit, setManagerQTimeLimit] = useState(20);
   const [managerQAlts, setManagerQAlts] = useState<Alternative[]>([
     { text: '', isCorrect: true },
     { text: '', isCorrect: false },
@@ -1146,7 +1160,8 @@ Garanta que:
             .from('questions')
             .update({
               category_id: managerQCatId,
-              question_text: managerQText.trim()
+              question_text: managerQText.trim(),
+              time_limit: managerQTimeLimit
             })
             .eq('id', editingQuestionId);
 
@@ -1187,7 +1202,8 @@ Garanta que:
             .from('questions')
             .insert({
               category_id: managerQCatId,
-              question_text: managerQText.trim()
+              question_text: managerQText.trim(),
+              time_limit: managerQTimeLimit
             })
             .select()
             .single();
@@ -1227,6 +1243,7 @@ Garanta que:
       id: savedQuestionId,
       category_id: managerQCatId,
       question_text: managerQText.trim(),
+      time_limit: managerQTimeLimit,
       alternatives: updatedAlts
     };
 
@@ -1239,6 +1256,7 @@ Garanta que:
     // Resetar campos
     setEditingQuestionId(null);
     setManagerQText('');
+    setManagerQTimeLimit(20);
     setManagerQAlts([
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -1436,7 +1454,7 @@ Garanta que:
           await publishRoomState({ round_state: 'question-reveal' });
           setTimeout(async () => {
             setRoundState('question');
-            setTimeLeft(gameTimeLimit);
+            setTimeLeft(nextQ.time_limit || gameTimeLimit);
             setTimerRunning(true);
             setPlayerAnswered(null);
             setRoomAnswers([0, 0, 0, 0]);
@@ -3507,6 +3525,7 @@ Garanta que:
                 setShowQuestionManagerModal(false);
                 setEditingQuestionId(null);
                 setManagerQText('');
+                setManagerQTimeLimit(20);
                 setManagerQAlts([
                   { text: '', isCorrect: true },
                   { text: '', isCorrect: false },
@@ -3584,6 +3603,20 @@ Garanta que:
                   </select>
                 </div>
 
+                <div>
+                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
+                    Tempo Limite de Resposta (Segundos)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="120"
+                    value={managerQTimeLimit}
+                    onChange={(e) => setManagerQTimeLimit(parseInt(e.target.value) || 20)}
+                    className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-semibold text-white mb-4"
+                  />
+                </div>
+
                 {managerTab === 'manual' ? (
                   <>
                     {/* Texto da Pergunta */}
@@ -3648,6 +3681,7 @@ Garanta que:
                           onClick={() => {
                             setEditingQuestionId(null);
                             setManagerQText('');
+                            setManagerQTimeLimit(20);
                             setManagerQAlts([
                               { text: '', isCorrect: true },
                               { text: '', isCorrect: false },
@@ -3886,6 +3920,7 @@ Garanta que:
                               onClick={() => {
                                 setEditingQuestionId(q.id);
                                 setManagerQText(q.question_text);
+                                setManagerQTimeLimit(q.time_limit || 20);
                                 setManagerQCatId(q.category_id);
                                 setManagerQAlts(q.alternatives.map(alt => ({
                                   text: alt.text,
