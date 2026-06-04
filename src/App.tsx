@@ -469,7 +469,7 @@ export default function App() {
   const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authUser, setAuthUser] = useState<{ email: string } | null>(null);
+  const [authUser, setAuthUser] = useState<{ id?: string, email: string } | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Estados de Configuração do Painel do Operador
@@ -942,10 +942,10 @@ Garanta que:
     setAuthError('');
 
     // Modo Demo: aceitar credenciais padrão sem Supabase
-    if (!useRealSupabase) {
+      if (!useRealSupabase) {
       await new Promise(r => setTimeout(r, 900));
       if (authEmail === 'admin@quizziando.com' && authPassword === 'admin123') {
-        setAuthUser({ email: authEmail });
+        setAuthUser({ id: 'demo-id', email: authEmail });
         setShowLoginModal(false);
         setScreen('operator-dashboard');
         sfx.playCorrect();
@@ -966,7 +966,7 @@ Garanta que:
         if (error) {
           setAuthError('E-mail ou senha incorretos. Tente novamente.');
         } else if (data.user) {
-          setAuthUser({ email: data.user.email || authEmail });
+          setAuthUser({ id: data.user.id, email: data.user.email || authEmail });
           setShowLoginModal(false);
           setScreen('operator-dashboard');
           sfx.playCorrect();
@@ -979,7 +979,7 @@ Garanta que:
         if (error) {
           setAuthError(error.message || 'Erro ao criar conta. Tente novamente.');
         } else if (data.user) {
-          setAuthUser({ email: data.user.email || authEmail });
+          setAuthUser({ id: data.user.id, email: data.user.email || authEmail });
           setShowLoginModal(false);
           setScreen('operator-dashboard');
           sfx.playCorrect();
@@ -1026,7 +1026,8 @@ Garanta que:
           .from('category_folders')
           .insert({
             name: newFolder.name,
-            color: newFolder.color
+            color: newFolder.color,
+            created_by: authUser?.id
           })
           .select()
           .single();
@@ -1093,7 +1094,8 @@ Garanta que:
             name: newCat.name,
             color: newCat.color,
             icon: newCat.icon,
-            folder_id: activeFolderId
+            folder_id: activeFolderId,
+            created_by: authUser?.id
           })
           .select()
           .single();
