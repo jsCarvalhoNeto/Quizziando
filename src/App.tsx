@@ -461,7 +461,7 @@ export default function App() {
   
   // Estados para Modal de Configurações
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account'>('general');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account' | 'questions'>('general');
   
   // Estados para Integração Gemini IA
   const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
@@ -1740,6 +1740,20 @@ Garanta que:
                       Inteligência Artificial
                     </button>
 
+                    {(role === 'operator' || authUser) && (
+                      <button
+                        onClick={() => { setSettingsActiveTab('questions'); sfx.playClick(); }}
+                        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                          settingsActiveTab === 'questions'
+                            ? 'bg-white/5 text-indigo-400 border-l-2 border-indigo-500'
+                            : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        Questões
+                      </button>
+                    )}
+
                     <button
                       onClick={() => { setSettingsActiveTab('account'); sfx.playClick(); }}
                       className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
@@ -1813,37 +1827,37 @@ Garanta que:
                           </div>
                         </div>
 
-                        {/* Gerenciador de Questões Shortcut */}
-                        {(role === 'operator' || authUser) && (
-                          <div className="pt-5 border-t border-white/5 flex flex-col gap-3">
-                            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                              <ShieldCheck className="w-3 h-3" />
-                              Acesso Restrito
-                            </span>
-                            <button
-                              onClick={() => {
-                                setShowQuestionManagerModal(true);
-                                setShowSettingsModal(false);
-                                sfx.playClick();
-                              }}
-                              className="group relative w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 hover:border-purple-500/40 transition-all duration-300 overflow-hidden shadow-lg shadow-indigo-500/5"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-                              <div className="flex items-center gap-3 relative z-10">
-                                <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 group-hover:scale-110 transition-transform duration-300">
-                                  <BookOpen className="w-5 h-5" />
-                                </div>
-                                <div className="flex flex-col text-left">
-                                  <span className="block text-sm font-bold text-white leading-tight group-hover:text-indigo-300 transition-colors">Gerenciar Banco de Questões</span>
-                                  <span className="block text-[10.5px] text-indigo-300/70 font-medium leading-tight mt-0.5">Adicione, edite ou remova perguntas</span>
-                                </div>
-                              </div>
-                              <div className="relative z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
-                                <ChevronRight className="w-4 h-4 translate-x-0.5" />
-                              </div>
-                            </button>
+                      </div>
+                    )}
+
+                    {settingsActiveTab === 'questions' && (role === 'operator' || authUser) && (
+                      <div className="flex flex-col gap-6 animate-fade-in">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Banco de Questões</h4>
+                          <p className="text-[11px] text-slate-400">Gerencie as perguntas do quiz.</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowQuestionManagerModal(true);
+                            setShowSettingsModal(false);
+                            sfx.playClick();
+                          }}
+                          className="group relative w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 hover:border-purple-500/40 transition-all duration-300 overflow-hidden shadow-lg shadow-indigo-500/5"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                          <div className="flex items-center gap-3 relative z-10">
+                            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 group-hover:scale-110 transition-transform duration-300">
+                              <BookOpen className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col text-left">
+                              <span className="block text-sm font-bold text-white leading-tight group-hover:text-indigo-300 transition-colors">Abrir Gerenciador de Questões</span>
+                              <span className="block text-[10.5px] text-indigo-300/70 font-medium leading-tight mt-0.5">Adicione, edite ou remova perguntas</span>
+                            </div>
                           </div>
-                        )}
+                          <div className="relative z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
+                            <ChevronRight className="w-4 h-4 translate-x-0.5" />
+                          </div>
+                        </button>
                       </div>
                     )}
 
