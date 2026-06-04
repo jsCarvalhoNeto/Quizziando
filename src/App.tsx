@@ -548,7 +548,7 @@ REGRAS IMPORTANTES PARA A GERAÇÃO:
 4. Seja o mais objetivo possível e priorize respostas claras e pequenas.
 5. As alternativas corretas não devem ser sempre as que possuem maior número de caracteres.
 
-Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (```json) ou comentários.
+Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
 Estrutura JSON:
 [
   {
@@ -1454,7 +1454,7 @@ Garanta que:
           await publishRoomState({ round_state: 'question-reveal' });
           setTimeout(async () => {
             setRoundState('question');
-            setTimeLeft(nextQ.time_limit || gameTimeLimit);
+            setTimeLeft(selectedQ.time_limit || gameTimeLimit);
             setTimerRunning(true);
             setPlayerAnswered(null);
             setRoomAnswers([0, 0, 0, 0]);
