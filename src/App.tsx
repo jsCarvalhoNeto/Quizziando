@@ -1694,10 +1694,10 @@ Garanta que:
                   </h3>
                   <button
                     onClick={() => setShowSettingsModal(false)}
-                    className="text-slate-400 hover:text-white transition-colors text-lg"
-                    title="Fechar"
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-200 border border-transparent hover:border-white/10"
+                    title="Fechar Configurações"
                   >
-                    ×
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 
@@ -1783,7 +1783,7 @@ Garanta que:
                             </span>
                             <button
                               onClick={() => {
-                                setScreen('operator-dashboard');
+                                setShowQuestionManagerModal(true);
                                 setShowSettingsModal(false);
                                 sfx.playClick();
                               }}
