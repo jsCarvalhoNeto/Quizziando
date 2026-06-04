@@ -109,6 +109,40 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     fetchPlayerCount();
   }, [playerScreen]);
 
+  // Evitar que a tela do celular apague durante o jogo (Screen Wake Lock API)
+  useEffect(() => {
+    let wakeLock: any = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err: any) {
+        console.warn(`Wake Lock error: ${err.name}, ${err.message}`);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+
+    if (playerScreen !== 'join') {
+      requestWakeLock();
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock !== null) {
+        wakeLock.release().catch(() => {});
+        wakeLock = null;
+      }
+    };
+  }, [playerScreen]);
+
   const fetchRoomState = async () => {
     const { data } = await supabase
       .from('game_rooms')
@@ -222,6 +256,13 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     if (existingPlayer) {
       setMyScore(existingPlayer.score || 0);
     } else {
+      // Bloquear novos jogadores se a partida já tiver começado
+      if (room.status === 'playing') {
+        setJoinError('A partida já começou! Não é possível entrar agora.');
+        setJoining(false);
+        return;
+      }
+
       const { error: playerErr } = await supabase
         .from('room_players')
         .insert({ room_code: roomCode.toUpperCase(), nickname: nickname.trim(), score: 0 });
