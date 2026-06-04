@@ -17,6 +17,16 @@ import './App.css';
 const urlParams = new URLSearchParams(window.location.search);
 const URL_ROOM_CODE = urlParams.get('room')?.toUpperCase() || null;
 
+const GAME_THEMES: Record<string, { bg: string, img: string, label: string }> = {
+  'default': { bg: '#2a1b54', img: 'none', label: 'Padrão' },
+  'tema1': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema1.png)', label: 'Tema 1' },
+  'tema2': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema2.png)', label: 'Tema 2' },
+  'tema3': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema3.png)', label: 'Tema 3' },
+  'tema4': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema4.png)', label: 'Tema 4' },
+  'tema5': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema5.png)', label: 'Tema 5' },
+  'tema6': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema6.png)', label: 'Tema 6' },
+};
+
 // ==========================================
 // 🎵 SINTETIZADOR DE EFEITOS SONOROS (WEB AUDIO API)
 // ==========================================
@@ -1780,29 +1790,26 @@ Garanta que:
                             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Temas da Arena</h4>
                             <p className="text-[11px] text-slate-400">Personalize a imagem de fundo da Roleta.</p>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <button
-                              onClick={() => { setGameTheme('default'); localStorage.setItem('gameTheme', 'default'); sfx.playClick(); }}
-                              className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
-                                gameTheme === 'default'
-                                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
-                                  : 'border-white/10 bg-white/5 hover:bg-white/10'
-                              }`}
-                            >
-                              <div className="w-full h-14 rounded-lg bg-[#2a1b54] border border-white/10 shadow-inner"></div>
-                              <span className={`text-xs font-bold ${gameTheme === 'default' ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>Padrão (Sólido)</span>
-                            </button>
-                            <button
-                              onClick={() => { setGameTheme('tema1'); localStorage.setItem('gameTheme', 'tema1'); sfx.playClick(); }}
-                              className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
-                                gameTheme === 'tema1'
-                                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
-                                  : 'border-white/10 bg-white/5 hover:bg-white/10'
-                              }`}
-                            >
-                              <div className="w-full h-14 rounded-lg border border-white/10 bg-cover bg-center shadow-inner" style={{ backgroundImage: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema1.png)' }}></div>
-                              <span className={`text-xs font-bold ${gameTheme === 'tema1' ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>Tema 1 (Personalizado)</span>
-                            </button>
+                          <div className="grid grid-cols-3 gap-3">
+                            {Object.entries(GAME_THEMES).map(([key, theme]) => (
+                              <button
+                                key={key}
+                                onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
+                                className={`p-2 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
+                                  gameTheme === key
+                                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
+                                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                                }`}
+                              >
+                                <div 
+                                  className="w-full h-12 rounded-lg border border-white/10 bg-cover bg-center shadow-inner" 
+                                  style={{ backgroundColor: theme.bg !== 'transparent' ? theme.bg : undefined, backgroundImage: theme.img }}
+                                ></div>
+                                <span className={`text-[10px] font-bold ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                                  {theme.label}
+                                </span>
+                              </button>
+                            ))}
                           </div>
                         </div>
 
@@ -2533,7 +2540,7 @@ Garanta que:
 
               {/* ROLETA DE CATEGORIAS */}
               {roundState === 'idle' || roundState === 'spinning' ? (
-                <div style={{ paddingTop: '60px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: gameTheme === 'tema1' ? 'transparent' : '#2a1b54', backgroundImage: gameTheme === 'tema1' ? 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema1.png)' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
+                <div style={{ paddingTop: '60px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: GAME_THEMES[gameTheme]?.bg || '#2a1b54', backgroundImage: GAME_THEMES[gameTheme]?.img || 'none', backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
                   
                   {/* Floating Header */}
                   <div style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
