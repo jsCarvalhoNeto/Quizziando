@@ -1563,6 +1563,10 @@ Garanta que:
       }
       
       delay += 2000;
+      setTimeout(() => {
+        setPodiumStep(4);
+        sfx.playVictory();
+        
         // Efeito de confetes no pódio - Mais festivo e prolongado
         const duration = 4000;
         const end = Date.now() + duration;
