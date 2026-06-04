@@ -3199,7 +3199,7 @@ Garanta que:
                 <div style={{ width: '100%', display: 'flex', justifyItems: 'center', justifyContent: 'center', marginTop: '32px', paddingTop: '32px', borderTop: '4px solid rgba(255,255,255,0.05)' }}>
                   <button 
                     onClick={() => {
-                      setScreen('welcome');
+                      setScreen('operator-dashboard');
                       setPodiumStep(0);
                       setRoundState('idle');
                       setActivePlayers([]);
