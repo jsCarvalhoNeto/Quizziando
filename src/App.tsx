@@ -1687,7 +1687,7 @@ Garanta que:
               <div
                 style={{
                   width: '100%', maxWidth: '680px',
-                  height: '460px',
+                  height: '600px',
                   background: 'rgba(8,12,28,0.96)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '20px',
