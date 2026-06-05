@@ -499,6 +499,7 @@ export default function App() {
   const [aiQuantity, setAiQuantity] = useState<number>(1);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiUrl, setAiUrl] = useState('');
   const [aiError, setAiError] = useState('');
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [aiTestingKey, setAiTestingKey] = useState(false);
@@ -591,6 +592,7 @@ export default function App() {
       const promptText = `Crie ${aiQuantity} questão(ões) de múltipla escolha inédita(s) de alta qualidade, adequada(s) para um jogo de quiz dinâmico.
 A(s) questão(ões) deve(m) pertencer ou se relacionar à categoria: "${categoryName}".
 ${aiPrompt.trim() ? `O tema/prompt de contexto especificado pelo usuário é: "${aiPrompt.trim()}".` : ''}
+${aiUrl.trim() ? `Considere o conteúdo desta URL ou vídeo do YouTube como contexto principal: ${aiUrl.trim()}` : ''}
 ${contextText ? `Use o seguinte contexto extraído de um documento PDF do usuário para embasar a(s) questão(ões):
 ---
 ${contextText.slice(0, 10000)}
@@ -721,6 +723,7 @@ Garanta que:
 
       sfx.playCorrect();
       setAiPrompt('');
+      setAiUrl('');
       setAiFile(null);
       setAiQuantity(1);
       alert(`${newQuestions.length} questão(ões) gerada(s) e salva(s) com sucesso!`);
@@ -3980,6 +3983,20 @@ Garanta que:
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
                         className="input-glow py-2 px-3 text-xs h-20 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none text-white font-medium"
+                      />
+                    </div>
+
+                    {/* URL ou Link do YouTube */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
+                        URL ou Vídeo do YouTube (Opcional)
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="Ex: https://youtube.com/watch?v=... ou https://wikipedia.org/..."
+                        value={aiUrl}
+                        onChange={(e) => setAiUrl(e.target.value)}
+                        className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
                       />
                     </div>
 
