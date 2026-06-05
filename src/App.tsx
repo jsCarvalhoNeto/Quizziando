@@ -600,7 +600,7 @@ REGRAS IMPORTANTES PARA A GERAÇÃO:
 2. Alternativas de Resposta: Limite de 75 caracteres por alternativa.
 3. Alterne sempre a posição das alternativas corretas no array.
 4. Seja o mais objetivo possível e priorize respostas claras e pequenas.
-5. As alternativas corretas não devem ser sempre as que possuem maior número de caracteres.
+5. Mantenha o comprimento de todas as alternativas de uma questão rigorosamente balanceado. A diferença de tamanho entre a alternativa mais curta e a mais longa em uma mesma questão não deve ultrapassar 10 a 15 caracteres. As opções incorretas devem ser plausíveis e usar o mesmo nível de vocabulário e detalhamento da opção correta.
 
 Você DEVE retornar a resposta estritamente no formato de um ARRAY JSON, sem qualquer outro texto, blocos de código markdown (\`\`\`json) ou comentários.
 Estrutura JSON:
