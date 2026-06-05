@@ -244,6 +244,9 @@ interface GamePlayer {
   nickname: string;
   team_name?: string;
   score: number;
+  stats?: {
+    answers: Record<number, boolean>; // round_index -> is_correct
+  };
 }
 
 // ==========================================
@@ -489,6 +492,7 @@ export default function App() {
   
   // Estados para Modal de Configurações
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showStatsModal, setShowStatsModal] = useState(false);
   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account' | 'questions'>('general');
   
   // Estados para Integração Gemini IA
@@ -879,21 +883,29 @@ Garanta que:
           });
           setTotalAnswered(prev => prev + 1);
           
-          if (ans.is_correct) {
-            setActivePlayers(prev => prev.map(p => {
-              if (p.nickname === ans.player_nickname) {
-                const newScore = p.score + (ans.points_earned || 100);
+          setActivePlayers(prev => prev.map(p => {
+            if (p.nickname === ans.player_nickname) {
+              const newScore = ans.is_correct ? p.score + (ans.points_earned || 100) : p.score;
+              
+              if (ans.is_correct) {
                 // Atualizar o banco de dados para evitar que celulares fiquem dessincronizados ao dar refresh
                 supabase.from('room_players').update({ score: newScore })
                   .eq('room_code', roomCode)
                   .eq('nickname', p.nickname)
                   .then();
-                
-                return { ...p, score: newScore };
               }
-              return p;
-            }));
-          }
+              
+              return { 
+                ...p, 
+                score: newScore,
+                stats: {
+                  ...p.stats,
+                  answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: ans.is_correct }
+                }
+              };
+            }
+            return p;
+          }));
         }
       )
       .subscribe();
@@ -1603,18 +1615,26 @@ Garanta que:
     
     if (alt.isCorrect) {
       sfx.playCorrect();
-      // Incrementar score do jogador principal
-      setActivePlayers(prev => prev.map(p => {
-        if (p.id === 'player-self') {
-          // Bônus por rapidez
-          const speedBonus = Math.floor((timeLeft / gameTimeLimit) * 50);
-          return { ...p, score: p.score + 100 + speedBonus };
-        }
-        return p;
-      }));
     } else {
       sfx.playWrong();
     }
+    
+    // Incrementar score do jogador principal e salvar stats
+    setActivePlayers(prev => prev.map(p => {
+      if (p.id === 'player-self') {
+        const speedBonus = alt.isCorrect ? Math.floor((timeLeft / gameTimeLimit) * 50) : 0;
+        const newScore = alt.isCorrect ? p.score + 100 + speedBonus : p.score;
+        return { 
+          ...p, 
+          score: newScore,
+          stats: {
+            ...p.stats,
+            answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: alt.isCorrect }
+          }
+        };
+      }
+      return p;
+    }));
   };
 
   const revealAnswer = async () => {
@@ -1629,10 +1649,15 @@ Garanta que:
         setActivePlayers(prev => prev.map(p => {
           if (p.id !== 'player-self') {
             const isCorrect = Math.random() > 0.4;
-            if (isCorrect) {
-              const addedScore = 100 + Math.floor(Math.random() * 50);
-              return { ...p, score: p.score + addedScore };
-            }
+            const addedScore = isCorrect ? 100 + Math.floor(Math.random() * 50) : 0;
+            return { 
+              ...p, 
+              score: p.score + addedScore,
+              stats: {
+                ...p.stats,
+                answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: isCorrect }
+              }
+            };
           }
           return p;
         }));
@@ -3318,16 +3343,25 @@ Garanta que:
                     </div>
 
                     {role === 'operator' && (
-                      <button 
-                        onClick={handleNextRound}
-                        style={{ marginTop: '24px', marginLeft: 'auto', marginRight: 'auto', background: 'linear-gradient(to bottom, #34d399, #059669)', border: '4px solid #064e3b', color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 32px', borderRadius: '16px', boxShadow: '0 6px 0 rgba(6,78,59,1)', cursor: 'pointer', transition: 'all 0.1s ease' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
-                        onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(6px)'; e.currentTarget.style.boxShadow = 'none'; }}
-                        onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; e.currentTarget.style.filter = 'none'; }}
-                      >
-                        {currentRoundIndex < gameRounds ? 'Avançar Rodada' : 'Ver Vencedores'}
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '24px' }}>
+                        <button 
+                          onClick={handleNextRound}
+                          style={{ marginLeft: 'auto', marginRight: 'auto', background: 'linear-gradient(to bottom, #34d399, #059669)', border: '4px solid #064e3b', color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 32px', borderRadius: '16px', boxShadow: '0 6px 0 rgba(6,78,59,1)', cursor: 'pointer', transition: 'all 0.1s ease' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                          onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(6px)'; e.currentTarget.style.boxShadow = 'none'; }}
+                          onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; e.currentTarget.style.filter = 'none'; }}
+                        >
+                          {currentRoundIndex < gameRounds ? 'Avançar Rodada' : 'Ver Vencedores'}
+                        </button>
+                        
+                        <button
+                          onClick={() => setShowStatsModal(true)}
+                          className="text-xs font-semibold text-white/50 hover:text-white/90 transition-colors flex items-center gap-1 mt-2"
+                        >
+                          <FileText className="w-4 h-4" /> Relatório Estatístico
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -4246,6 +4280,77 @@ Garanta que:
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE RELATÓRIO ESTATÍSTICO */}
+      {showStatsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#1f1340] border border-[rgba(255,255,255,0.1)] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex justify-between items-center p-6 border-b border-[rgba(255,255,255,0.05)]">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <FileText className="text-[hsl(var(--primary))]" />
+                Relatório Estatístico
+              </h2>
+              <button 
+                onClick={() => setShowStatsModal(false)}
+                className="text-white/50 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+              {activePlayers.map(p => {
+                const answers = p.stats?.answers || {};
+                const answeredRounds = Object.keys(answers).map(Number);
+                const totalAnswered = answeredRounds.length;
+                const totalCorrect = Object.values(answers).filter(Boolean).length;
+                const percentage = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+                
+                return (
+                  <div key={p.id} className="bg-white/5 border border-white/10 rounded-xl p-5">
+                    <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+                      <h3 className="text-xl font-bold text-white uppercase">{p.nickname}</h3>
+                      <div className="flex gap-4">
+                        <span className="text-sm text-emerald-400 font-mono">Acertos: {totalCorrect}/{totalAnswered}</span>
+                        <span className="text-sm text-blue-400 font-mono">({percentage}%)</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {answeredRounds.sort((a,b) => a-b).map(roundIndex => {
+                        const isCorrect = answers[roundIndex];
+                        const qId = usedQuestionIds[roundIndex - 1];
+                        const q = questions.find(q => q.id === qId);
+                        
+                        return (
+                          <div key={roundIndex} className="flex items-start gap-3 bg-black/20 p-3 rounded-lg text-sm">
+                            <div className="mt-0.5">
+                              {isCorrect ? (
+                                <CheckCircle className="w-5 h-5 text-emerald-500" />
+                              ) : (
+                                <XCircle className="w-5 h-5 text-red-500" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <span className="text-xs text-white/50 font-bold uppercase mb-1 block">Rodada {roundIndex}</span>
+                              <span className="text-white/90">{q?.question_text || 'Pergunta não encontrada'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {answeredRounds.length === 0 && (
+                        <div className="text-white/40 text-sm text-center py-2">Nenhuma resposta registrada.</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {activePlayers.length === 0 && (
+                <div className="text-white/40 text-center py-8">Nenhum jogador na partida.</div>
+              )}
             </div>
           </div>
         </div>
