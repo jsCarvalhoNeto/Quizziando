@@ -783,6 +783,47 @@ Garanta que:
   const [roundTransitionMessage, setRoundTransitionMessage] = useState<{ title: string, subtitle: string } | null>(null);
   const [rouletteAngle, setRouletteAngle] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [pinDuration, setPinDuration] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isSpinning) {
+      setPinDuration(null);
+      return;
+    }
+
+    const startTime = Date.now();
+    const totalDuration = 8000;
+    const startSlowdownTime = 3000;
+    const baseDuration = 0.1;
+    const maxDuration = 2.0;
+
+    let animFrameId: number;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= totalDuration) {
+        setPinDuration(null);
+        return;
+      }
+
+      if (elapsed < startSlowdownTime) {
+        setPinDuration(baseDuration);
+      } else {
+        const t = (elapsed - startSlowdownTime) / (totalDuration - startSlowdownTime);
+        const easeT = Math.pow(t, 2);
+        const currentDur = baseDuration + easeT * (maxDuration - baseDuration);
+        setPinDuration(currentDur);
+      }
+
+      animFrameId = requestAnimationFrame(tick);
+    };
+
+    tick();
+
+    return () => {
+      cancelAnimationFrame(animFrameId);
+    };
+  }, [isSpinning]);
   
   // Referências
   const timerIntervalRef = useRef<any | null>(null);
@@ -1569,14 +1610,20 @@ Garanta que:
       
       let selectedQ;
       if (availableQuestions.length === 0) {
-        // Fallback: se acabarem as perguntas daquela categoria, pegar qualquer uma não usada da categoria ou geral
-        const fallbackQuestions = questions.filter(q => !usedQuestionIds.includes(q.id));
+        // Fallback: se acabarem as perguntas daquela categoria, pegar qualquer uma não usada das categorias selecionadas
+        const fallbackQuestions = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !usedQuestionIds.includes(q.id));
         if (fallbackQuestions.length > 0) {
           selectedQ = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
         } else {
-          // Zerar banco de usadas se todas forem esgotadas
-          selectedQ = questions[Math.floor(Math.random() * questions.length)];
-          setUsedQuestionIds([selectedQ.id]);
+          // Zerar banco de usadas se todas forem esgotadas para as categorias selecionadas
+          const activeQs = questions.filter(q => selectedCategoryIds.includes(q.category_id));
+          if (activeQs.length > 0) {
+            selectedQ = activeQs[Math.floor(Math.random() * activeQs.length)];
+            setUsedQuestionIds([selectedQ.id]);
+          } else {
+            selectedQ = questions[Math.floor(Math.random() * questions.length)];
+            setUsedQuestionIds([selectedQ.id]);
+          }
         }
       } else {
         selectedQ = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
@@ -1610,7 +1657,7 @@ Garanta que:
         }, 2200);
       }, 2000);
 
-    }, 4000);
+    }, 8000);
   };
 
   const handlePlayerAnswer = (altIndex: number) => {
@@ -2893,7 +2940,9 @@ Garanta que:
                       transformOrigin: 'right center',
                       zIndex: 30,
                       filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-                      animation: isSpinning ? 'pointer-strike 0.1s linear infinite' : 'pointer-idle 2s ease-in-out infinite'
+                      animation: isSpinning
+                        ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
+                        : 'pointer-idle 2s ease-in-out infinite'
                     }}>
                       <svg width="40" height="40" viewBox="0 0 24 24" fill="#93c572" stroke="white" strokeWidth="2.5" strokeLinejoin="round">
                         <path d="M22 4L4 12L22 20V4Z"/>
@@ -2911,7 +2960,7 @@ Garanta que:
                       border: '6px solid white',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
                       transform: `rotate(${rouletteAngle}deg)`,
-                      transition: isSpinning ? 'transform 4s cubic-bezier(0.1, 0.8, 0.1, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transition: isSpinning ? 'transform 8s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                       background: selectedCategoryIds.length > 0
                         ? `conic-gradient(${categories.filter(c => selectedCategoryIds.includes(c.id)).map((c, i, arr) => `${c.color} ${i * (360 / arr.length)}deg ${(i + 1) * (360 / arr.length)}deg`).join(', ')})`
                         : '#555',

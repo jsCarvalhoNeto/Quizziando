@@ -33,42 +33,22 @@ let db: Database | null = null;
 async function getSqlJs(): Promise<SqlJsStatic> {
   if (SQL) return SQL;
 
-  // sql.js pode exportar de formas diferentes dependendo do bundler
-  // Tentamos múltiplas abordagens até encontrar a correta
-  let initFn: ((config?: any) => Promise<SqlJsStatic>) | null = null;
-
   try {
-    const mod = await import('sql.js');
-    // Tentativa 1: export default é a função diretamente
-    if (typeof mod.default === 'function') {
-      initFn = mod.default as any;
-    }
-    // Tentativa 2: export default tem campo default (duplo wrap CJS)
-    else if (mod.default && typeof (mod.default as any).default === 'function') {
-      initFn = (mod.default as any).default;
-    }
-    // Tentativa 3: export nomeado
-    else if (typeof (mod as any).initSqlJs === 'function') {
-      initFn = (mod as any).initSqlJs;
-    }
-    // Tentativa 4: window global (fallback CDN)
-    else if (typeof (window as any).initSqlJs === 'function') {
+    let initFn: any = undefined;
+    if (typeof (window as any).initSqlJs === 'function') {
       initFn = (window as any).initSqlJs;
     }
+
+    if (!initFn) throw new Error('Função initSqlJs não encontrada no window. Verifique se o script sql-wasm.js está no index.html.');
+
+    SQL = await initFn({
+      locateFile: (file: string) => `/${file}`,
+    });
+    return SQL as SqlJsStatic;
   } catch (e) {
-    console.warn('[localDb] Erro ao importar sql.js:', e);
+    console.error('[localDb] Erro fatal ao carregar sql.js:', e);
+    throw new Error('sql.js não pôde ser inicializado. ' + (e as Error).message);
   }
-
-  if (!initFn) {
-    throw new Error(
-      'sql.js não pôde ser inicializado. Verifique se o arquivo sql-wasm.wasm está em /public.'
-    );
-  }
-
-  SQL = await initFn({
-    locateFile: (file: string) => `/${file}`,
-  });
-  return SQL!;
 }
 
 
@@ -101,7 +81,12 @@ function createSchema(database: Database) {
 
 function saveDb(database: Database) {
   const data = database.export();
-  const base64 = btoa(String.fromCharCode(...data));
+  let binary = '';
+  const len = data.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(data[i]);
+  }
+  const base64 = window.btoa(binary);
   localStorage.setItem(STORAGE_KEY, base64);
 }
 

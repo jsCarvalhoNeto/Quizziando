@@ -4,7 +4,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy, CheckCircle, XCircle, Home,
-  Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown, Sparkles
+  Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown, Sparkles,
+  Settings, Upload, Image as ImageIcon, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -154,28 +155,11 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
 
-  useEffect(() => {
-    if (!soundEnabled) {
-      sfx.stopGameSound();
-    } else {
-      if (localScreen === 'game') {
-        sfx.playGameSound();
-      } else {
-        sfx.stopGameSound();
-      }
-    }
-  }, [soundEnabled, localScreen]);
-
-  useEffect(() => {
-    return () => {
-      sfx.stopAll();
-    };
-  }, []);
-
   const [dbError, setDbError]         = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState(['Time A', 'Time B']);
   const [totalRounds, setTotalRounds] = useState(6);
   const [isCustomRounds, setIsCustomRounds] = useState(false);
+  const [hasObstacles, setHasObstacles]     = useState(false);
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [allCategories, setAllCategories]   = useState<LocalCategory[]>([]);
   const [allQuestions, setAllQuestions]     = useState<LocalQuestion[]>([]);
@@ -199,8 +183,118 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   const [rouletteAngle, setRouletteAngle] = useState(0);
   const [isSpinning, setIsSpinning]       = useState(false);
+  const [pinDuration, setPinDuration]     = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isSpinning) {
+      setPinDuration(null);
+      return;
+    }
+
+    const startTime = Date.now();
+    const totalDuration = 8000;
+    const startSlowdownTime = 3000;
+    const baseDuration = 0.1;
+    const maxDuration = 2.0;
+
+    let animFrameId: number;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= totalDuration) {
+        setPinDuration(null);
+        return;
+      }
+
+      if (elapsed < startSlowdownTime) {
+        setPinDuration(baseDuration);
+      } else {
+        const t = (elapsed - startSlowdownTime) / (totalDuration - startSlowdownTime);
+        const easeT = Math.pow(t, 2);
+        const currentDur = baseDuration + easeT * (maxDuration - baseDuration);
+        setPinDuration(currentDur);
+      }
+
+      animFrameId = requestAnimationFrame(tick);
+    };
+
+    tick();
+
+    return () => {
+      cancelAnimationFrame(animFrameId);
+    };
+  }, [isSpinning]);
 
   const [roundResult, setRoundResult] = useState<{ scorer: number | null; correct: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!soundEnabled) {
+      sfx.stopGameSound();
+    } else {
+      if (localScreen === 'game' && phase !== 'idle' && phase !== 'spinning') {
+        sfx.playGameSound();
+      } else {
+        sfx.stopGameSound();
+      }
+    }
+  }, [soundEnabled, localScreen, phase]);
+
+  useEffect(() => {
+    return () => {
+      sfx.stopAll();
+    };
+  }, []);
+
+  // Estados de configurações (Modo Local)
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'appearance'>('appearance');
+  const [bgImage, setBgImage] = useState<string | null>(() => localStorage.getItem('local_roulette_bg') || null);
+
+  useEffect(() => {
+    try {
+      if (bgImage) localStorage.setItem('local_roulette_bg', bgImage);
+      else localStorage.removeItem('local_roulette_bg');
+    } catch (err) {
+      console.error('Erro ao salvar imagem:', err);
+      alert('A imagem é muito pesada para ser salva na memória. Tente enviar uma menor.');
+    }
+  }, [bgImage]);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+          const MAX_WIDTH = 1920;
+          const MAX_HEIGHT = 1080;
+          
+          if (width > height && width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          } else if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Comprime para JPEG com 80% de qualidade para economizar espaço no localStorage
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          setBgImage(dataUrl);
+        };
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // ─── Init banco ────────────────────────────────────────────────────────────
 
@@ -208,16 +302,14 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     (async () => {
       try {
         await initDb();
-        if (supabaseCategories?.length && supabaseQuestions?.length) {
-          importFromSupabaseData(supabaseCategories, supabaseQuestions);
-        }
         const cats = getLocalCategories();
         const qs   = getLocalQuestions();
         setAllCategories(cats);
         setAllQuestions(qs);
         setSelectedCatIds(cats.map(c => c.id));
-      } catch {
-        setDbError('Usando perguntas em memória (sql.js indisponível).');
+      } catch (err: any) {
+        console.error('Erro no initDb:', err);
+        setDbError(`Usando perguntas em memória (sql.js indisponível: ${err.message || String(err)}).`);
         if (supabaseCategories?.length) {
           setAllCategories(supabaseCategories);
           setSelectedCatIds(supabaseCategories.map(c => c.id));
@@ -230,6 +322,25 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleSyncWithCloud = () => {
+    if (!supabaseCategories?.length || !supabaseQuestions?.length) {
+      alert('Não foi possível obter dados da nuvem no momento. Verifique sua conexão.');
+      return;
+    }
+    sfx.playClick();
+    try {
+      importFromSupabaseData(supabaseCategories, supabaseQuestions);
+      const cats = getLocalCategories();
+      const qs   = getLocalQuestions();
+      setAllCategories(cats);
+      setAllQuestions(qs);
+      setSelectedCatIds(cats.map(c => c.id));
+      alert('Sincronização concluída com sucesso!');
+    } catch (err: any) {
+      alert(`Erro ao sincronizar com a nuvem: ${err.message || String(err)}`);
+    }
+  };
 
   // ─── Timer ─────────────────────────────────────────────────────────────────
 
@@ -295,7 +406,14 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   const handleSpin = useCallback(() => {
     if (isSpinning || phase !== 'idle') return;
-    const wheelCats = allCategories.filter(c => selectedCatIds.includes(c.id));
+    let wheelCats = allCategories.filter(c => selectedCatIds.includes(c.id));
+    if (hasObstacles) {
+      wheelCats = [
+        ...wheelCats,
+        { id: 'obs-perde', name: 'Perde Tudo', color: '#111111', created_at: '', isObstacle: true, type: 'perde-tudo' } as any,
+        { id: 'obs-passa', name: 'Passa a Vez', color: '#FFFFFF', created_at: '', isObstacle: true, type: 'passa-vez' } as any,
+      ];
+    }
     if (!wheelCats.length) return;
 
     setIsSpinning(true);
@@ -304,7 +422,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
     const chosenIdx = Math.floor(Math.random() * wheelCats.length);
     const chosen    = wheelCats[chosenIdx];
-    const extraSp   = 3 + Math.floor(Math.random() * 3);
+    const extraSp   = 6 + Math.floor(Math.random() * 4);
     
     // Cálculo do ângulo exato para a roleta parar na categoria 'chosen'
     const segCount  = Math.max(wheelCats.length, 1);
@@ -330,23 +448,50 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         sfx.playClick();
 
         setTimeout(() => {
+          if ((chosen as any).isObstacle) {
+            if ((chosen as any).type === 'perde-tudo') {
+              setPlayers(prev => {
+                const p = [...prev] as [LocalPlayer, LocalPlayer];
+                p[roundStarterIndex] = { ...p[roundStarterIndex], score: 0 };
+                return p;
+              });
+            }
+            sfx.playWrong();
+            setRoundStarterIndex(i => (i === 0 ? 1 : 0));
+            setPhase('idle');
+            setSelectedCategory(null);
+            return;
+          }
+
           const catQs = allQuestions.filter(q => q.category_id === chosen.id && !usedQuestionIds.includes(q.id));
           const anyQs = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && !usedQuestionIds.includes(q.id));
-          const pool  = catQs.length > 0 ? catQs : anyQs;
-          const question = pickRandom(pool);
+          let pool  = catQs.length > 0 ? catQs : anyQs;
+          let question = pickRandom(pool);
 
-          if (!question) { setPhase('idle'); return; }
+          let chosenQuestion = question;
+          if (!chosenQuestion) {
+            // Fallback: se todas as perguntas das categorias selecionadas foram usadas, resetamos o histórico de usadas
+            const resetPool = allQuestions.filter(q => selectedCatIds.includes(q.category_id));
+            chosenQuestion = pickRandom(resetPool);
+            if (chosenQuestion) {
+              setUsedQuestionIds([chosenQuestion.id]);
+            }
+          } else {
+            const qId = chosenQuestion.id;
+            setUsedQuestionIds(prev => [...prev, qId]);
+          }
 
-          setCurrentQuestion(question);
-          setUsedQuestionIds(prev => [...prev, question.id]);
+          if (!chosenQuestion) { setPhase('idle'); return; }
+
+          setCurrentQuestion(chosenQuestion);
           setFirstFailed(false);
-          setTimeLeft(question.time_limit || 20);
+          setTimeLeft(chosenQuestion.time_limit || 20);
           setPhase('question-reveal');
           setTimerActive(false);
         }, 3800);
       }, 2000);
-    }, 3500);
-  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, usedQuestionIds, rouletteAngle]);
+    }, 8000);
+  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex]);
 
   const currentResponderIndex = firstFailed
     ? (roundStarterIndex === 0 ? 1 : 0)
@@ -419,7 +564,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         setSelectedCategory(null);
         setPhase('idle');
       }
-    }, 3500);
+    }, 5500);
   };
 
   const resetGame = () => {
@@ -440,7 +585,14 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const winner    = sorted[0];
   const loser     = sorted[1];
   const isTie     = winner.score === loser.score;
-  const wheelCats = allCategories.filter(c => selectedCatIds.includes(c.id));
+  const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id));
+  const wheelCats = hasObstacles
+    ? [
+        ...wheelCatsBase,
+        { id: 'obs-perde', name: 'Perde Tudo', color: '#111111', created_at: '', isObstacle: true, type: 'perde-tudo' } as any,
+        { id: 'obs-passa', name: 'Passa a Vez', color: '#FFFFFF', created_at: '', isObstacle: true, type: 'passa-vez' } as any,
+      ]
+    : wheelCatsBase;
   const segCount  = Math.max(wheelCats.length, 1);
   const segAngle  = 360 / segCount;
   const WS        = 800; // wheel size
@@ -469,15 +621,34 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         style={{ maxWidth: 580, margin: '0 auto', width: '100%' }}>
         <div className="glass-card p-8 flex flex-col gap-6">
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button onClick={onBack}
-              style={{ padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: 'rgba(148,163,184,0.9)', display: 'flex' }}>
-              <ArrowLeft style={{ width: 18, height: 18 }} />
-            </button>
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: 'white', margin: 0 }}>🖥️ Modo Local</h2>
-              <p style={{ fontSize: 12, color: 'rgba(148,163,184,0.6)', margin: '2px 0 0' }}>Dois times · Resposta oral · Sem internet</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={onBack}
+                style={{ padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: 'rgba(148,163,184,0.9)', display: 'flex' }}>
+                <ArrowLeft style={{ width: 18, height: 18 }} />
+              </button>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'white', margin: 0 }}>🖥️ Modo Local</h2>
+                <p style={{ fontSize: 12, color: 'rgba(148,163,184,0.6)', margin: '2px 0 0' }}>Dois times · Resposta oral · Sem internet</p>
+              </div>
             </div>
+            
+            <button 
+              onClick={handleSyncWithCloud}
+              title="Baixar categorias e perguntas da nuvem para o SQLite local"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 10,
+                background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+                color: '#60A5FA', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; }}
+            >
+              <Upload style={{ width: 14, height: 14, transform: 'rotate(180deg)' }} />
+              Sincronizar
+            </button>
           </div>
 
           {dbError && (
@@ -559,6 +730,39 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Modo de Jogo */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Modo de Jogo
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { setHasObstacles(false); sfx.playClick(); }}
+                style={{
+                  flex: 1, padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 14,
+                  background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                  border: !hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                  color: !hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
+                  cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                  transition: 'all 0.2s'
+                }}>
+                Sem obstáculos
+              </button>
+              <button
+                onClick={() => { setHasObstacles(true); sfx.playClick(); }}
+                style={{
+                  flex: 1, padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 14,
+                  background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                  border: hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                  color: hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
+                  cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                  transition: 'all 0.2s'
+                }}>
+                Com obstáculos
+              </button>
+            </div>
           </div>
 
           {/* Categorias */}
@@ -644,6 +848,10 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                 style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(148,163,184,0.7)', display: 'flex' }}>
                 {soundEnabled ? <Volume2 style={{ width: 14, height: 14 }} /> : <VolumeX style={{ width: 14, height: 14 }} />}
               </button>
+              <button onClick={() => { setShowSettingsModal(true); sfx.playClick(); }} title="Configurações"
+                style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: showSettingsModal ? '#7C3AED' : 'rgba(148,163,184,0.7)', display: 'flex' }}>
+                <Settings style={{ width: 14, height: 14 }} />
+              </button>
             </div>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rodada</span>
             <span style={{ fontSize: 36, fontWeight: 900, color: '#FBBF24', lineHeight: 1 }}>
@@ -695,7 +903,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* ── Área principal ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', overflow: 'hidden', backgroundImage: (bgImage && (phase === 'idle' || phase === 'spinning')) ? `url(${bgImage})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
 
           <AnimatePresence mode="wait">
 
@@ -717,7 +925,9 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                     borderRight: '28px solid #A3E635',
                     filter: 'drop-shadow(0 2px 8px rgba(163,230,53,0.6))',
                     transformOrigin: 'right center',
-                    animation: isSpinning ? 'pointer-strike 0.1s linear infinite' : 'pointer-idle 1.5s ease-in-out infinite'
+                    animation: isSpinning
+                      ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
+                      : 'pointer-idle 1.5s ease-in-out infinite'
                   }} />
 
                   <div
@@ -726,7 +936,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                       width: WS, height: WS, borderRadius: '50%',
                       boxShadow: '0 0 60px rgba(124,58,237,0.3), 0 12px 40px rgba(0,0,0,0.6)',
                       transform: `rotate(${rouletteAngle}deg)`,
-                      transition: isSpinning ? 'transform 3.5s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'none',
+                      transition: isSpinning ? 'transform 8s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'none',
                       cursor: phase === 'idle' ? 'pointer' : 'default',
                       position: 'relative'
                     }}>
@@ -742,11 +952,12 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                         const tx  = R + tr * Math.cos(ma), ty = R + tr * Math.sin(ma);
                         const ta  = ma * (180 / Math.PI);
                         const fz  = segCount > 10 ? 14 : segCount > 6 ? 16 : 18;
+                        const textColor = cat.color.toUpperCase() === '#FFFFFF' ? '#000000' : 'white';
                         return (
                           <g key={cat.id}>
                             <path d={`M ${R} ${R} L ${x1} ${y1} A ${R} ${R} 0 ${la} 1 ${x2} ${y2} Z`}
                               fill={cat.color} stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
-                            <text x={tx} y={ty} fill="white" fontSize={fz} fontWeight="bold"
+                            <text x={tx} y={ty} fill={textColor} fontSize={fz} fontWeight="bold"
                               textAnchor="start" dominantBaseline="middle"
                               transform={`rotate(${ta}, ${tx}, ${ty})`}
                               style={{ userSelect: 'none' }}>
@@ -833,7 +1044,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                 transition={{ type: 'spring', stiffness: 200 }}
                 style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 44 }}>
                 <p style={{ fontSize: 24, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-                  Categoria Sorteada
+                  {(selectedCategory as any).isObstacle ? 'Obstáculo Sorteado' : 'Categoria Sorteada'}
                 </p>
                 <div style={{
                   width: 200, height: 200, borderRadius: 60,
@@ -841,12 +1052,20 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   boxShadow: `0 12px 40px ${selectedCategory.color}50`
                 }}>
-                  <Trophy style={{ width: 100, height: 100, color: 'white' }} />
+                  {(selectedCategory as any).isObstacle ? (
+                    <AlertCircle style={{ width: 100, height: 100, color: 'white' }} />
+                  ) : (
+                    <Trophy style={{ width: 100, height: 100, color: 'white' }} />
+                  )}
                 </div>
                 <h3 style={{ fontSize: 96, fontWeight: 900, color: selectedCategory.color, textShadow: `0 0 40px ${selectedCategory.color}60`, margin: 0 }}>
                   {selectedCategory.name}
                 </h3>
-                <p style={{ fontSize: 28, color: 'rgba(148,163,184,0.6)', margin: 0 }}>⏳ Carregando pergunta...</p>
+                <p style={{ fontSize: 28, color: 'rgba(148,163,184,0.6)', margin: 0 }}>
+                  {(selectedCategory as any).isObstacle
+                    ? ((selectedCategory as any).type === 'perde-tudo' ? 'Zerando os pontos e passando a vez...' : 'Passando a vez...')
+                    : '⏳ Carregando pergunta...'}
+                </p>
               </motion.div>
             )}
             {/* QUESTION REVEAL */}
@@ -1104,6 +1323,101 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             })}
           </div>
         </div>
+
+        {/* Modal de Configurações */}
+        {showSettingsModal && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)'
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
+          >
+            <div
+              style={{
+                width: '100%', maxWidth: 768, height: '80vh', display: 'flex', flexDirection: 'column',
+                background: '#0b1026', borderRadius: 16, border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', overflow: 'hidden', animation: 'fadeInModal 0.25s ease'
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,12,28,0.6)' }}>
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: 'white', letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 12, margin: 0 }}>
+                  <Settings style={{ width: 20, height: 20, color: '#818cf8' }} />
+                  Configurações Locais
+                </h3>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', border: '1px solid transparent' }}
+                >
+                  <X style={{ width: 16, height: 16 }} />
+                </button>
+              </div>
+              {/* Body */}
+              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                {/* Sidebar */}
+                <div style={{ width: '33.33%', borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,12,28,0.4)', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <button
+                    onClick={() => { setSettingsActiveTab('appearance'); sfx.playClick(); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, textAlign: 'left', cursor: 'pointer',
+                      background: settingsActiveTab === 'appearance' ? 'rgba(255,255,255,0.05)' : 'transparent',
+                      color: settingsActiveTab === 'appearance' ? '#818cf8' : '#94a3b8',
+                      borderLeft: settingsActiveTab === 'appearance' ? '2px solid #6366f1' : '2px solid transparent'
+                    }}
+                  >
+                    <ImageIcon style={{ width: 16, height: 16 }} />
+                    Aparência
+                  </button>
+                </div>
+                {/* Content */}
+                <div style={{ width: '66.66%', padding: 24, overflowY: 'auto' }}>
+                  {settingsActiveTab === 'appearance' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeInModal 0.25s ease' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div>
+                          <h4 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: '0 0 4px 0' }}>Fundo da Roleta</h4>
+                          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Personalize o plano de fundo da área principal de jogo.</p>
+                        </div>
+                        
+                        <label style={{
+                          position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: 128,
+                          border: '2px dashed rgba(255,255,255,0.1)', borderRadius: 12, cursor: 'pointer', overflow: 'hidden', transition: 'all 0.2s',
+                          background: 'rgba(255,255,255,0.02)'
+                        }}>
+                          {bgImage ? (
+                            <>
+                              <img src={bgImage} alt="Background" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 }} />
+                              <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                <Upload style={{ width: 24, height: 24, color: '#818cf8' }} />
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#a5b4fc' }}>Alterar Imagem</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                              <Upload style={{ width: 24, height: 24, color: '#94a3b8' }} />
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8' }}>Fazer upload de imagem</span>
+                            </div>
+                          )}
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
+                        </label>
+
+                        {bgImage && (
+                          <button
+                            onClick={() => setBgImage(null)}
+                            style={{ fontSize: 12, color: '#f87171', fontWeight: 700, alignSelf: 'flex-start', cursor: 'pointer', background: 'none', border: 'none' }}
+                          >
+                            Remover imagem de fundo
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
