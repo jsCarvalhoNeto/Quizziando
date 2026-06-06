@@ -6,5 +6,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     target: 'es2015'
-  }
+  },
+  optimizeDeps: {
+    exclude: ['sql.js']
+  },
+  assetsInclude: ['**/*.wasm']
 })

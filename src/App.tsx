@@ -5,11 +5,12 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
-  Pencil, Check, X, Settings, Upload, FileText
+  Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
+import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
@@ -439,6 +440,11 @@ export default function App() {
     
     fetchData();
   }, [useRealSupabase]);
+
+  // ==========================================
+  // 🖥️ MODO DE JOGO: 'select' | 'online' | 'local'
+  // ==========================================
+  const [appMode, setAppMode] = useState<'select' | 'online' | 'local'>('select');
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
@@ -1781,6 +1787,160 @@ Garanta que:
 
   if (URL_ROOM_CODE) {
     return <PlayerView roomCode={URL_ROOM_CODE} />;
+  }
+
+  // ─── Modo Local: renderizar componente dedicado ──────────────────────────
+  if (appMode === 'local') {
+    return (
+      <div className="w-full min-h-screen flex flex-col">
+        {/* Header */}
+        <div className="max-w-[1200px] w-full mx-auto px-6">
+          <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
+                  Quizziando
+                </h1>
+                <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold flex items-center gap-1">
+                  <Monitor style={{ width: 12, height: 12 }} /> Modo Local
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
+              className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.05)] text-[hsl(var(--text-secondary))]"
+              title={soundEnabled ? 'Silenciar' : 'Ativar som'}
+            >
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </button>
+          </header>
+        </div>
+        <main className="flex-grow flex flex-col justify-center">
+          <LocalGameMode
+            onBack={() => setAppMode('select')}
+            supabaseCategories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
+            supabaseQuestions={questions.map(q => ({
+              id: q.id,
+              category_id: q.category_id,
+              question_text: q.question_text,
+              time_limit: q.time_limit || 20,
+              alternatives: q.alternatives
+            }))}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // ─── Tela de Seleção de Modo ─────────────────────────────────────────────
+  if (appMode === 'select') {
+    return (
+      <div className="app-container min-h-screen flex flex-col">
+        <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
+                Quizziando
+              </h1>
+              <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold">
+                Escolha o Modo de Jogo
+              </span>
+            </div>
+          </div>
+        </header>
+        <main className="flex-grow flex flex-col justify-center py-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ maxWidth: 560, margin: '0 auto', width: '100%' }}
+          >
+            <div className="glass-card p-8 flex flex-col gap-8">
+              <div className="text-center">
+                <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
+                  Bem-vindo ao Quizziando!
+                </span>
+                <h2 className="text-3xl font-extrabold mt-2">Como deseja jogar?</h2>
+                <p className="text-sm text-[hsl(var(--text-secondary))] mt-2">
+                  Escolha o modo de jogo para continuar.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {/* Modo Online */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setAppMode('online'); sfx.playClick(); }}
+                  style={{
+                    padding: '24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.08))',
+                    border: '1.5px solid rgba(124,58,237,0.35)',
+                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                    display: 'flex', alignItems: 'center', gap: 20,
+                    boxShadow: '0 8px 32px rgba(124,58,237,0.15)',
+                  }}
+                >
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #7C3AED, #6D28D9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(124,58,237,0.4)' }}>
+                    <Wifi style={{ width: 28, height: 28, color: 'white' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>🌐 Modo Online</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(148,163,184,0.8)', lineHeight: 1.5 }}>
+                      Jogue em tempo real com jogadores na internet. Crie salas, use o celular como controle e compita ao vivo.
+                    </p>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {['Sala ao vivo', 'Multiplayer', 'Supabase Realtime'].map(tag => (
+                        <span key={tag} style={{ fontSize: 10, fontWeight: 700, color: '#A78BFA', background: 'rgba(124,58,237,0.15)', borderRadius: 999, padding: '3px 10px', border: '1px solid rgba(124,58,237,0.2)' }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <ChevronRight style={{ width: 22, height: 22, color: 'rgba(124,58,237,0.7)', flexShrink: 0 }} />
+                </motion.button>
+
+                {/* Modo Local */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setAppMode('local'); sfx.playClick(); }}
+                  style={{
+                    padding: '24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))',
+                    border: '1.5px solid rgba(16,185,129,0.3)',
+                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                    display: 'flex', alignItems: 'center', gap: 20,
+                    boxShadow: '0 8px 32px rgba(16,185,129,0.12)',
+                  }}
+                >
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #059669, #047857)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(5,150,105,0.4)' }}>
+                    <Monitor style={{ width: 28, height: 28, color: 'white' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>🖥️ Modo Local</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(148,163,184,0.8)', lineHeight: 1.5 }}>
+                      Jogue sem internet com dois times. Os participantes falam a resposta e o host confirma acerto ou erro.
+                    </p>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {['Sem internet', '2 Times', 'Resposta oral', 'SQLite Local'].map(tag => (
+                        <span key={tag} style={{ fontSize: 10, fontWeight: 700, color: '#34D399', background: 'rgba(5,150,105,0.15)', borderRadius: 999, padding: '3px 10px', border: '1px solid rgba(5,150,105,0.2)' }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <ChevronRight style={{ width: 22, height: 22, color: 'rgba(16,185,129,0.7)', flexShrink: 0 }} />
+                </motion.button>
+              </div>
+
+              <div style={{ textAlign: 'center', fontSize: 11, color: 'rgba(148,163,184,0.4)', fontWeight: 600 }}>
+                Quizziando — Live Realtime Arena
+              </div>
+            </div>
+          </motion.div>
+        </main>
+      </div>
+    );
   }
 
   return (
