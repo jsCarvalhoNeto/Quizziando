@@ -620,7 +620,6 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   if (localScreen === 'game') {
     const respIdx       = currentResponderIndex;
-    const isQPhase      = phase === 'question-first' || phase === 'question-second';
     const progressPct   = (currentRound - 1) / totalRounds * 100;
     const correctAnswer = currentQuestion?.alternatives.find(a => a.isCorrect);
 
@@ -657,7 +656,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
           {/* Equipes */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {([0, 1] as const).map((i, pos) => {
+            {([0, 1] as const).map((i) => {
               const isActive = respIdx === i && phase !== 'round-result' && phase !== 'finished';
               return (
                 <motion.div key={i}
