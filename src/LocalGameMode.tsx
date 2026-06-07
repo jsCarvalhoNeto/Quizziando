@@ -14,6 +14,7 @@ import {
   importFromSupabaseData,
   type LocalCategory, type LocalQuestion
 } from './lib/localDb';
+import logoCurso from './assets/logo_curso.png';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -999,14 +1000,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                       }}>
                       {isSpinning
                         ? <Sparkles style={{ color: 'white', width: 24, height: 24 }} />
-                        : <>
-                            <svg viewBox="0 0 24 24" fill="white" style={{ width: 20, height: 20 }}>
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8l5 4-5 4z"/>
-                            </svg>
-                            <span style={{ color: 'white', fontWeight: 900, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                              RODAR
-                            </span>
-                          </>
+                        : <img src={logoCurso} alt="Logo Curso" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
                       }
                     </div>
                   </div>
