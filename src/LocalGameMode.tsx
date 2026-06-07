@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy, CheckCircle, XCircle, Home,
-  Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown, Sparkles,
+  Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -998,10 +998,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                         gap: 2,
                         transition: 'transform 0.1s, box-shadow 0.1s'
                       }}>
-                      {isSpinning
-                        ? <Sparkles style={{ color: 'white', width: 24, height: 24 }} />
-                        : <img src={logoCurso} alt="Logo Curso" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-                      }
+                      <img src={logoCurso} alt="Logo Curso" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
                     </div>
                   </div>
                 </div>
