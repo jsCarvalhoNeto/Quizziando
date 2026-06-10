@@ -859,6 +859,26 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                       );
                     })}
                   </div>
+                  
+                  {/* Total de questões disponíveis */}
+                  <div style={{
+                    marginTop: 14,
+                    fontSize: 15,
+                    color: 'rgba(148,163,184,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'rgba(255,255,255,0.02)',
+                    padding: '10px 16px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    alignSelf: 'flex-start'
+                  }}>
+                    <span>📝 Questões disponíveis para o jogo:</span>
+                    <strong style={{ color: '#FBBF24', fontSize: 17, fontWeight: 900 }}>
+                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id)).length}
+                    </strong>
+                  </div>
                 </div>
               )}
 
