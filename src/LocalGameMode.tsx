@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Trophy, CheckCircle, XCircle, Home,
+  Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X
 } from 'lucide-react';
@@ -61,6 +61,8 @@ class LocalSfx {
   public gameAudio: HTMLAudioElement | null = null;
   public spinAudio: HTMLAudioElement | null = null;
   public victoryAudio: HTMLAudioElement | null = null;
+  public errorAudio: HTMLAudioElement | null = null;
+  public correctAudio: HTMLAudioElement | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -74,6 +76,14 @@ class LocalSfx {
 
       this.victoryAudio = new Audio('/victory.mp3');
       this.victoryAudio.volume = 0.5;
+
+      this.errorAudio = new Audio('/error.mp3');
+      this.errorAudio.preload = 'auto';
+      this.errorAudio.volume = 0.5;
+
+      this.correctAudio = new Audio('/correct.mp3');
+      this.correctAudio.preload = 'auto';
+      this.correctAudio.volume = 0.5;
     }
   }
 
@@ -95,8 +105,30 @@ class LocalSfx {
   }
 
   playClick() { this.tone(600, 0.1, 'sine', 0.1); }
-  playCorrect() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, 0.2), i * 80)); }
-  playWrong() { this.tone(180, 0.4, 'sawtooth', 0.12); }
+  playCorrect() {
+    if (!this.enabled || !this.correctAudio) {
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, 0.2), i * 80));
+      return;
+    }
+    try {
+      this.correctAudio.currentTime = 0;
+      this.correctAudio.play().catch(() => {});
+    } catch {
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, 0.2), i * 80));
+    }
+  }
+  playWrong() {
+    if (!this.enabled || !this.errorAudio) {
+      this.tone(180, 0.4, 'sawtooth', 0.12);
+      return;
+    }
+    try {
+      this.errorAudio.currentTime = 0;
+      this.errorAudio.play().catch(() => {});
+    } catch {
+      this.tone(180, 0.4, 'sawtooth', 0.12);
+    }
+  }
   playTimeout() { this.tone(120, 0.6, 'sawtooth', 0.1); }
 
   playSpin() {
@@ -121,6 +153,12 @@ class LocalSfx {
     this.stopGameSound();
     this.stopSpin();
     this.stopVictory();
+    if (this.errorAudio) {
+      try { this.errorAudio.pause(); } catch {}
+    }
+    if (this.correctAudio) {
+      try { this.correctAudio.pause(); } catch {}
+    }
   }
 
   playGameSound() {
@@ -619,18 +657,21 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   if (localScreen === 'setup') {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        style={{ maxWidth: 580, margin: '0 auto', width: '100%' }}>
-        <div className="glass-card p-8 flex flex-col gap-6">
+        style={{ maxWidth: 1430, margin: '0 auto', width: '100%', padding: '0 24px' }}>
+        <div className="glass-card flex flex-col gap-10" style={{ padding: '48px' }}>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Cabeçalho */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 26 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <button onClick={onBack}
-                style={{ padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: 'rgba(148,163,184,0.9)', display: 'flex' }}>
-                <ArrowLeft style={{ width: 18, height: 18 }} />
+                style={{ padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: 'rgba(148,163,184,0.9)', display: 'flex', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}>
+                <ArrowLeft style={{ width: 24, height: 24 }} />
               </button>
               <div>
-                <h2 style={{ fontSize: 22, fontWeight: 900, color: 'white', margin: 0 }}>🖥️ Modo Local</h2>
-                <p style={{ fontSize: 12, color: 'rgba(148,163,184,0.6)', margin: '2px 0 0' }}>Dois times · Resposta oral · Sem internet</p>
+                <h2 style={{ fontSize: 34, fontWeight: 900, color: 'white', margin: 0 }}>🖥️ Modo Local</h2>
+                <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.6)', margin: '6px 0 0' }}>Dois times · Resposta oral · Sem internet</p>
               </div>
             </div>
             
@@ -638,184 +679,212 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
               onClick={handleSyncWithCloud}
               title="Baixar categorias e perguntas da nuvem para o SQLite local"
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 10,
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 22px', borderRadius: 12,
                 background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
-                color: '#60A5FA', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                color: '#60A5FA', fontSize: 18, fontWeight: 700, cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; }}
             >
-              <Upload style={{ width: 14, height: 14, transform: 'rotate(180deg)' }} />
+              <Upload style={{ width: 20, height: 20, transform: 'rotate(180deg)' }} />
               Sincronizar
             </button>
           </div>
 
           {dbError && (
-            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <AlertCircle style={{ width: 18, height: 18, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
-              <p style={{ margin: 0, fontSize: 12, color: '#EF4444', lineHeight: 1.5 }}>{dbError}</p>
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '16px 20px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <AlertCircle style={{ width: 22, height: 22, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ margin: 0, fontSize: 15, color: '#EF4444', lineHeight: 1.5 }}>{dbError}</p>
             </div>
           )}
 
-          {/* Nomes dos times */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {[0, 1].map(i => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {i === 0 ? '🔴' : '🔵'} {i === 0 ? 'Time A' : 'Time B'}
+          {/* Grid de duas colunas responsivo */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
+            gap: 52,
+            alignItems: 'start'
+          }}>
+            
+            {/* Coluna 1: Configurações do Jogo */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+              {/* Nomes dos times */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                  Nomes das Equipes
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  {[0, 1].map(i => (
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <label style={{ fontSize: 14, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {i === 0 ? '🔴' : '🔵'} {i === 0 ? 'Time A' : 'Time B'}
+                      </label>
+                      <input
+                        type="text" maxLength={20} className="input-glow"
+                        style={{ textAlign: 'center', fontWeight: 700, borderColor: TEAM_COLORS[i] + '44', padding: '16px', fontSize: 20 }}
+                        value={playerNames[i]}
+                        onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                        placeholder={i === 0 ? 'Time A' : 'Time B'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rodadas */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Número de Rodadas
                 </label>
-                <input
-                  type="text" maxLength={20} className="input-glow"
-                  style={{ textAlign: 'center', fontWeight: 700, borderColor: TEAM_COLORS[i] + '44' }}
-                  value={playerNames[i]}
-                  onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
-                  placeholder={i === 0 ? 'Time A' : 'Time B'}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Rodadas */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Número de Rodadas
-            </label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[2, 6, 10, 16].map(n => (
-                <button key={n}
-                  onClick={() => { setTotalRounds(n); setIsCustomRounds(false); sfx.playClick(); }}
-                  style={{
-                    flex: 1, padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 16,
-                    background: !isCustomRounds && totalRounds === n ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                    border: !isCustomRounds && totalRounds === n ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                    color: !isCustomRounds && totalRounds === n ? 'white' : 'rgba(148,163,184,0.7)',
-                    cursor: 'pointer', boxShadow: !isCustomRounds && totalRounds === n ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
-                    transition: 'all 0.2s'
-                  }}>
-                  {n}
-                </button>
-              ))}
-              <button
-                onClick={() => { setIsCustomRounds(true); sfx.playClick(); }}
-                style={{
-                  flex: '2', padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 14,
-                  background: isCustomRounds ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                  border: isCustomRounds ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                  color: isCustomRounds ? 'white' : 'rgba(148,163,184,0.7)',
-                  cursor: 'pointer', boxShadow: isCustomRounds ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
-                  transition: 'all 0.2s'
-                }}>
-                Personalizado
-              </button>
-            </div>
-            {isCustomRounds && (
-              <div style={{ marginTop: 4 }}>
-                <input
-                  type="number"
-                  min={2}
-                  max={100}
-                  step={2}
-                  value={totalRounds}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 2;
-                    setTotalRounds(val % 2 !== 0 ? val + 1 : val);
-                  }}
-                  className="input-glow"
-                  style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 16 }}
-                  placeholder="Digite o número de rodadas (par)..."
-                />
-                <p style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', marginTop: 8, textAlign: 'center', lineHeight: 1.4 }}>
-                  O número de rodadas deve ser par para que as duas equipes tenham exatamente o mesmo número de turnos.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Modo de Jogo */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              Modo de Jogo
-            </label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => { setHasObstacles(false); sfx.playClick(); }}
-                style={{
-                  flex: 1, padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 14,
-                  background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                  border: !hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                  color: !hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
-                  cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
-                  transition: 'all 0.2s'
-                }}>
-                Sem obstáculos
-              </button>
-              <button
-                onClick={() => { setHasObstacles(true); sfx.playClick(); }}
-                style={{
-                  flex: 1, padding: '10px 4px', borderRadius: 10, fontWeight: 800, fontSize: 14,
-                  background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                  border: hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                  color: hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
-                  cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
-                  transition: 'all 0.2s'
-                }}>
-                Com obstáculos
-              </button>
-            </div>
-          </div>
-
-          {/* Categorias */}
-          {allCategories.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Categorias ({selectedCatIds.length}/{allCategories.length})
-                </label>
-                <button onClick={() => setSelectedCatIds(s => s.length === allCategories.length ? [] : allCategories.map(c => c.id))}
-                  style={{ fontSize: 11, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                  {selectedCatIds.length === allCategories.length ? 'Desmarcar todas' : 'Selecionar todas'}
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 140, overflowY: 'auto' }}>
-                {allCategories.map(cat => {
-                  const sel = selectedCatIds.includes(cat.id);
-                  return (
-                    <button key={cat.id}
-                      onClick={() => { setSelectedCatIds(prev => sel ? prev.filter(id => id !== cat.id) : [...prev, cat.id]); sfx.playClick(); }}
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {[2, 6, 10, 16].map(n => (
+                    <button key={n}
+                      onClick={() => { setTotalRounds(n); setIsCustomRounds(false); sfx.playClick(); }}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 999, fontWeight: 700, fontSize: 12,
-                        background: sel ? `${cat.color}22` : 'rgba(255,255,255,0.03)',
-                        border: sel ? `1.5px solid ${cat.color}99` : '1.5px solid rgba(255,255,255,0.06)',
-                        color: sel ? cat.color : 'rgba(148,163,184,0.5)',
-                        cursor: 'pointer', transition: 'all 0.18s'
+                        flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 20,
+                        background: !isCustomRounds && totalRounds === n ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                        border: !isCustomRounds && totalRounds === n ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                        color: !isCustomRounds && totalRounds === n ? 'white' : 'rgba(148,163,184,0.7)',
+                        cursor: 'pointer', boxShadow: !isCustomRounds && totalRounds === n ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                        transition: 'all 0.2s'
                       }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
-                      {cat.name}
+                      {n}
                     </button>
-                  );
-                })}
+                  ))}
+                  <button
+                    onClick={() => { setIsCustomRounds(true); sfx.playClick(); }}
+                    style={{
+                      flex: '2', padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
+                      background: isCustomRounds ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                      border: isCustomRounds ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                      color: isCustomRounds ? 'white' : 'rgba(148,163,184,0.7)',
+                      cursor: 'pointer', boxShadow: isCustomRounds ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      transition: 'all 0.2s'
+                    }}>
+                    Personalizado
+                  </button>
+                </div>
+                {isCustomRounds && (
+                  <div style={{ marginTop: 6 }}>
+                    <input
+                      type="number"
+                      min={2}
+                      max={100}
+                      step={2}
+                      value={totalRounds}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 2;
+                        setTotalRounds(val % 2 !== 0 ? val + 1 : val);
+                      }}
+                      className="input-glow"
+                      style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 20, padding: '16px' }}
+                      placeholder="Digite o número de rodadas (par)..."
+                    />
+                    <p style={{ fontSize: 14, color: 'rgba(148,163,184,0.6)', marginTop: 10, textAlign: 'center', lineHeight: 1.4 }}>
+                      O número de rodadas deve ser par para que as duas equipes tenham exatamente o mesmo número de turnos.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Modo de Jogo */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Modo de Jogo
+                </label>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <button
+                    onClick={() => { setHasObstacles(false); sfx.playClick(); }}
+                    style={{
+                      flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
+                      background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                      border: !hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                      color: !hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
+                      cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      transition: 'all 0.2s'
+                    }}>
+                    Sem obstáculos
+                  </button>
+                  <button
+                    onClick={() => { setHasObstacles(true); sfx.playClick(); }}
+                    style={{
+                      flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
+                      background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
+                      border: hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
+                      color: hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
+                      cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      transition: 'all 0.2s'
+                    }}>
+                    Com obstáculos
+                  </button>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Regras */}
-          <div style={{ padding: '14px 16px', background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 12 }}>
-            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 700, color: 'rgba(199,210,254,0.9)' }}>ℹ️ Regras do Modo Local</p>
-            <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: 'rgba(148,163,184,0.8)', lineHeight: 1.8 }}>
-              <li>Um <strong>sorteio</strong> decide qual time começa a rodada 1</li>
-              <li>O time da vez responde <strong>em voz alta</strong> dentro do tempo</li>
-              <li>Se <strong>errar ou o tempo acabar</strong>, o outro time tem a mesma chance</li>
-              <li>Acerto = <strong>100 pontos</strong>. Erro = 0 pontos</li>
-              <li>A cada rodada, <strong>alterna</strong> quem começa respondendo</li>
-            </ul>
+            {/* Coluna 2: Categorias e Regras */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+              {/* Categorias */}
+              {allCategories.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Categorias ({selectedCatIds.length}/{allCategories.length})
+                    </label>
+                    <button onClick={() => setSelectedCatIds(s => s.length === allCategories.length ? [] : allCategories.map(c => c.id))}
+                      style={{ fontSize: 15, color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, transition: 'color 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#C084FC'; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#A78BFA'; }}>
+                      {selectedCatIds.length === allCategories.length ? 'Desmarcar todas' : 'Selecionar todas'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
+                    {allCategories.map(cat => {
+                      const sel = selectedCatIds.includes(cat.id);
+                      return (
+                        <button key={cat.id}
+                          onClick={() => { setSelectedCatIds(prev => sel ? prev.filter(id => id !== cat.id) : [...prev, cat.id]); sfx.playClick(); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '10px 18px', borderRadius: 999, fontWeight: 700, fontSize: 15,
+                            background: sel ? `${cat.color}22` : 'rgba(255,255,255,0.03)',
+                            border: sel ? `1.5px solid ${cat.color}99` : '1.5px solid rgba(255,255,255,0.06)',
+                            color: sel ? cat.color : 'rgba(148,163,184,0.5)',
+                            cursor: 'pointer', transition: 'all 0.18s'
+                          }}>
+                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Regras */}
+              <div style={{ padding: '20px 26px', background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.12)', borderRadius: 20 }}>
+                <p style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 800, color: 'rgba(199,210,254,0.95)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  ℹ️ Regras do Modo Local
+                </p>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 15, color: 'rgba(148,163,184,0.85)', lineHeight: 1.9 }}>
+                  <li>Um <strong>sorteio</strong> decide qual time começa a rodada 1</li>
+                  <li>O time da vez responde <strong>em voz alta</strong> dentro do tempo</li>
+                  <li>Se <strong>errar ou o tempo acabar</strong>, o outro time tem a mesma chance</li>
+                  <li>Acerto = <strong>100 pontos</strong>. Erro = 0 pontos</li>
+                  <li>A cada rodada, <strong>alterna</strong> quem começa respondendo</li>
+                </ul>
+              </div>
+            </div>
+
           </div>
 
-          <button onClick={startGame} className="btn-glow justify-center" style={{ fontSize: 16, fontWeight: 800, padding: 14 }}>
-            <Play style={{ width: 20, height: 20 }} /> Iniciar Jogo
-          </button>
+          {/* Botão de Jogar (Rodapé) */}
+          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 32, marginTop: 16 }}>
+            <button onClick={startGame} className="btn-glow justify-center" style={{ fontSize: 24, fontWeight: 800, padding: '22px 64px', width: '100%', maxWidth: 520, borderRadius: 16 }}>
+              <Play style={{ width: 28, height: 28 }} /> Iniciar Jogo
+            </button>
+          </div>
         </div>
       </motion.div>
     );
@@ -1092,7 +1161,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             {(phase === 'question-first' || phase === 'question-second') && currentQuestion && (
               <motion.div key="question"
                 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
-                style={{ width: '100%', maxWidth: 1500, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                style={{ width: '100%', maxWidth: 1500, display: 'flex', flexDirection: 'column', gap: 0, marginTop: '-50px' }}>
 
                 {/* Barra superior: categoria + timer + segunda chance */}
                 <div style={{
@@ -1165,13 +1234,21 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                   {ANSWER_COLORS.map(col => {
                     const alt = currentQuestion.alternatives[col.index];
                     return (
-                      <div key={col.index}
+                      <motion.button key={col.index}
+                        whileHover={{ scale: 1.015, filter: 'brightness(1.08)' }}
+                        whileTap={{ scale: 0.985 }}
+                        onClick={() => handleJudge(alt?.isCorrect || false)}
                         style={{
-                          padding: '26px 36px', display: 'flex', alignItems: 'center', gap: 18,
+                          padding: '42px 36px', display: 'flex', alignItems: 'center', gap: 18,
                           background: `linear-gradient(135deg, ${col.bg} 0%, ${col.bgHover} 100%)`,
                           borderRight: col.index === 0 || col.index === 2 ? '1px solid rgba(0,0,0,0.2)' : 'none',
                           borderBottom: col.index === 0 || col.index === 1 ? '1px solid rgba(0,0,0,0.2)' : 'none',
-                          position: 'relative'
+                          position: 'relative',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          outline: 'none',
+                          width: '100%'
                         }}>
                         <span style={{ fontSize: 38, fontWeight: 900, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
                           {col.label}
@@ -1179,40 +1256,9 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                         <span style={{ fontSize: 23, fontWeight: 700, color: 'white', lineHeight: 1.4 }}>
                           {alt?.text || '—'}
                         </span>
-                      </div>
+                      </motion.button>
                     );
                   })}
-                </div>
-
-                {/* Botões ACERTOU / ERROU */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={() => handleJudge(true)}
-                    style={{
-                      padding: '16px 32px', borderRadius: 16,
-                      background: 'linear-gradient(135deg, #059669, #047857)',
-                      border: '2px solid rgba(16,185,129,0.4)',
-                      boxShadow: '0 8px 32px rgba(5,150,105,0.35)',
-                      color: 'white', fontWeight: 900, fontSize: 28, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14
-                    }}>
-                    <CheckCircle style={{ width: 32, height: 32 }} />
-                    ACERTOU
-                  </motion.button>
-
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                    onClick={() => handleJudge(false)}
-                    style={{
-                      padding: '16px 32px', borderRadius: 16,
-                      background: 'linear-gradient(135deg, #DC2626, #B91C1C)',
-                      border: '2px solid rgba(239,68,68,0.4)',
-                      boxShadow: '0 8px 32px rgba(220,38,38,0.35)',
-                      color: 'white', fontWeight: 900, fontSize: 28, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14
-                    }}>
-                    <XCircle style={{ width: 32, height: 32 }} />
-                    ERROU
-                  </motion.button>
                 </div>
 
                 {phase === 'question-first' && (
