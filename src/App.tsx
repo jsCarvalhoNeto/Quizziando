@@ -1,5 +1,5 @@
 // Quizziando - Arena Realtime Arena - Produção Supabase Habilitada
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
   Clock, CheckCircle, XCircle, RotateCcw, 
@@ -856,13 +856,53 @@ Garanta que:
   // Flag: se está na tela de jogo ativo (fullscreen)
   const isGamePlayFullscreen = screen === 'game-play';
 
+  // Dimensões da janela (para dimensionar a roleta em projeções/telas grandes)
+  const [winSize, setWinSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const onResize = () => setWinSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   // Variáveis calculadas dinamicamente com base no estado do lobby retrátil
-  const wheelSize = isLobbyExpanded ? 380 : 700;
+  // Roleta responsiva: ocupa até 78% da altura ou 55% da largura da tela (mín. 480px, máx. 1000px)
+  const wheelSize = isLobbyExpanded
+    ? 380
+    : Math.round(Math.min(Math.max(Math.min(winSize.h * 0.78, winSize.w * 0.55), 480), 1000));
   const radius = wheelSize / 2;
-  const innerTranslate = wheelSize * 0.15;
-  const textBoxWidth = radius - innerTranslate - 16;
+  const innerTranslate = wheelSize * 0.12; // início do texto, logo após o botão central (raio 0.09)
+  // Aro externo dedicado (moldura escura onde os LEDs "moram")
+  const rimWidth = Math.round(Math.max(16, wheelSize * 0.045));
+  const textBoxWidth = radius - innerTranslate - rimWidth - 10;
   const textBoxHeight = wheelSize * 0.075;
-  const fontSize = isLobbyExpanded ? '12px' : '18px';
+  const fontSize = isLobbyExpanded ? '12px' : `${Math.max(18, Math.round(wheelSize * 0.026))}px`;
+
+  // Segmentos da roleta com cores ajustadas: se dois segmentos vizinhos têm a
+  // mesma cor, o segundo é escurecido para manter a separação visual à distância
+  const wheelCategories = useMemo(() => {
+    const shade = (hex: string, pct: number) => {
+      const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (!m) return hex;
+      const f = (c: string) => {
+        const v = Math.round(parseInt(c, 16) * (1 + pct / 100));
+        return Math.min(255, Math.max(0, v)).toString(16).padStart(2, '0');
+      };
+      return `#${f(m[1])}${f(m[2])}${f(m[3])}`;
+    };
+    const cats = categories
+      .filter(c => selectedCategoryIds.includes(c.id))
+      .map(c => ({ ...c, displayColor: c.color }));
+    for (let i = 1; i < cats.length; i++) {
+      if (cats[i].displayColor.toLowerCase() === cats[i - 1].displayColor.toLowerCase()) {
+        cats[i].displayColor = shade(cats[i].color, -25);
+      }
+    }
+    // Fechamento do círculo: último vizinho do primeiro
+    if (cats.length > 2 && cats[cats.length - 1].displayColor.toLowerCase() === cats[0].displayColor.toLowerCase()) {
+      cats[cats.length - 1].displayColor = shade(cats[cats.length - 1].displayColor, -25);
+    }
+    return cats;
+  }, [categories, selectedCategoryIds]);
 
 
   // Efeito para som global
@@ -1148,6 +1188,10 @@ Garanta que:
   
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
+    if (newCatName.trim().length > 20) {
+      alert('O nome da categoria pode ter no máximo 20 caracteres!');
+      return;
+    }
     if (categories.length >= 20) {
       alert('Você atingiu o limite máximo de 20 categorias!');
       return;
@@ -1289,6 +1333,10 @@ Garanta que:
   const handleSaveCategoryEdit = async (id: string) => {
     if (!editingCatName.trim()) {
       alert('O nome da categoria não pode ser vazio!');
+      return;
+    }
+    if (editingCatName.trim().length > 20) {
+      alert('O nome da categoria pode ter no máximo 20 caracteres!');
       return;
     }
 
@@ -1568,28 +1616,73 @@ Garanta que:
   };
 
 
+  // ── Giro por arraste do mouse (flick) ─────────────────────────────────
+  const rouletteAngleRef = useRef(0);
+  useEffect(() => { rouletteAngleRef.current = rouletteAngle; }, [rouletteAngle]);
+  const wheelDragRef = useRef({ active: false, lastAngle: 0, lastTime: 0, velocity: 0 });
+
+  const pointerAngleOnWheel = (e: React.PointerEvent, el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2)) * (180 / Math.PI);
+  };
+
+  const handleWheelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (role !== 'operator' || roundState !== 'idle' || isSpinning) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    wheelDragRef.current = { active: true, lastAngle: pointerAngleOnWheel(e, e.currentTarget), lastTime: performance.now(), velocity: 0 };
+  };
+
+  const handleWheelPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = wheelDragRef.current;
+    if (!d.active) return;
+    const a = pointerAngleOnWheel(e, e.currentTarget);
+    let delta = a - d.lastAngle;
+    if (delta > 180) delta -= 360; else if (delta < -180) delta += 360;
+    const now = performance.now();
+    const dt = Math.max(1, now - d.lastTime);
+    d.velocity = 0.8 * (delta / dt * 1000) + 0.2 * d.velocity; // graus/segundo suavizado
+    d.lastAngle = a;
+    d.lastTime = now;
+    rouletteAngleRef.current += delta;
+    setRouletteAngle(prev => prev + delta); // a roda acompanha o mouse em tempo real
+  };
+
+  const handleWheelPointerUp = () => {
+    const d = wheelDragRef.current;
+    if (!d.active) return;
+    d.active = false;
+    const speed = Math.abs(d.velocity);
+    if (speed > 150) {
+      // Arremesso: quanto mais rápido o gesto, mais voltas extras (até 6)
+      const boost = Math.min(6, speed / 400);
+      handleSpinRoulette(boost, rouletteAngleRef.current);
+    }
+  };
+
   // Girar a Roleta de Categorias
-  const handleSpinRoulette = async () => {
+  // boostTurns: voltas extras vindas do "arremesso" do mouse; startAngle: ângulo atual após arraste manual
+  const handleSpinRoulette = async (boostTurns: number = 0, startAngle?: number) => {
     if (selectedCategoryIds.length === 0) {
       alert('Adicione pelo menos uma categoria antes de rodar!');
       return;
     }
     sfx.playSpin();
+
+    // Gerar o giro e iniciar a animação IMEDIATAMENTE (no mesmo render),
+    // sem esperar a rede — senão a roda "engasga" aguardando o Supabase
+    const numSpins = 4 + Math.random() * 4 + boostTurns;
+    const finalAngle = (startAngle ?? rouletteAngle) + numSpins * 360 + Math.random() * 360;
     setIsSpinning(true);
     setRoundState('spinning');
-    
-    // Publicar o estado de giro imediatamente no Supabase para os jogadores verem a animação
+    setRouletteAngle(finalAngle);
+
+    // Publicar o estado de giro no Supabase em segundo plano (não bloqueia a animação)
     if (useRealSupabase) {
-      await publishRoomState({
+      publishRoomState({
         round_state: 'spinning',
         current_round: currentRoundIndex
-      });
+      }).catch(err => console.error('Erro ao publicar estado de giro:', err));
     }
-    
-    // Gerar um giro aleatório
-    const numSpins = 4 + Math.random() * 4;
-    const finalAngle = rouletteAngle + numSpins * 360 + Math.random() * 360;
-    setRouletteAngle(finalAngle);
     
     setTimeout(async () => {
       setIsSpinning(false);
@@ -1827,7 +1920,34 @@ Garanta que:
   };
 
   // Ordenação de vencedores
+  // ── Leaderboard animado: mostra o placar anterior primeiro, depois revela o novo ──
+  const [prevScores, setPrevScores] = useState<Record<string, number> | null>(null);
+  const [showNewScores, setShowNewScores] = useState(false);
+
+  // Fotografa os pontos no início da rodada (antes de qualquer resposta pontuar)
+  useEffect(() => {
+    if (roundState === 'spinning') {
+      setPrevScores(Object.fromEntries(activePlayers.map(p => [p.id, p.score])));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundState]);
+
+  // Ao abrir o ranking: exibe o placar antigo por ~2,2s e então revela o novo
+  useEffect(() => {
+    if (roundState === 'ranking') {
+      setShowNewScores(false);
+      const t = setTimeout(() => setShowNewScores(true), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [roundState]);
+
   const sortedPlayers = [...activePlayers].sort((a, b) => b.score - a.score);
+  const prevSortedPlayers = prevScores
+    ? activePlayers.map(p => ({ ...p, score: prevScores[p.id] ?? 0 })).sort((a, b) => b.score - a.score)
+    : sortedPlayers;
+  // Lista exibida no leaderboard: placar congelado da rodada anterior → placar novo
+  const rankingPlayers = (showNewScores || !prevScores) ? sortedPlayers : prevSortedPlayers;
+  const prevPosById = new Map(prevSortedPlayers.map((p, i) => [p.id, i]));
   const thirdPlace = sortedPlayers[2];
   const secondPlace = sortedPlayers[1];
   const firstPlace = sortedPlayers[0];
@@ -2580,7 +2700,7 @@ Garanta que:
                               <>
                                 <div className="flex items-center gap-2 flex-grow">
                                   <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                  <input type="text" maxLength={20} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
@@ -2625,7 +2745,7 @@ Garanta que:
 
                     {!isCreatingFolder ? (
                       <>
-                        <input type="text" placeholder="Nova categoria..." value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                        <input type="text" placeholder="Nova categoria..." maxLength={20} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
                         <div className="flex justify-between items-center gap-4">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
@@ -2670,7 +2790,7 @@ Garanta que:
                               <>
                                 <div className="flex items-center gap-2 flex-grow">
                                   <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                  <input type="text" maxLength={20} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
@@ -2710,7 +2830,7 @@ Garanta que:
                   </div>
 
                   <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                    <input type="text" placeholder="Nova categoria nesta pasta..." value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                    <input type="text" placeholder="Nova categoria nesta pasta..." maxLength={20} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
                     <div className="flex justify-between items-center gap-4">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
@@ -2893,12 +3013,13 @@ Garanta que:
               {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
               <div className={`${isLobbyExpanded ? 'lg:col-span-8' : 'lg:col-span-12'} flex flex-col gap-6 transition-all duration-500`} style={{ minHeight: 0 }}>
                 
-                {/* STATUS DO JOGO */}
+                {/* STATUS DO JOGO — oculto durante a roleta (vira chips dentro do card para maximizar a projeção) */}
+                {!(roundState === 'idle' || roundState === 'spinning') && (
                 <div className="glass-card p-4 flex justify-between items-center relative overflow-hidden">
                   <span className="text-xs font-bold text-[hsl(var(--secondary))] uppercase">
                     Rodada {currentRoundIndex} de {gameRounds}
                   </span>
-                  
+
                   {/* Botão de Controle do Lobby Retrátil */}
                   <button
                     onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
@@ -2913,12 +3034,19 @@ Garanta que:
                     Modo {gameMode === 'duel' ? 'Duelo' : gameMode === 'team' ? 'Times' : 'Aberto'}
                   </span>
                 </div>
+                )}
 
 
               {/* ROLETA DE CATEGORIAS */}
               {roundState === 'idle' || roundState === 'spinning' ? (
-                <div style={{ paddingTop: '60px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: GAME_THEMES[gameTheme]?.bg || '#2a1b54', backgroundImage: GAME_THEMES[gameTheme]?.img || 'none', backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
-                  
+                <div style={{ flex: 1, paddingTop: '44px', paddingBottom: '20px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: GAME_THEMES[gameTheme]?.bg || '#2a1b54', backgroundImage: GAME_THEMES[gameTheme]?.img || 'none', backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
+
+                  {/* Vinheta — escurece as bordas do card para focar a atenção na roda */}
+                  <div style={{
+                    position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: '26px',
+                    background: 'radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.20) 72%, rgba(0,0,0,0.45) 100%)'
+                  }} />
+
                   {/* Floating Header */}
                   <div style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ background: 'linear-gradient(to bottom, #8b5cf6, #6d28d9)', border: '4px solid #4c1d95', borderRadius: '9999px', padding: '12px 32px', boxShadow: '0 6px 0 rgba(76,29,149,1)' }}>
@@ -2927,30 +3055,86 @@ Garanta que:
                       </h3>
                     </div>
                   </div>
-                  
+
+                  {/* Chips de status (substituem a barra superior durante a roleta) */}
+                  <span style={{ position: 'absolute', top: 14, left: 20, zIndex: 10, fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '6px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Rodada {currentRoundIndex} de {gameRounds}
+                  </span>
+                  <div style={{ position: 'absolute', top: 14, right: 20, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '6px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Modo {gameMode === 'duel' ? 'Duelo' : gameMode === 'team' ? 'Times' : 'Aberto'}
+                    </span>
+                    <button
+                      onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
+                      title={isLobbyExpanded ? "Ocultar lista de jogadores" : "Mostrar lista de jogadores"}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: 'white', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '6px 14px', cursor: 'pointer' }}
+                    >
+                      <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                      {isLobbyExpanded ? 'Recolher' : 'Lobby'}
+                    </button>
+                  </div>
+
                   {/* ===== ROLETA PREMIUM ===== */}
-                  <div style={{ position: 'relative', width: `${wheelSize}px`, height: `${wheelSize}px`, margin: '0 auto 24px auto', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                  <div style={{ position: 'relative', width: `${wheelSize}px`, height: `${wheelSize}px`, margin: '0 auto', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
 
-                    {/* Ponteiro Seta — lateral direita apontando para esquerda */}
+                    {/* Glow ambiente atrás da roda — foco cinematográfico */}
                     <div style={{
-                      position: 'absolute',
-                      right: '-12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      transformOrigin: 'right center',
-                      zIndex: 30,
-                      filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-                      animation: isSpinning
-                        ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
-                        : 'pointer-idle 2s ease-in-out infinite'
-                    }}>
-                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#93c572" stroke="white" strokeWidth="2.5" strokeLinejoin="round">
-                        <path d="M22 4L4 12L22 20V4Z"/>
-                      </svg>
-                    </div>
+                      position: 'absolute', inset: `-${Math.round(wheelSize * 0.14)}px`,
+                      borderRadius: '50%', pointerEvents: 'none',
+                      background: 'radial-gradient(circle, rgba(139,92,246,0.38) 0%, rgba(139,92,246,0.16) 45%, rgba(139,92,246,0) 72%)',
+                      filter: 'blur(10px)'
+                    }} />
 
-                    {/* Disco Giratório com Conic Gradient */}
-                    <div style={{
+                    {/* Ponteiro "flipper" realista — parado em repouso, bate nos pinos apenas durante o giro */}
+                    {(() => {
+                      const pW = Math.round(Math.max(48, wheelSize * 0.095));
+                      const pH = Math.round(pW * 0.58);
+                      return (
+                        <div style={{
+                          position: 'absolute',
+                          right: `-${Math.round(pW * 0.32)}px`,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          transformOrigin: `${pW - pH * 0.28}px 50%`, // gira em torno do eixo (parafuso)
+                          zIndex: 30,
+                          filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.45))',
+                          animation: isSpinning
+                            ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
+                            : 'none'
+                        }}>
+                          <svg width={pW} height={pH} viewBox="0 0 48 28">
+                            <defs>
+                              <linearGradient id="pinBody" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stopColor="#c8f57a" />
+                                <stop offset="0.45" stopColor="#84cc16" />
+                                <stop offset="1" stopColor="#3f6212" />
+                              </linearGradient>
+                              <radialGradient id="pinHub" cx="0.35" cy="0.3" r="1">
+                                <stop offset="0" stopColor="#ffffff" />
+                                <stop offset="0.5" stopColor="#c9ced6" />
+                                <stop offset="1" stopColor="#5b6472" />
+                              </radialGradient>
+                            </defs>
+                            {/* Corpo do ponteiro (gota apontando para a roda) */}
+                            <path d="M2 14 L36 3.5 Q43 6 43 14 Q43 22 36 24.5 Z"
+                              fill="url(#pinBody)" stroke="#2c400b" strokeWidth="1.4" strokeLinejoin="round" />
+                            {/* Reflexo especular no dorso */}
+                            <path d="M6 12.6 L35 5.5 Q39 7 40.2 10.5 L7.5 14 Z" fill="rgba(255,255,255,0.32)" />
+                            {/* Eixo metálico (parafuso) */}
+                            <circle cx="36.5" cy="14" r="6" fill="url(#pinHub)" stroke="#3f4753" strokeWidth="1.2" />
+                            <circle cx="34.8" cy="12.2" r="1.8" fill="rgba(255,255,255,0.85)" />
+                          </svg>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Disco Giratório com Conic Gradient — arraste e solte para arremessar */}
+                    <div
+                      onPointerDown={handleWheelPointerDown}
+                      onPointerMove={handleWheelPointerMove}
+                      onPointerUp={handleWheelPointerUp}
+                      onPointerCancel={handleWheelPointerUp}
+                      style={{
                       position: 'absolute',
                       top: 0,
                       left: 0,
@@ -2959,15 +3143,18 @@ Garanta que:
                       borderRadius: '50%',
                       border: '6px solid white',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      touchAction: 'none',
+                      cursor: (role === 'operator' && roundState === 'idle' && !isSpinning) ? 'grab' : 'default',
                       transform: `rotate(${rouletteAngle}deg)`,
                       transition: isSpinning ? 'transform 8s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                      background: selectedCategoryIds.length > 0
-                        ? `conic-gradient(${categories.filter(c => selectedCategoryIds.includes(c.id)).map((c, i, arr) => `${c.color} ${i * (360 / arr.length)}deg ${(i + 1) * (360 / arr.length)}deg`).join(', ')})`
+                      background: wheelCategories.length > 0
+                        ? `conic-gradient(${wheelCategories.map((c, i, arr) => `${c.displayColor} ${i * (360 / arr.length)}deg ${(i + 1) * (360 / arr.length)}deg`).join(', ')})`
                         : '#555',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      userSelect: 'none'
                     }}>
                       {/* Margens (Linhas Brancas) */}
-                      {categories.filter(c => selectedCategoryIds.includes(c.id)).map((cat, i, arr) => {
+                      {wheelCategories.map((cat, i, arr) => {
                         const angle = i * (360 / arr.length);
                         return (
                           <div key={`sep-${cat.id}`} style={{
@@ -2984,7 +3171,7 @@ Garanta que:
                       })}
 
                       {/* Textos radiais dentro do disco */}
-                      {categories.filter(c => selectedCategoryIds.includes(c.id)).map((cat, i, arr) => {
+                      {wheelCategories.map((cat, i, arr) => {
                         const angle = i * (360 / arr.length) + (180 / arr.length) - 90;
                         return (
                           <div key={cat.id} style={{
@@ -2997,8 +3184,9 @@ Garanta que:
                             transform: `rotate(${angle}deg) translateX(${innerTranslate}px)`,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'flex-end',
-                            paddingRight: isLobbyExpanded ? '15px' : '30px',
+                            justifyContent: 'flex-start', // todos os textos começam a partir do centro
+                            paddingLeft: '6px',
+                            overflow: 'hidden', // garante que o texto nunca invada o aro externo
                             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}>
                             <span style={{
@@ -3016,26 +3204,72 @@ Garanta que:
                         );
                       })}
 
-                      {/* Pontos luminosos nas extremidades */}
-                      {Array.from({length: 48}).map((_, i) => (
-                        <div key={`dot-${i}`} className="led-dot" style={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: 'rgba(0,0,0,0.5)',
-                          transformOrigin: `0% 50%`,
-                          transform: `rotate(${i * (360 / 48)}deg) translate(${wheelSize / 2 - 12}px, -50%)`,
-                          animationDelay: `${(i % 2) * 0.5}s`
-                        }} />
-                      ))}
+                      {/* Fatia vencedora "acesa" — pisca enquanto a roleta parada exibe o resultado */}
+                      {!isSpinning && roundState === 'spinning' && selectedCategory && (() => {
+                        const n = wheelCategories.length;
+                        const idx = wheelCategories.findIndex(c => c.id === selectedCategory.id);
+                        if (idx < 0 || n === 0) return null;
+                        const start = idx * (360 / n);
+                        const end = (idx + 1) * (360 / n);
+                        return (
+                          <div className="slice-win" style={{
+                            position: 'absolute', inset: 0, borderRadius: '50%',
+                            pointerEvents: 'none',
+                            background: `conic-gradient(transparent 0deg ${start}deg, rgba(255,255,255,0.55) ${start}deg ${end}deg, transparent ${end}deg 360deg)`,
+                            mixBlendMode: 'screen'
+                          }} />
+                        );
+                      })()}
+
+                      {/* Aro externo dedicado — moldura escura que emoldura as fatias e abriga os LEDs */}
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '50%',
+                        border: `${rimWidth}px solid rgba(22,17,48,0.95)`,
+                        boxShadow: 'inset 0 0 12px rgba(0,0,0,0.7), inset 0 2px 3px rgba(255,255,255,0.08)',
+                        pointerEvents: 'none'
+                      }} />
+
+                      {/* Pontos luminosos no aro — marquee estilo game show (escala com a roda, luzes correndo) */}
+                      {(() => {
+                        const dotCount = 48;
+                        const dotSize = Math.round(Math.max(8, wheelSize * 0.014));
+                        const ledRadius = wheelSize / 2 - rimWidth / 2; // centro exato do aro
+                        return Array.from({ length: dotCount }).map((_, i) => {
+                          const a = (i * (360 / dotCount)) * (Math.PI / 180);
+                          return (
+                            <div key={`dot-${i}`} className="led-dot" style={{
+                              position: 'absolute',
+                              top: `calc(50% + ${Math.sin(a) * ledRadius}px)`,
+                              left: `calc(50% + ${Math.cos(a) * ledRadius}px)`,
+                              width: `${dotSize}px`,
+                              height: `${dotSize}px`,
+                              borderRadius: '50%',
+                              backgroundColor: 'rgba(120,90,20,0.55)',
+                              transform: 'translate(-50%, -50%)',
+                              animationDelay: `${(i / dotCount) * 1.2}s`
+                            }} />
+                          );
+                        });
+                      })()}
                     </div>
+
+                    {/* Camada de profundidade — vinheta radial + brilho especular fixo (não gira; funciona sobre qualquer cor de categoria) */}
+                    <div style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      zIndex: 15, pointerEvents: 'none',
+                      background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 40%, rgba(0,0,0,0.10) 68%, rgba(0,0,0,0.28) 100%)'
+                    }} />
+                    <div style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      zIndex: 15, pointerEvents: 'none',
+                      background: 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.04) 22%, rgba(255,255,255,0) 45%)'
+                    }} />
 
                     {/* Botão Central (Rodar) */}
                     <button 
-                      onClick={role === 'operator' && roundState === 'idle' ? handleSpinRoulette : undefined}
+                      onClick={role === 'operator' && roundState === 'idle' ? () => handleSpinRoulette() : undefined}
                       disabled={isSpinning || role !== 'operator' || roundState !== 'idle'}
                       style={{
                         position: 'absolute',
@@ -3481,25 +3715,33 @@ Garanta que:
                   {/* Main Board Container */}
                   <div style={{ paddingTop: '70px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', gap: '16px', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54' }}>
                     
-                    <div style={{ position: 'relative', height: `${sortedPlayers.length * 88}px`, width: '100%', zIndex: 10 }}>
+                    <div style={{ position: 'relative', height: `${rankingPlayers.length * 88}px`, width: '100%', zIndex: 10 }}>
                       <AnimatePresence>
-                        {sortedPlayers.map((p, idx) => {
+                        {rankingPlayers.map((p, idx) => {
                           // Definir cores das medalhas
                           let badgeBg = '#db2777'; let badgeBorder = '#9d174d';
                           if (idx === 0) { badgeBg = '#f59e0b'; badgeBorder = '#b45309'; }
                           else if (idx === 1) { badgeBg = '#94a3b8'; badgeBorder = '#475569'; }
                           else if (idx === 2) { badgeBg = '#ea580c'; badgeBorder = '#9a3412'; }
 
+                          // Movimento de posição vs. placar anterior (positivo = subiu)
+                          const movement = showNewScores ? ((prevPosById.get(p.id) ?? idx) - idx) : 0;
+
                           return (
-                            <motion.div 
+                            <motion.div
                               key={p.id}
                               initial={{ opacity: 0, x: -50, y: idx * 88 }}
-                              animate={{ opacity: 1, x: 0, y: idx * 88 }}
+                              animate={{
+                                opacity: 1, x: 0, y: idx * 88,
+                                // Tremidinha bem-humorada em quem trocou de posição
+                                rotate: movement !== 0 ? [0, movement > 0 ? -3 : 3, movement > 0 ? 2 : -2, 0] : 0
+                              }}
                               exit={{ opacity: 0, scale: 0.9 }}
-                              transition={{ 
+                              transition={{
                                 y: { type: "spring", stiffness: 40, damping: 11 }, // Movimento lento e dramático
                                 opacity: { duration: 0.2 },
-                                x: { type: "spring", stiffness: 300, damping: 25 }
+                                x: { type: "spring", stiffness: 300, damping: 25 },
+                                rotate: { duration: 0.9, delay: 0.3 }
                               }}
                               style={{ 
                                 position: 'absolute', 
@@ -3531,6 +3773,19 @@ Garanta que:
                                 <span style={{ fontWeight: 900, fontSize: '24px', letterSpacing: '0.05em', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
                                   {p.nickname}
                                 </span>
+
+                                {/* Emoji bem-humorado de mudança de posição */}
+                                {movement !== 0 && (
+                                  <motion.span
+                                    initial={{ scale: 0, rotate: movement > 0 ? -45 : 45 }}
+                                    animate={{ scale: [0, 1.6, 1], rotate: 0 }}
+                                    transition={{ delay: 0.5, duration: 0.6, times: [0, 0.6, 1] }}
+                                    style={{ fontSize: '28px', lineHeight: 1 }}
+                                    title={movement > 0 ? `Subiu ${movement} posição(ões)!` : `Caiu ${-movement} posição(ões)...`}
+                                  >
+                                    {movement > 0 ? '🚀' : '🫠'}
+                                  </motion.span>
+                                )}
                               </div>
                               
                               {/* Score Pill com Animação de Pop quando os pontos mudam */}
