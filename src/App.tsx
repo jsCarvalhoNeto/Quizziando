@@ -1364,6 +1364,20 @@ Garanta que:
     sfx.playClick();
   };
 
+  // Remover jogador do lobby
+  const handleRemovePlayer = async (playerId: string) => {
+    if (!confirm('Tem certeza que deseja remover este jogador?')) return;
+
+    // Remove do Supabase
+    if (useRealSupabase) {
+      await supabase.from('room_players').delete().eq('id', playerId);
+    }
+
+    // Remove do estado local
+    setActivePlayers(prev => prev.filter(p => p.id !== playerId));
+    sfx.playClick();
+  };
+
   const handleDeleteCategory = async (id: string) => {
     if (useRealSupabase) {
       try {
@@ -3009,7 +3023,16 @@ Garanta que:
                     {activePlayers.map((player) => (
                       <div key={player.id} className="p-3 bg-white/5 border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center transition hover:border-[rgba(255,255,255,0.1)]">
                         <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <button
+                            onClick={() => handleRemovePlayer(player.id)}
+                            className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
+                            title="Remover jogador"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {activePlayers.length === 0 && (
@@ -3047,7 +3070,16 @@ Garanta que:
                     {activePlayers.map((player) => (
                       <div key={player.id} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center">
                         <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <button
+                            onClick={() => handleRemovePlayer(player.id)}
+                            className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
+                            title="Remover jogador"
+                          >
+                            <Trash className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {activePlayers.length === 0 && (
