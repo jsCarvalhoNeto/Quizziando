@@ -14,6 +14,24 @@ import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
+// Contagem animada de pontos (0 → valor final) usada no pódio
+function ScoreCountUp({ value, duration = 1200, style }: { value: number; duration?: number; style?: React.CSSProperties }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // desacelera no final
+      setDisplay(Math.round(value * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <span style={style}>{display} pts</span>;
+}
+
 // Detectar se o jogador está acessando via link de sala
 const urlParams = new URLSearchParams(window.location.search);
 const URL_ROOM_CODE = urlParams.get('room')?.toUpperCase() || null;
@@ -361,6 +379,24 @@ export default function App() {
         return prev;
       }
       return [...prev, id];
+    });
+  };
+
+  // Seleciona/deseleciona todas as categorias de uma pasta de uma vez
+  const handleToggleFolderSelect = (folderId: string) => {
+    const folderCatIds = categories.filter(c => c.folder_id === folderId).map(c => c.id);
+    if (folderCatIds.length === 0) return;
+    const allSelected = folderCatIds.every(id => selectedCategoryIds.includes(id));
+    setSelectedCategoryIds(prev => {
+      if (allSelected) {
+        return prev.filter(id => !folderCatIds.includes(id));
+      }
+      const merged = [...prev, ...folderCatIds.filter(id => !prev.includes(id))];
+      if (merged.length > 14) {
+        alert('Você só pode selecionar até 14 categorias para o jogo.');
+        return prev;
+      }
+      return merged;
     });
   };
 
@@ -1876,7 +1912,16 @@ Garanta que:
       setTimeout(() => {
         setPodiumStep(4);
         sfx.playVictory();
-        
+
+        // Canhão central: explosão única no instante exato da revelação do campeão
+        confetti({
+          particleCount: 160,
+          spread: 100,
+          startVelocity: 45,
+          origin: { x: 0.5, y: 0.45 },
+          colors: ['#fbbf24', '#fde68a', '#f59e0b', '#26ccff', '#ff5e7e', '#a25afd']
+        });
+
         // Efeito de confetes no pódio - Mais festivo e prolongado
         const duration = 4000;
         const end = Date.now() + duration;
@@ -2675,6 +2720,27 @@ Garanta que:
                               </>
                             ) : (
                               <>
+                                {(() => {
+                                  const folderCatIds = categories.filter(c => c.folder_id === folder.id).map(c => c.id);
+                                  const selectedCount = folderCatIds.filter(id => selectedCategoryIds.includes(id)).length;
+                                  const allSelected = folderCatIds.length > 0 && selectedCount === folderCatIds.length;
+                                  return (
+                                    <input
+                                      type="checkbox"
+                                      checked={allSelected}
+                                      disabled={folderCatIds.length === 0}
+                                      ref={el => { if (el) el.indeterminate = selectedCount > 0 && !allSelected; }}
+                                      onChange={() => handleToggleFolderSelect(folder.id)}
+                                      onClick={e => e.stopPropagation()}
+                                      className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                                      title={folderCatIds.length === 0
+                                        ? 'Pasta sem categorias'
+                                        : allSelected
+                                          ? `Desmarcar as ${folderCatIds.length} categorias da pasta`
+                                          : `Selecionar as ${folderCatIds.length} categorias da pasta`}
+                                    />
+                                  );
+                                })()}
                                 <div className="flex items-center gap-3 cursor-pointer flex-grow" onClick={() => setActiveFolderId(folder.id)}>
                                   <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
                                   <span className="font-semibold text-sm">📁 {folder.name}</span>
@@ -3899,59 +3965,80 @@ Garanta que:
                 {/* PÓDIO 3D REAL-TIME */}
                 <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: '16px', marginTop: '20px', minHeight: '350px', width: '100%', opacity: podiumStep >= 1 ? 1 : 0, transition: 'opacity 0.7s ease' }}>
                   
-                  {/* 2º LUGAR */}
+                  {/* 2º LUGAR — pedestal visível desde a abertura, jogador revelado no passo 3 */}
                   {secondPlace && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, opacity: podiumStep >= 3 ? 1 : 0, transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(40px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 3 ? 1 : 0, transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(30px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#94a3b8', border: '4px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '28px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
                           2
                         </div>
-                        <span style={{ fontWeight: 900, fontSize: '20px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{secondPlace.nickname}</span>
+                        <span style={{ fontWeight: 900, fontSize: '20px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{secondPlace.nickname}</span>
                       </div>
                       <div style={{ width: '100%', height: '140px', backgroundColor: '#334155', border: '4px solid #1e293b', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
-                        <span style={{ fontSize: '36px', fontWeight: 900, color: '#94a3b8', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>2º</span>
-                        <span style={{ fontSize: '28px', fontFamily: 'monospace', fontWeight: 900, color: '#cbd5e1' }}>{secondPlace.score} pts</span>
+                        {podiumStep >= 3 ? (
+                          <>
+                            <span style={{ fontSize: '36px', fontWeight: 900, color: '#94a3b8', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>2º</span>
+                            <ScoreCountUp value={secondPlace.score} duration={1000} style={{ fontSize: '28px', fontFamily: 'monospace', fontWeight: 900, color: '#cbd5e1' }} />
+                          </>
+                        ) : (
+                          <span className="podium-question" style={{ fontSize: '52px', fontWeight: 900, color: 'rgba(203,213,225,0.4)' }}>?</span>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* 1º LUGAR */}
+                  {/* 1º LUGAR — pedestal dourado no centro do palco; "?" pulsante gera antecipação */}
                   {firstPlace && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 10, opacity: podiumStep >= 4 ? 1 : 0, transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(60px) scale(0.5)', transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 10 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 4 ? 1 : 0, transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.5)', transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
                         <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '4px solid #b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '36px', color: 'white', boxShadow: '0 12px 24px rgba(245,158,11,0.4)', marginBottom: '16px', position: 'relative' }}>
                           <Crown style={{ position: 'absolute', top: '-30px', color: '#fbbf24', width: '40px', height: '40px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           1
                         </div>
-                        <span style={{ fontWeight: 900, fontSize: '24px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{firstPlace.nickname}</span>
+                        <span style={{ fontWeight: 900, fontSize: '24px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{firstPlace.nickname}</span>
                       </div>
-                      <div style={{ width: '100%', height: '200px', background: 'linear-gradient(to bottom, #d97706, #b45309)', border: '4px solid #78350f', borderBottom: 'none', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 -8px 32px rgba(245,158,11,0.3)' }}>
-                        <span style={{ fontSize: '56px', fontWeight: 900, color: '#fde68a', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>1º</span>
-                        <span style={{ fontSize: '40px', fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7' }}>{firstPlace.score} pts</span>
+                      <div className={podiumStep >= 4 ? 'champion-pedestal' : undefined} style={{ width: '100%', height: '200px', background: 'linear-gradient(to bottom, #d97706, #b45309)', border: '4px solid #78350f', borderBottom: 'none', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 -8px 32px rgba(245,158,11,0.3)' }}>
+                        {podiumStep >= 4 ? (
+                          <>
+                            <span style={{ fontSize: '56px', fontWeight: 900, color: '#fde68a', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>1º</span>
+                            <ScoreCountUp value={firstPlace.score} duration={1400} style={{ fontSize: '40px', fontFamily: 'monospace', fontWeight: 900, color: '#fef3c7' }} />
+                          </>
+                        ) : (
+                          <span className="podium-question" style={{ fontSize: '72px', fontWeight: 900, color: 'rgba(253,230,138,0.55)' }}>?</span>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* 3º LUGAR */}
+                  {/* 3º LUGAR — revelado primeiro (passo 2) */}
                   {thirdPlace && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, opacity: podiumStep >= 2 ? 1 : 0, transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(40px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 2 ? 1 : 0, transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(30px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
                         <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#ea580c', border: '4px solid #9a3412', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
                           3
                         </div>
-                        <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-all' }}>{thirdPlace.nickname}</span>
+                        <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{thirdPlace.nickname}</span>
                       </div>
                       <div style={{ width: '100%', height: '110px', backgroundColor: '#7c2d12', border: '4px solid #431407', borderBottom: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.1), 0 -8px 24px rgba(0,0,0,0.3)' }}>
-                        <span style={{ fontSize: '32px', fontWeight: 900, color: '#fdba74', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>3º</span>
-                        <span style={{ fontSize: '24px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }}>{thirdPlace.score} pts</span>
+                        {podiumStep >= 2 ? (
+                          <>
+                            <span style={{ fontSize: '32px', fontWeight: 900, color: '#fdba74', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>3º</span>
+                            <ScoreCountUp value={thirdPlace.score} duration={900} style={{ fontSize: '24px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }} />
+                          </>
+                        ) : (
+                          <span className="podium-question" style={{ fontSize: '44px', fontWeight: 900, color: 'rgba(255,237,213,0.4)' }}>?</span>
+                        )}
                       </div>
                     </div>
                   )}
 
+                  {/* Com apenas 2 jogadores: espaçador mantém o campeão no centro do palco */}
+                  {secondPlace && !thirdPlace && <div style={{ flex: 1 }} />}
+
                 </div>
 
-                {/* Ações */}
-                <div style={{ width: '100%', display: 'flex', justifyItems: 'center', justifyContent: 'center', marginTop: '32px', paddingTop: '32px', borderTop: '4px solid rgba(255,255,255,0.05)' }}>
+                {/* Ações — só aparecem após a revelação do campeão, para não vazar o suspense */}
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '32px', paddingTop: '32px', borderTop: '4px solid rgba(255,255,255,0.05)', opacity: podiumStep >= 4 ? 1 : 0, pointerEvents: podiumStep >= 4 ? 'auto' : 'none', transition: 'opacity 0.6s ease 1s' }}>
                   <button 
                     onClick={() => {
                       setScreen('operator-dashboard');
