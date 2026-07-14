@@ -3796,7 +3796,7 @@ Garanta que:
                           return (
                             <motion.div
                               key={p.id}
-                              initial={{ opacity: 0, x: -50, y: idx * 88 }}
+                              initial={false} /* placar antigo entra estático; só a revelação anima */
                               animate={{
                                 opacity: 1, x: 0, y: idx * 88,
                                 // Tremidinha bem-humorada em quem trocou de posição
@@ -3858,7 +3858,7 @@ Garanta que:
                               <div style={{ backgroundColor: '#1f1340', border: '3px solid #4a348c', borderRadius: '9999px', padding: '6px 24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
                                 <motion.div
                                   key={p.score} /* a mudança de score engatilha a animação inicial novamente */
-                                  initial={{ y: -20, opacity: 0, color: '#34d399', scale: 1.5 }}
+                                  initial={showNewScores ? { y: -20, opacity: 0, color: '#34d399', scale: 1.5 } : false}
                                   animate={{ y: 0, opacity: 1, color: '#ffffff', scale: 1 }}
                                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                                   style={{ fontFamily: 'monospace', fontSize: '24px', fontWeight: 900, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
