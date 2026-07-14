@@ -34,7 +34,7 @@ interface RoomState {
   time_limit?: number;
 }
 
-type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'finished';
+type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'ranking' | 'finished';
 
 // ==========================================
 // 🎮 COMPONENTE PRINCIPAL DO JOGADOR
@@ -60,6 +60,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [categories, setCategories] = useState<any[]>([]);
   const [playerRank, setPlayerRank] = useState<number | null>(null);
   const [isWinner, setIsWinner] = useState(false);
+  const [rankingPlayers, setRankingPlayers] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -241,10 +242,31 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         }
       }
       setPlayerScreen('round-result');
+    } else if (room.round_state === 'ranking') {
+      // Mostrar ranking se não for a última rodada
+      if (room.current_round < room.rounds) {
+        setPlayerScreen('ranking');
+        fetchRankingPlayers(roomCode);
+      } else {
+        // Última rodada: pula direto para finished (pódio)
+        setPlayerScreen('finished');
+      }
     } else if (room.round_state === 'idle' && room.status === 'playing') {
       setPlayerScreen('waiting');
     } else if (room.status === 'lobby') {
       setPlayerScreen('waiting');
+    }
+  };
+
+  const fetchRankingPlayers = async (code: string) => {
+    const { data } = await supabase
+      .from('room_players')
+      .select('nickname, score')
+      .eq('room_code', code)
+      .order('score', { ascending: false });
+
+    if (data) {
+      setRankingPlayers(data);
     }
   };
 
@@ -730,6 +752,77 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+            <span style={styles.pulseDot} />
+            <span style={{ color: '#A0AEC0', fontSize: 14 }}>Aguardando próxima rodada...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Ranking da Rodada ──
+  if (playerScreen === 'ranking') {
+    return (
+      <div style={styles.fullscreen}>
+        <div style={styles.waitingCard}>
+          <ConnectedBadge connected={connected} />
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <Trophy style={{ width: 48, height: 48, color: '#FBBF24', margin: '0 auto 12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+            <h2 style={{ ...styles.title, color: '#FBBF24' }}>Placar da Rodada</h2>
+          </div>
+
+          {/* Ranking */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+            {rankingPlayers.map((p, idx) => {
+              let badgeBg = '#db2777';
+              if (idx === 0) badgeBg = '#f59e0b';
+              else if (idx === 1) badgeBg = '#94a3b8';
+              else if (idx === 2) badgeBg = '#ea580c';
+
+              const isMe = p.nickname === nickname;
+              return (
+                <div
+                  key={p.nickname}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    background: isMe ? 'rgba(167, 139, 250, 0.15)' : 'rgba(255,255,255,0.05)',
+                    border: isMe ? '1px solid rgba(167, 139, 250, 0.4)' : '1px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: badgeBg,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 900,
+                        fontSize: '14px',
+                        color: 'white'
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                    <span style={{ color: 'white', fontWeight: 600, fontSize: '14px' }}>
+                      {p.nickname} {isMe && '(Você)'}
+                    </span>
+                  </div>
+                  <span style={{ color: '#A78BFA', fontWeight: 900, fontSize: '16px', fontFamily: 'monospace' }}>
+                    {p.score}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', marginTop: '20px' }}>
             <span style={styles.pulseDot} />
             <span style={{ color: '#A0AEC0', fontSize: 14 }}>Aguardando próxima rodada...</span>
           </div>

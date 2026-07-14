@@ -538,8 +538,27 @@ export default function App() {
   const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account' | 'questions'>('general');
   
   // Estados para Integração Gemini IA
-  const [geminiApiKey, setGeminiApiKey] = useState(() => localStorage.getItem('geminiApiKey') || '');
-  const [geminiModel, setGeminiModel] = useState(() => localStorage.getItem('geminiModel') || 'gemini-1.5-flash');
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('geminiApiKey') || '';
+    }
+    return '';
+  });
+  const [geminiModel, setGeminiModel] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('geminiModel') || 'gemini-1.5-flash';
+    }
+    return 'gemini-1.5-flash';
+  });
+
+  // Sincroniza os valores com localStorage sempre que mudam
+  useEffect(() => {
+    if (geminiApiKey) localStorage.setItem('geminiApiKey', geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('geminiModel', geminiModel);
+  }, [geminiModel]);
   const [managerTab, setManagerTab] = useState<'manual' | 'ai'>('manual');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiQuantity, setAiQuantity] = useState<number>(1);
