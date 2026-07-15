@@ -898,7 +898,7 @@ Garanta que:
   const [isLobbyExpanded, setIsLobbyExpanded] = useState(false);
 
   // Controle de expansão do painel de respostas/votos (retrátil)
-  const [isAnswersPanelExpanded, setIsAnswersPanelExpanded] = useState(true);
+  const [isAnswersPanelExpanded, setIsAnswersPanelExpanded] = useState(false);
 
   // Temas visuais e geométricos baseados no Kahoot para as alternativas (inline styles)
   const KAHOOT_THEMES = [
