@@ -358,7 +358,10 @@ export default function App() {
 
   // Configurações Globais / Conexão
   const [useRealSupabase] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem('soundEnabled');
+    return saved !== null ? saved === 'true' : true;
+  });
   const [gameTheme, setGameTheme] = useState(() => localStorage.getItem('gameTheme') || 'default');
 
   // Estados de Pastas
@@ -493,6 +496,7 @@ export default function App() {
   // Sincronizar estado de som com a classe de efeitos sonoros
   useEffect(() => {
     sfx.enabled = soundEnabled;
+    localStorage.setItem('soundEnabled', String(soundEnabled));
     if (!soundEnabled) {
       sfx.stopLobby();
       sfx.stopGameSound();
@@ -2344,7 +2348,12 @@ Garanta que:
                               </div>
                             </div>
                             <button
-                              onClick={() => { setSoundEnabled(!soundEnabled); sfx.playClick(); }}
+                              onClick={() => {
+                                if (soundEnabled) {
+                                  sfx.playClick();
+                                }
+                                setSoundEnabled(!soundEnabled);
+                              }}
                               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
                                 soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-slate-700'
                               }`}
