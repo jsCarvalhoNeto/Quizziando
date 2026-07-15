@@ -2375,8 +2375,8 @@ Garanta que:
                                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                                 }`}
                               >
-                                <div 
-                                  className="w-full h-12 rounded-lg border border-white/10 bg-cover bg-center shadow-inner" 
+                                <div
+                                  className="w-full h-24 rounded-lg border border-white/10 bg-cover bg-center shadow-inner"
                                   style={{ backgroundColor: theme.bg !== 'transparent' ? theme.bg : undefined, backgroundImage: theme.img }}
                                 ></div>
                                 <span className={`text-[10px] font-bold ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
