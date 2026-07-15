@@ -368,6 +368,47 @@ export default function App() {
     }
   });
   const [gameTheme, setGameTheme] = useState(() => localStorage.getItem('gameTheme') || 'default');
+  // Imagem de tema personalizada (carregada localmente, salva como data URL no localStorage)
+  const [customThemeImg, setCustomThemeImg] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try { return localStorage.getItem('customThemeImg'); } catch { return null; }
+  });
+
+  // Resolve o fundo do tema atual (suporta o tema 'custom')
+  const activeThemeBg = gameTheme === 'custom' ? 'transparent' : (GAME_THEMES[gameTheme]?.bg || '#2a1b54');
+  const activeThemeImg = gameTheme === 'custom'
+    ? (customThemeImg ? `url(${customThemeImg})` : 'none')
+    : (GAME_THEMES[gameTheme]?.img || 'none');
+
+  // Carregar arquivo de imagem local e defini-lo como tema personalizado
+  const handleCustomThemeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione um arquivo de imagem.');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 3 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      try {
+        localStorage.setItem('customThemeImg', dataUrl);
+      } catch {
+        alert('Não foi possível salvar a imagem (muito grande). Tente uma imagem menor.');
+        return;
+      }
+      setCustomThemeImg(dataUrl);
+      setGameTheme('custom');
+      localStorage.setItem('gameTheme', 'custom');
+      sfx.playClick();
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Estados de Pastas
   const [folders, setFolders] = useState<CategoryFolder[]>([]);
@@ -2405,7 +2446,49 @@ Garanta que:
                                 </span>
                               </button>
                             ))}
+
+                            {/* Card Personalizado — carrega imagem local */}
+                            <label
+                              className={`p-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${
+                                gameTheme === 'custom'
+                                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
+                                  : 'border-dashed border-white/20 bg-white/5 hover:bg-white/10'
+                              }`}
+                            >
+                              <input type="file" accept="image/*" className="hidden" onChange={handleCustomThemeUpload} />
+                              <div
+                                className="w-full rounded-lg border border-white/10 bg-cover bg-center flex items-center justify-center"
+                                style={{
+                                  height: '64px',
+                                  backgroundColor: '#0d1326',
+                                  backgroundImage: (gameTheme === 'custom' && customThemeImg) ? `url(${customThemeImg})` : 'none'
+                                }}
+                              >
+                                {!(gameTheme === 'custom' && customThemeImg) && (
+                                  <Upload className="w-5 h-5 text-slate-400" />
+                                )}
+                              </div>
+                              <span className={`text-[8px] font-semibold text-center ${gameTheme === 'custom' ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                                Personalizado
+                              </span>
+                            </label>
                           </div>
+
+                          {gameTheme === 'custom' && customThemeImg && (
+                            <button
+                              onClick={() => {
+                                localStorage.removeItem('customThemeImg');
+                                setCustomThemeImg(null);
+                                setGameTheme('default');
+                                localStorage.setItem('gameTheme', 'default');
+                                sfx.playClick();
+                              }}
+                              className="self-start flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-bold transition-all"
+                            >
+                              <Trash className="w-3 h-3" />
+                              Remover imagem personalizada
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3184,7 +3267,7 @@ Garanta que:
 
               {/* ROLETA DE CATEGORIAS */}
               {roundState === 'idle' || roundState === 'spinning' ? (
-                <div style={{ flex: 1, paddingTop: '44px', paddingBottom: '20px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: GAME_THEMES[gameTheme]?.bg || '#2a1b54', backgroundImage: GAME_THEMES[gameTheme]?.img || 'none', backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
+                <div style={{ flex: 1, paddingTop: '44px', paddingBottom: '20px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: activeThemeBg, backgroundImage: activeThemeImg, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
 
                   {/* Vinheta — escurece as bordas do card para focar a atenção na roda */}
                   <div style={{
