@@ -359,6 +359,7 @@ export default function App() {
   // Configurações Globais / Conexão
   const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
     const saved = localStorage.getItem('soundEnabled');
     return saved !== null ? saved === 'true' : true;
   });
