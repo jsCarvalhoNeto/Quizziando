@@ -37,6 +37,31 @@ interface RoomState {
 type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'ranking' | 'finished';
 
 // ==========================================
+// 💬 MENSAGENS MOTIVACIONAIS
+// ==========================================
+const MOTIVATIONAL_MESSAGES = [
+  "Vamos Lá!",
+  "Falta Pouco!",
+  "Continuem Firmes!",
+  "Preparem-se!",
+  "Vocês Conseguem!",
+  "Mantenham o Foco!"
+];
+
+const getMotivationalMessage = (): string => {
+  return MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)];
+};
+
+const getRoundStatusMessage = (current: number, total: number): string => {
+  const roundsLeft = total - current;
+  const randomMsg = getMotivationalMessage();
+  if (roundsLeft === 0) {
+    return `Última rodada! ${randomMsg}`;
+  }
+  return `Faltam ${roundsLeft} rodada${roundsLeft > 1 ? 's' : ''}. ${randomMsg}`;
+};
+
+// ==========================================
 // 🎮 COMPONENTE PRINCIPAL DO JOGADOR
 // ==========================================
 export default function PlayerView({ roomCode }: PlayerViewProps) {
@@ -461,6 +486,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       <div style={styles.fullscreen}>
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
+          {roomState && (
+            <div style={{ fontSize: 11, color: '#A0AEC0', textAlign: 'center', marginBottom: 8 }}>
+              Rodada {roomState.current_round} de {roomState.rounds}
+            </div>
+          )}
           <div style={{ textAlign: 'center' }}>
             <h2 style={styles.title}>Sorteando Categoria...</h2>
             <p style={{ color: '#A0AEC0', fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>
@@ -522,7 +552,10 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
           animation: 'fadeInScale 0.4s ease-out'
         }}>
           <ConnectedBadge connected={connected} />
-          
+          <div style={{ fontSize: 11, color: '#A0AEC0', textAlign: 'center', marginBottom: 8 }}>
+            Rodada {roomState.current_round} de {roomState.rounds}
+          </div>
+
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <div style={{
               width: 70, height: 70, borderRadius: 20,
@@ -570,6 +603,9 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={{...styles.questionContainer, justifyContent: 'center', alignItems: 'center', flex: 1, display: 'flex', flexDirection: 'column'}}>
           <div style={{ alignSelf: 'flex-end', marginBottom: 'auto' }}>
             <ConnectedBadge connected={connected} />
+          </div>
+          <div style={{ fontSize: 11, color: '#A0AEC0', marginBottom: 16 }}>
+            Rodada {roomState.current_round} de {roomState.rounds}
           </div>
           <h3 style={{ color: 'white', fontSize: 32, fontWeight: 900, lineHeight: 1.4, textAlign: 'center', marginBottom: 'auto' }}>
             {roomState.current_question.question_text}
@@ -652,6 +688,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       <div style={styles.fullscreen}>
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
+          {roomState && (
+            <div style={{ fontSize: 11, color: '#A0AEC0', textAlign: 'center' }}>
+              Rodada {roomState.current_round} de {roomState.rounds}
+            </div>
+          )}
           <div style={{ textAlign: 'center' }}>
             <div style={{
               width: 80, height: 80, borderRadius: 24,
@@ -689,6 +730,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       <div style={styles.fullscreen}>
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
+          {roomState && (
+            <div style={{ fontSize: 11, color: '#A0AEC0', textAlign: 'center', marginBottom: 8 }}>
+              {getRoundStatusMessage(roomState.current_round, roomState.rounds)}
+            </div>
+          )}
           <div style={{ textAlign: 'center' }}>
             {wasCorrect ? (
               <>
@@ -766,6 +812,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       <div style={styles.fullscreen}>
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
+          {roomState && (
+            <div style={{ fontSize: 11, color: '#A0AEC0', textAlign: 'center', marginBottom: 8 }}>
+              Rodada {roomState.current_round} de {roomState.rounds}
+            </div>
+          )}
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <Trophy style={{ width: 48, height: 48, color: '#FBBF24', margin: '0 auto 12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
             <h2 style={{ ...styles.title, color: '#FBBF24' }}>Placar da Rodada</h2>
