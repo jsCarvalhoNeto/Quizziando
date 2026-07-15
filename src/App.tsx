@@ -2376,13 +2376,14 @@ Garanta que:
                                 }`}
                               >
                                 <div
-                                  className="w-full aspect-video rounded-lg border border-white/10 bg-cover bg-center"
+                                  className="w-full rounded-lg border border-white/10 bg-cover bg-center"
                                   style={{
+                                    height: '80px',
                                     backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
                                     backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
                                   }}
                                 />
-                                <span className={`text-[11px] font-bold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                                <span className={`text-[10px] font-semibold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
                                   {theme.label}
                                 </span>
                               </button>
