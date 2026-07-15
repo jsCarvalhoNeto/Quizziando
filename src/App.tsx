@@ -2369,19 +2369,36 @@ Garanta que:
                               <button
                                 key={key}
                                 onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
-                                className={`p-2 rounded-xl border flex flex-col items-center gap-1.5 transition-all ${
+                                className={`relative h-32 rounded-xl border overflow-hidden transition-all group ${
                                   gameTheme === key
-                                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
-                                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                                    ? 'border-[hsl(var(--primary))] shadow-[0_0_20px_rgba(124,58,237,0.4)]'
+                                    : 'border-white/10 hover:border-white/20'
                                 }`}
+                                style={{
+                                  backgroundImage: theme.img,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#1a1a2e'
+                                }}
                               >
-                                <div
-                                  className="w-full h-24 rounded-lg border border-white/10 bg-cover bg-center shadow-inner"
-                                  style={{ backgroundColor: theme.bg !== 'transparent' ? theme.bg : undefined, backgroundImage: theme.img }}
-                                ></div>
-                                <span className={`text-[10px] font-bold ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
-                                  {theme.label}
-                                </span>
+                                {/* Overlay escuro */}
+                                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors" />
+
+                                {/* Texto do tema */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className={`text-sm font-bold text-center px-2 transition-colors ${
+                                    gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-white'
+                                  }`}>
+                                    {theme.label}
+                                  </span>
+                                </div>
+
+                                {/* Checkmark se selecionado */}
+                                {gameTheme === key && (
+                                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center">
+                                    <span className="text-white text-xs">✓</span>
+                                  </div>
+                                )}
                               </button>
                             ))}
                           </div>
