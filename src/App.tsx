@@ -2355,6 +2355,7 @@ Garanta que:
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                console.log('Toggle clicked! soundEnabled:', soundEnabled);
                                 if (soundEnabled) {
                                   sfx.playClick();
                                 }
