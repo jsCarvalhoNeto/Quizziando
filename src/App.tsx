@@ -2350,10 +2350,14 @@ Garanta que:
                             </div>
                             <button
                               onClick={() => {
+                                console.log('Toggle clicked. soundEnabled antes:', soundEnabled);
                                 if (soundEnabled) {
                                   sfx.playClick();
                                 }
-                                setSoundEnabled(!soundEnabled);
+                                setSoundEnabled(prev => {
+                                  console.log('Alterando soundEnabled de', prev, 'para', !prev);
+                                  return !prev;
+                                });
                               }}
                               className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
                                 soundEnabled ? 'bg-[hsl(var(--primary))]' : 'bg-slate-700'
