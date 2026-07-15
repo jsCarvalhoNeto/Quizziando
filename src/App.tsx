@@ -2381,12 +2381,12 @@ Garanta que:
                             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Temas da Arena</h4>
                             <p className="text-[11px] text-slate-400">Personalize a imagem de fundo da Roleta.</p>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-4 gap-2">
                             {Object.entries(GAME_THEMES).map(([key, theme]) => (
                               <button
                                 key={key}
                                 onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
-                                className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${
+                                className={`p-1.5 rounded-xl border flex flex-col gap-1.5 transition-all ${
                                   gameTheme === key
                                     ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
                                     : 'border-white/10 bg-white/5 hover:bg-white/10'
@@ -2395,12 +2395,12 @@ Garanta que:
                                 <div
                                   className="w-full rounded-lg border border-white/10 bg-cover bg-center"
                                   style={{
-                                    height: '80px',
+                                    height: '64px',
                                     backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
                                     backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
                                   }}
                                 />
-                                <span className={`text-[10px] font-semibold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                                <span className={`text-[8px] font-semibold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
                                   {theme.label}
                                 </span>
                               </button>
