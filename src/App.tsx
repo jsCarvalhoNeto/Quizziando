@@ -2325,10 +2325,10 @@ Garanta que:
                   </div>
 
                   {/* Content Panel */}
-                  <div className="w-2/3 px-8 py-6 overflow-y-auto">
+                  <div className="w-2/3 px-8 py-8 overflow-y-auto">
                     {settingsActiveTab === 'general' && (
                       <div className="flex flex-col gap-6 animate-fade-in">
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 pt-2">
                           <div>
                             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
                             <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
