@@ -2281,7 +2281,7 @@ Garanta que:
                 {/* Body (Sidebar + Content) */}
                 <div className="flex flex-1 overflow-hidden">
                   {/* Sidebar */}
-                  <div className="w-1/3 border-r border-white/5 bg-[#080c1c]/40 px-4 py-6 flex flex-col gap-2">
+                  <div className="w-1/4 border-r border-white/5 bg-[#080c1c]/40 px-4 py-6 flex flex-col gap-2">
                     <button
                       onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
                       className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
@@ -2346,7 +2346,7 @@ Garanta que:
                   </div>
 
                   {/* Content Panel */}
-                  <div className="w-2/3 px-8 py-8 overflow-y-auto">
+                  <div className="w-3/4 px-8 py-8 overflow-y-auto">
                     {settingsActiveTab === 'general' && (
                       <div className="flex flex-col gap-6 animate-fade-in">
                         <div className="flex flex-col gap-4 pt-2">
@@ -2395,7 +2395,7 @@ Garanta que:
                                 <div
                                   className="w-full rounded-lg border border-white/10 bg-cover bg-center"
                                   style={{
-                                    height: '96px',
+                                    height: '64px',
                                     backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
                                     backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
                                   }}
