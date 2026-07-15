@@ -360,8 +360,12 @@ export default function App() {
   const [useRealSupabase] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(() => {
     if (typeof window === 'undefined') return true;
-    const saved = localStorage.getItem('soundEnabled');
-    return saved !== null ? saved === 'true' : true;
+    try {
+      const saved = localStorage.getItem('soundEnabled');
+      return saved === null || saved === 'true' ? true : false;
+    } catch {
+      return true;
+    }
   });
   const [gameTheme, setGameTheme] = useState(() => localStorage.getItem('gameTheme') || 'default');
 
