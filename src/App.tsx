@@ -2238,11 +2238,11 @@ Garanta que:
             >
               <div
                 style={{
-                  width: '100%', maxWidth: '680px',
-                  height: '600px',
+                  width: '100%', maxWidth: '740px',
+                  height: '640px',
                   background: 'rgba(8,12,28,0.96)',
                   border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '20px',
+                  borderRadius: '24px',
                   boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.15)',
                   display: 'flex', flexDirection: 'column',
                   position: 'relative',
@@ -2251,23 +2251,28 @@ Garanta que:
                 }}
               >
                 {/* Header */}
-                <div className="flex justify-between items-center px-6 py-4 border-b border-white/5">
-                  <h3 className="text-base font-extrabold text-white tracking-wide uppercase font-sans">
-                    Configurações
-                  </h3>
+                <div className="flex justify-between items-center px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/[0.02] to-transparent">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
+                      Preferências do Sistema
+                    </span>
+                    <h3 className="text-xl font-extrabold text-white tracking-tight font-sans">
+                      Configurações
+                    </h3>
+                  </div>
                   <button
                     onClick={() => setShowSettingsModal(false)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-200 border border-transparent hover:border-white/10"
+                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 border border-white/10 hover:border-white/20 flex-shrink-0"
                     title="Fechar Configurações"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Body (Sidebar + Content) */}
                 <div className="flex flex-1 overflow-hidden">
                   {/* Sidebar */}
-                  <div className="w-1/3 border-r border-white/5 bg-[#080c1c]/40 p-3 flex flex-col gap-1">
+                  <div className="w-1/3 border-r border-white/5 bg-[#080c1c]/40 px-4 py-6 flex flex-col gap-2">
                     <button
                       onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
                       className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
@@ -2320,7 +2325,7 @@ Garanta que:
                   </div>
 
                   {/* Content Panel */}
-                  <div className="w-2/3 p-6 overflow-y-auto">
+                  <div className="w-2/3 px-8 py-6 overflow-y-auto">
                     {settingsActiveTab === 'general' && (
                       <div className="flex flex-col gap-6 animate-fade-in">
                         <div className="flex flex-col gap-4">
