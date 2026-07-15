@@ -2388,7 +2388,7 @@ Garanta que:
                     )}
 
                     {settingsActiveTab === 'questions' && (role === 'operator' || authUser) && (
-                      <div className="flex flex-col gap-6 animate-fade-in">
+                      <div className="flex flex-col gap-6 animate-fade-in pt-2">
                         <div>
                           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Banco de Questões</h4>
                           <p className="text-[11px] text-slate-400">Gerencie as perguntas do quiz.</p>
@@ -2419,7 +2419,7 @@ Garanta que:
                     )}
 
                     {settingsActiveTab === 'ai' && (
-                      <div className="flex flex-col gap-4 animate-fade-in">
+                      <div className="flex flex-col gap-4 animate-fade-in pt-2">
                         <div>
                           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Integração Gemini AI</h4>
                           <p className="text-[11px] text-slate-400">Configure a chave de acesso e o modelo preditivo.</p>
@@ -2486,7 +2486,7 @@ Garanta que:
                     )}
 
                     {settingsActiveTab === 'account' && (
-                      <div className="flex flex-col gap-4 animate-fade-in">
+                      <div className="flex flex-col gap-4 animate-fade-in pt-2">
                         <div>
                           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Gerenciamento de Conta</h4>
                           <p className="text-[11px] text-slate-400">Verifique seu perfil de operador e permissões de arena.</p>
