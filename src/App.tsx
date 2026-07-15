@@ -5,7 +5,7 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
-  Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi
+  Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -544,7 +544,7 @@ export default function App() {
   // Estados para Modal de Configurações
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showStatsModal, setShowStatsModal] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'ai' | 'account' | 'questions'>('general');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'appearance' | 'ai' | 'account' | 'questions'>('general');
   
   // Estados para Integração Gemini IA
   const [geminiApiKey, setGeminiApiKey] = useState(() => {
@@ -2293,7 +2293,19 @@ Garanta que:
                       <Settings className="w-4 h-4" />
                       Geral
                     </button>
-                    
+
+                    <button
+                      onClick={() => { setSettingsActiveTab('appearance'); sfx.playClick(); }}
+                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                        settingsActiveTab === 'appearance'
+                          ? 'bg-white/5 text-pink-400 border-l-2 border-pink-500'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <Palette className="w-4 h-4" />
+                      Aparência
+                    </button>
+
                     <button
                       onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
                       className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
@@ -2359,7 +2371,12 @@ Garanta que:
                           </button>
                         </div>
 
-                        <div className="flex flex-col gap-4 mt-2">
+                      </div>
+                    )}
+
+                    {settingsActiveTab === 'appearance' && (
+                      <div className="flex flex-col gap-6 animate-fade-in pt-2">
+                        <div className="flex flex-col gap-4">
                           <div>
                             <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Temas da Arena</h4>
                             <p className="text-[11px] text-slate-400">Personalize a imagem de fundo da Roleta.</p>
@@ -2390,7 +2407,6 @@ Garanta que:
                             ))}
                           </div>
                         </div>
-
                       </div>
                     )}
 
