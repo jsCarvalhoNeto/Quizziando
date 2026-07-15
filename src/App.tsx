@@ -2369,17 +2369,20 @@ Garanta que:
                               <button
                                 key={key}
                                 onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
-                                className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                                className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${
                                   gameTheme === key
                                     ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
                                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                                 }`}
                               >
                                 <div
-                                  className="w-full h-16 rounded-lg border border-white/10 bg-cover bg-center"
-                                  style={{ backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#1a1a2e', backgroundImage: theme.img }}
+                                  className="w-full aspect-video rounded-lg border border-white/10 bg-cover bg-center"
+                                  style={{
+                                    backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
+                                    backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
+                                  }}
                                 />
-                                <span className={`text-[10px] font-bold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                                <span className={`text-[11px] font-bold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
                                   {theme.label}
                                 </span>
                               </button>
