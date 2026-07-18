@@ -10,6 +10,7 @@ import {
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
+import { getAvatarUrl } from './lib/avatars';
 import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
@@ -3145,8 +3146,11 @@ Garanta que:
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
                     {activePlayers.map((player) => (
                       <div key={player.id} className="p-3 bg-white/5 border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center transition hover:border-[rgba(255,255,255,0.1)]">
-                        <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img src={getAvatarUrl(player.nickname)} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 bg-[#0d1326] flex-shrink-0" />
+                          <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">{player.nickname}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                           <button
                             onClick={() => handleRemovePlayer(player.id)}
@@ -3192,8 +3196,11 @@ Garanta que:
                   <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
                     {activePlayers.map((player) => (
                       <div key={player.id} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center">
-                        <span className="font-semibold text-sm text-[hsl(var(--text-primary))]">{player.nickname}</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img src={getAvatarUrl(player.nickname)} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 bg-[#0d1326] flex-shrink-0" />
+                          <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">{player.nickname}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                           <button
                             onClick={() => handleRemovePlayer(player.id)}
@@ -4027,6 +4034,13 @@ Garanta que:
                                   {idx + 1}
                                 </motion.div>
 
+                                {/* Avatar */}
+                                <img
+                                  src={getAvatarUrl(p.nickname)}
+                                  alt=""
+                                  style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: isLeader ? '2px solid rgba(251,191,36,0.7)' : '2px solid rgba(255,255,255,0.12)', background: '#0d1326', flexShrink: 0 }}
+                                />
+
                                 {/* Player Name */}
                                 <span style={{ fontWeight: 700, fontSize: '18px', color: 'white', letterSpacing: '0.01em' }}>
                                   {p.nickname}
@@ -4162,8 +4176,9 @@ Garanta que:
                   {secondPlace && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 3 ? 1 : 0, transform: podiumStep >= 3 ? 'translateY(0)' : 'translateY(30px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#94a3b8', border: '4px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '28px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
-                          2
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', border: '4px solid #94a3b8', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
+                          <img src={getAvatarUrl(secondPlace.nickname)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0d1326' }} />
+                          <div style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '26px', height: '26px', borderRadius: '50%', backgroundColor: '#94a3b8', border: '2px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '14px', color: 'white' }}>2</div>
                         </div>
                         <span style={{ fontWeight: 900, fontSize: '20px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{secondPlace.nickname}</span>
                       </div>
@@ -4184,9 +4199,10 @@ Garanta que:
                   {firstPlace && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1.2, zIndex: 10 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 4 ? 1 : 0, transform: podiumStep >= 4 ? 'translateY(0) scale(1)' : 'translateY(40px) scale(0.5)', transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '4px solid #b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '36px', color: 'white', boxShadow: '0 12px 24px rgba(245,158,11,0.4)', marginBottom: '16px', position: 'relative' }}>
-                          <Crown style={{ position: 'absolute', top: '-30px', color: '#fbbf24', width: '40px', height: '40px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
-                          1
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '4px solid #f59e0b', boxShadow: '0 12px 24px rgba(245,158,11,0.4)', marginBottom: '16px', position: 'relative' }}>
+                          <Crown style={{ position: 'absolute', top: '-34px', left: '50%', transform: 'translateX(-50%)', color: '#fbbf24', width: '40px', height: '40px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))', zIndex: 2 }} />
+                          <img src={getAvatarUrl(firstPlace.nickname)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0d1326' }} />
+                          <div style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '30px', height: '30px', borderRadius: '50%', backgroundColor: '#f59e0b', border: '2px solid #b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '16px', color: 'white' }}>1</div>
                         </div>
                         <span style={{ fontWeight: 900, fontSize: '24px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{firstPlace.nickname}</span>
                       </div>
@@ -4207,8 +4223,9 @@ Garanta que:
                   {thirdPlace && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', opacity: podiumStep >= 2 ? 1 : 0, transform: podiumStep >= 2 ? 'translateY(0)' : 'translateY(30px)', transition: 'all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
-                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#ea580c', border: '4px solid #9a3412', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px', color: 'white', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
-                          3
+                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', border: '4px solid #ea580c', boxShadow: '0 8px 16px rgba(0,0,0,0.3)', marginBottom: '12px', position: 'relative' }}>
+                          <img src={getAvatarUrl(thirdPlace.nickname)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0d1326' }} />
+                          <div style={{ position: 'absolute', bottom: '-6px', right: '-6px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#ea580c', border: '2px solid #9a3412', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '13px', color: 'white' }}>3</div>
                         </div>
                         <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', textAlign: 'center', wordBreak: 'break-word' }}>{thirdPlace.nickname}</span>
                       </div>

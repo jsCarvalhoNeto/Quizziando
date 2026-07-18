@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trophy, CheckCircle, XCircle, Clock, Users, Wifi, WifiOff } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
+import { getAvatarUrl } from './lib/avatars';
 
 // ==========================================
 // 🎨 CORES DAS ALTERNATIVAS (A/B/C/D)
@@ -448,7 +449,11 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
         <div style={styles.waitingCard}>
           <ConnectedBadge connected={connected} />
           <div style={{ textAlign: 'center' }}>
-            <img src="/logo.png" alt="Quizziando Logo" style={{ height: '64px', width: 'auto', objectFit: 'contain', margin: '0 auto 16px', display: 'block', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
+            <img
+              src={getAvatarUrl(nickname)}
+              alt="Seu avatar"
+              style={{ height: '96px', width: '96px', objectFit: 'cover', borderRadius: '50%', margin: '0 auto 16px', display: 'block', border: '3px solid rgba(124,58,237,0.6)', background: '#0d1326', boxShadow: '0 6px 20px rgba(124, 58, 237, 0.45)' }}
+            />
             <h2 style={styles.title}>Você está dentro!</h2>
             <p style={{ color: '#A0AEC0', fontSize: 14, marginTop: 8 }}>Olá, <strong style={{ color: 'white' }}>{nickname}</strong></p>
           </div>
@@ -861,6 +866,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                     >
                       {idx + 1}
                     </div>
+                    <img src={getAvatarUrl(p.nickname)} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.15)', background: '#0d1326' }} />
                     <span style={{ color: 'white', fontWeight: 600, fontSize: '14px' }}>
                       {p.nickname} {isMe && '(Você)'}
                     </span>
