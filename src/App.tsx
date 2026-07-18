@@ -3940,29 +3940,53 @@ Garanta que:
 
               {/* PLACAR PARCIAL / LEADERBOARD DA RODADA */}
               {roundState === 'ranking' && (
-                <div style={{ width: '100%', maxWidth: '800px', margin: '40px auto 0', position: 'relative' }}>
-                  
-                  {/* Floating Header as seen in the image */}
-                  <div style={{ position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <Crown style={{ width: '48px', height: '48px', color: '#fbbf24', marginBottom: '-10px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
-                    <div style={{ background: 'linear-gradient(to bottom, #fbbf24, #d97706)', border: '4px solid #92400e', borderRadius: '9999px', padding: '12px 40px', boxShadow: '0 6px 0 rgba(146,64,14,1)' }}>
-                      <h3 style={{ fontSize: '32px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)' }}>
-                        Leaderboard
-                      </h3>
-                    </div>
-                  </div>
+                <div style={{ width: '100%', maxWidth: '720px', margin: '24px auto 0', position: 'relative' }}>
 
-                  {/* Main Board Container */}
-                  <div style={{ paddingTop: '70px', paddingBottom: '30px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', gap: '16px', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: '#2a1b54' }}>
-                    
-                    <div style={{ position: 'relative', height: `${rankingPlayers.length * 88}px`, width: '100%', zIndex: 10 }}>
+                  {/* Main Board Container — estilo premium adaptável */}
+                  <div style={{
+                    padding: '28px',
+                    display: 'flex', flexDirection: 'column', gap: '20px',
+                    borderRadius: '24px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    position: 'relative',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+                    background: 'linear-gradient(160deg, rgba(30,22,60,0.95), rgba(15,12,32,0.98))',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Brilho decorativo */}
+                    <div style={{ position: 'absolute', top: '-60px', right: '-40px', width: '200px', height: '200px', background: 'radial-gradient(circle, rgba(251,191,36,0.12), transparent 70%)', pointerEvents: 'none' }} />
+
+                    {/* Header interno — título + rodada */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #fbbf24, #d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 16px rgba(251,191,36,0.35)' }}>
+                          <Trophy style={{ width: '24px', height: '24px', color: 'white' }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(251,191,36,0.9)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>
+                            Classificação
+                          </span>
+                          <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'white', margin: 0, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                            Placar Parcial
+                          </h3>
+                        </div>
+                      </div>
+                      <div style={{ padding: '6px 14px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>
+                          Rodada {currentRoundIndex} de {gameRounds}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ position: 'relative', height: `${rankingPlayers.length * 72}px`, width: '100%', zIndex: 10 }}>
                       <AnimatePresence>
                         {rankingPlayers.map((p, idx) => {
-                          // Definir cores das medalhas
-                          let badgeBg = '#db2777'; let badgeBorder = '#9d174d';
-                          if (idx === 0) { badgeBg = '#f59e0b'; badgeBorder = '#b45309'; }
-                          else if (idx === 1) { badgeBg = '#94a3b8'; badgeBorder = '#475569'; }
-                          else if (idx === 2) { badgeBg = '#ea580c'; badgeBorder = '#9a3412'; }
+                          const isLeader = idx === 0;
+                          // Cores das medalhas para o Top 3
+                          let badgeBg = 'rgba(255,255,255,0.08)'; let badgeColor = 'rgba(255,255,255,0.6)';
+                          if (idx === 0) { badgeBg = 'linear-gradient(135deg, #fbbf24, #d97706)'; badgeColor = 'white'; }
+                          else if (idx === 1) { badgeBg = 'linear-gradient(135deg, #cbd5e1, #94a3b8)'; badgeColor = 'white'; }
+                          else if (idx === 2) { badgeBg = 'linear-gradient(135deg, #fb923c, #ea580c)'; badgeColor = 'white'; }
 
                           // Movimento de posição vs. placar anterior (positivo = subiu)
                           const movement = showNewScores ? ((prevPosById.get(p.id) ?? idx) - idx) : 0;
@@ -3972,45 +3996,39 @@ Garanta que:
                               key={p.id}
                               initial={false} /* placar antigo entra estático; só a revelação anima */
                               animate={{
-                                opacity: 1, x: 0, y: idx * 88,
-                                // Tremidinha bem-humorada em quem trocou de posição
-                                rotate: movement !== 0 ? [0, movement > 0 ? -3 : 3, movement > 0 ? 2 : -2, 0] : 0
+                                opacity: 1, x: 0, y: idx * 72,
+                                rotate: movement !== 0 ? [0, movement > 0 ? -2 : 2, movement > 0 ? 1 : -1, 0] : 0
                               }}
                               exit={{ opacity: 0, scale: 0.9 }}
                               transition={{
-                                y: { type: "spring", stiffness: 40, damping: 11 }, // Movimento lento e dramático
+                                y: { type: "spring", stiffness: 40, damping: 11 },
                                 opacity: { duration: 0.2 },
                                 x: { type: "spring", stiffness: 300, damping: 25 },
                                 rotate: { duration: 0.9, delay: 0.3 }
                               }}
-                              style={{ 
-                                position: 'absolute', 
-                                top: 0, 
-                                left: 0, 
-                                width: '100%', 
-                                height: '76px',
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                alignItems: 'center', 
-                                backgroundColor: '#3a2673', 
-                                borderBottom: '4px solid #25164d', 
-                                borderRadius: '16px', 
-                                padding: '0 20px', 
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', 
-                                zIndex: sortedPlayers.length - idx 
+                              style={{
+                                position: 'absolute',
+                                top: 0, left: 0, width: '100%', height: '60px',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                background: isLeader ? 'linear-gradient(90deg, rgba(251,191,36,0.14), rgba(255,255,255,0.04))' : 'rgba(255,255,255,0.04)',
+                                border: isLeader ? '1px solid rgba(251,191,36,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                                borderRadius: '14px',
+                                padding: '0 16px',
+                                boxShadow: isLeader ? '0 0 24px rgba(251,191,36,0.15)' : 'none',
+                                zIndex: sortedPlayers.length - idx
                               }}
                             >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                 {/* Rank Badge */}
-                                <motion.div 
+                                <motion.div
                                   layout
-                                  style={{ width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '24px', color: 'white', backgroundColor: badgeBg, borderBottom: `4px solid ${badgeBorder}`, boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3)' }}
+                                  style={{ width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '16px', color: badgeColor, background: badgeBg, flexShrink: 0 }}
                                 >
                                   {idx + 1}
                                 </motion.div>
-                                
+
                                 {/* Player Name */}
-                                <span style={{ fontWeight: 900, fontSize: '24px', letterSpacing: '0.05em', color: 'white', textTransform: 'uppercase', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                                <span style={{ fontWeight: 700, fontSize: '18px', color: 'white', letterSpacing: '0.01em' }}>
                                   {p.nickname}
                                 </span>
 
@@ -4020,25 +4038,26 @@ Garanta que:
                                     initial={{ scale: 0, rotate: movement > 0 ? -45 : 45 }}
                                     animate={{ scale: [0, 1.6, 1], rotate: 0 }}
                                     transition={{ delay: 0.5, duration: 0.6, times: [0, 0.6, 1] }}
-                                    style={{ fontSize: '28px', lineHeight: 1 }}
+                                    style={{ fontSize: '22px', lineHeight: 1 }}
                                     title={movement > 0 ? `Subiu ${movement} posição(ões)!` : `Caiu ${-movement} posição(ões)...`}
                                   >
                                     {movement > 0 ? '🚀' : '🫠'}
                                   </motion.span>
                                 )}
                               </div>
-                              
+
                               {/* Score Pill com Animação de Pop quando os pontos mudam */}
-                              <div style={{ backgroundColor: '#1f1340', border: '3px solid #4a348c', borderRadius: '9999px', padding: '6px 24px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
                                 <motion.div
-                                  key={p.score} /* a mudança de score engatilha a animação inicial novamente */
+                                  key={p.score}
                                   initial={showNewScores ? { y: -20, opacity: 0, color: '#34d399', scale: 1.5 } : false}
-                                  animate={{ y: 0, opacity: 1, color: '#ffffff', scale: 1 }}
+                                  animate={{ y: 0, opacity: 1, color: isLeader ? '#fbbf24' : '#ffffff', scale: 1 }}
                                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                                  style={{ fontFamily: 'monospace', fontSize: '24px', fontWeight: 900, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+                                  style={{ fontFamily: "'Outfit', monospace", fontSize: '26px', fontWeight: 900, lineHeight: 1 }}
                                 >
                                   {p.score}
                                 </motion.div>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' }}>pts</span>
                               </div>
                             </motion.div>
                           );
@@ -4047,21 +4066,21 @@ Garanta que:
                     </div>
 
                     {role === 'operator' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', marginTop: '24px' }}>
-                        <button 
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 10 }}>
+                        <button
                           onClick={handleNextRound}
-                          style={{ marginLeft: 'auto', marginRight: 'auto', background: 'linear-gradient(to bottom, #34d399, #059669)', border: '4px solid #064e3b', color: 'white', fontWeight: 900, fontSize: '20px', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '16px 32px', borderRadius: '16px', boxShadow: '0 6px 0 rgba(6,78,59,1)', cursor: 'pointer', transition: 'all 0.1s ease' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
-                          onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(6px)'; e.currentTarget.style.boxShadow = 'none'; }}
-                          onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 0 rgba(6,78,59,1)'; e.currentTarget.style.filter = 'none'; }}
+                          className="group w-full flex items-center justify-center gap-2 text-white font-bold transition-all active:scale-[0.98]"
+                          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '14px 32px', borderRadius: '14px', boxShadow: '0 8px 24px rgba(5,150,105,0.35)', cursor: 'pointer' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
                         >
                           {currentRoundIndex < gameRounds ? 'Avançar Rodada' : 'Ver Vencedores'}
+                          <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </button>
-                        
+
                         <button
                           onClick={() => setShowStatsModal(true)}
-                          className="text-xs font-semibold text-white/50 hover:text-white/90 transition-colors flex items-center gap-1 mt-2"
+                          className="text-xs font-semibold text-white/50 hover:text-white/90 transition-colors flex items-center gap-1.5"
                         >
                           <FileText className="w-4 h-4" /> Relatório Estatístico
                         </button>
