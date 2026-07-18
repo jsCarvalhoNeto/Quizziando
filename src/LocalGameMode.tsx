@@ -215,6 +215,19 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const [selectedCategory, setSelectedCategory] = useState<LocalCategory | null>(null);
   const [currentQuestion, setCurrentQuestion]   = useState<LocalQuestion | null>(null);
   const [usedQuestionIds, setUsedQuestionIds]   = useState<string[]>([]);
+  // Ref espelho: fonte da verdade imune a closures desatualizadas (setTimeout),
+  // garante que uma pergunta não seja sorteada duas vezes na mesma jogada
+  const usedQuestionIdsRef = useRef<string[]>([]);
+  const markQuestionUsed = (id: string) => {
+    if (!usedQuestionIdsRef.current.includes(id)) {
+      usedQuestionIdsRef.current = [...usedQuestionIdsRef.current, id];
+    }
+    setUsedQuestionIds(usedQuestionIdsRef.current);
+  };
+  const resetUsedQuestions = (ids: string[] = []) => {
+    usedQuestionIdsRef.current = ids;
+    setUsedQuestionIds(ids);
+  };
 
   const [timeLeft, setTimeLeft]     = useState(20);
   const [timerActive, setTimerActive] = useState(false);
@@ -436,7 +449,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     setCurrentRound(1);
     setRoundStarterIndex(starter);
     setFirstFailed(false);
-    setUsedQuestionIds([]);
+    resetUsedQuestions();
     setPhase('idle');
     setRouletteAngle(0);
     setLocalScreen('game');
@@ -502,22 +515,23 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             return;
           }
 
-          const catQs = allQuestions.filter(q => q.category_id === chosen.id && !usedQuestionIds.includes(q.id));
-          const anyQs = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && !usedQuestionIds.includes(q.id));
+          const used = usedQuestionIdsRef.current;
+          const catQs = allQuestions.filter(q => q.category_id === chosen.id && !used.includes(q.id));
+          const anyQs = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && !used.includes(q.id));
           let pool  = catQs.length > 0 ? catQs : anyQs;
           let question = pickRandom(pool);
 
           let chosenQuestion = question;
           if (!chosenQuestion) {
-            // Fallback: se todas as perguntas das categorias selecionadas foram usadas, resetamos o histórico de usadas
+            // Fallback: todas as perguntas das categorias selecionadas foram usadas
+            // nesta jogada — zeramos o histórico e recomeçamos o ciclo
             const resetPool = allQuestions.filter(q => selectedCatIds.includes(q.category_id));
             chosenQuestion = pickRandom(resetPool);
             if (chosenQuestion) {
-              setUsedQuestionIds([chosenQuestion.id]);
+              resetUsedQuestions([chosenQuestion.id]);
             }
           } else {
-            const qId = chosenQuestion.id;
-            setUsedQuestionIds(prev => [...prev, qId]);
+            markQuestionUsed(chosenQuestion.id);
           }
 
           if (!chosenQuestion) { setPhase('idle'); return; }
@@ -611,7 +625,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     setPhase('idle');
     setCurrentQuestion(null);
     setSelectedCategory(null);
-    setUsedQuestionIds([]);
+    resetUsedQuestions();
     setRoundResult(null);
     setTimerActive(false);
     setFirstFailed(false);

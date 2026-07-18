@@ -876,7 +876,20 @@ Garanta que:
   const [activePlayers, setActivePlayers] = useState<GamePlayer[]>([]);
   const [currentRoundIndex, setCurrentRoundIndex] = useState(1);
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([]);
-  
+  // Ref espelho: fonte da verdade para o filtro de perguntas usadas, imune a
+  // closures desatualizadas dentro de setTimeout (garante não repetir na jogada)
+  const usedQuestionIdsRef = useRef<string[]>([]);
+  const markQuestionUsed = (id: string) => {
+    if (!usedQuestionIdsRef.current.includes(id)) {
+      usedQuestionIdsRef.current = [...usedQuestionIdsRef.current, id];
+    }
+    setUsedQuestionIds(usedQuestionIdsRef.current);
+  };
+  const resetUsedQuestions = (ids: string[] = []) => {
+    usedQuestionIdsRef.current = ids;
+    setUsedQuestionIds(ids);
+  };
+
   // Status da rodada ativa: 'idle' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'ranking'
   const [roundState, setRoundState] = useState<'idle' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'ranking'>('idle');
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
@@ -1727,7 +1740,7 @@ Garanta que:
     sfx.playClick();
     sfx.stopLobby();
     setCurrentRoundIndex(1);
-    setUsedQuestionIds([]);
+    resetUsedQuestions();
     setRoundState('idle');
     setRoomAnswers([0, 0, 0, 0]);
     setTotalAnswered(0);
@@ -1816,33 +1829,35 @@ Garanta que:
       
       setSelectedCategory(cat);
       
-      // Buscar pergunta elegível não repetida
+      // Buscar pergunta elegível não repetida (lê do ref = sempre atualizado)
+      const used = usedQuestionIdsRef.current;
       const availableQuestions = questions.filter(
-        q => q.category_id === cat.id && !usedQuestionIds.includes(q.id)
+        q => q.category_id === cat.id && !used.includes(q.id)
       );
-      
+
       let selectedQ;
       if (availableQuestions.length === 0) {
         // Fallback: se acabarem as perguntas daquela categoria, pegar qualquer uma não usada das categorias selecionadas
-        const fallbackQuestions = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !usedQuestionIds.includes(q.id));
+        const fallbackQuestions = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !used.includes(q.id));
         if (fallbackQuestions.length > 0) {
           selectedQ = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
+          markQuestionUsed(selectedQ.id);
         } else {
-          // Zerar banco de usadas se todas forem esgotadas para as categorias selecionadas
+          // Todas as perguntas das categorias selecionadas foram usadas nesta jogada:
+          // zerar o histórico e recomeçar o ciclo (a nova sorteada vira a única usada)
           const activeQs = questions.filter(q => selectedCategoryIds.includes(q.category_id));
           if (activeQs.length > 0) {
             selectedQ = activeQs[Math.floor(Math.random() * activeQs.length)];
-            setUsedQuestionIds([selectedQ.id]);
           } else {
             selectedQ = questions[Math.floor(Math.random() * questions.length)];
-            setUsedQuestionIds([selectedQ.id]);
           }
+          resetUsedQuestions([selectedQ.id]);
         }
       } else {
         selectedQ = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+        markQuestionUsed(selectedQ.id);
       }
       setCurrentQuestion(selectedQ);
-      setUsedQuestionIds(prev => prev.includes(selectedQ!.id) ? prev : [...prev, selectedQ!.id]);
 
       // ⏳ Aguardar 2 segundos exibindo a roleta parada antes de revelar a categoria
       setTimeout(async () => {
