@@ -2499,28 +2499,40 @@ Garanta que:
                           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Banco de Questões</h4>
                           <p className="text-[11px] text-slate-400">Gerencie as perguntas do quiz.</p>
                         </div>
-                        <button
-                          onClick={() => {
-                            setShowQuestionManagerModal(true);
-                            setShowSettingsModal(false);
-                            sfx.playClick();
-                          }}
-                          className="group relative w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 hover:border-purple-500/40 transition-all duration-300 overflow-hidden shadow-lg shadow-indigo-500/5"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-[100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-                          <div className="flex items-center gap-3 relative z-10">
-                            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 group-hover:scale-110 transition-transform duration-300">
-                              <BookOpen className="w-5 h-5" />
+
+                        {/* Card hero do gerenciador */}
+                        <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-indigo-950/60 via-[#0d1326] to-purple-950/40">
+                          {/* Brilho decorativo */}
+                          <div className="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+                          <div className="absolute -bottom-20 -left-10 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                          <div className="relative p-6 flex flex-col items-center text-center gap-4">
+                            {/* Ícone destaque */}
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                              <BookOpen className="w-8 h-8 text-white" />
                             </div>
-                            <div className="flex flex-col text-left">
-                              <span className="block text-sm font-bold text-white leading-tight group-hover:text-indigo-300 transition-colors">Abrir Gerenciador de Questões</span>
-                              <span className="block text-[10.5px] text-indigo-300/70 font-medium leading-tight mt-0.5">Adicione, edite ou remova perguntas</span>
+
+                            <div className="flex flex-col gap-1">
+                              <span className="text-lg font-extrabold text-white tracking-tight">Gerenciador de Questões</span>
+                              <span className="text-[12px] text-slate-400 max-w-[280px] leading-relaxed">
+                                Adicione, edite, organize e remova as perguntas que aparecem no seu quiz.
+                              </span>
                             </div>
+
+                            <button
+                              onClick={() => {
+                                setShowQuestionManagerModal(true);
+                                setShowSettingsModal(false);
+                                sfx.playClick();
+                              }}
+                              className="group mt-1 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all duration-300 active:scale-[0.98]"
+                            >
+                              <BookOpen className="w-4 h-4" />
+                              Abrir Gerenciador
+                              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                            </button>
                           </div>
-                          <div className="relative z-10 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
-                            <ChevronRight className="w-4 h-4 translate-x-0.5" />
-                          </div>
-                        </button>
+                        </div>
                       </div>
                     )}
 
