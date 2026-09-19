@@ -77,6 +77,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   }, [roomCode]);
 
   const [session, setSession] = useState<PlayerSession | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [answerError, setAnswerError] = useState('');
   const [pendingAnswer, setPendingAnswer] = useState<number | null>(null);
@@ -101,6 +102,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       lastRound.current = room.current_round;
     }
     setRoomState(room);
+    setPlayerId(player.id);
     setNickname(player.nickname);
     setMyScore(player.score);
     setChosenIndex(answer?.answer_index ?? null);
@@ -128,7 +130,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     if (!saved) return;
     let cancelled = false;
     setJoining(true);
-    gameRpc<PlayerSnapshot>('quiz_join_room', { p_code: roomCode, p_nickname: saved.nickname, p_token: saved.token })
+    gameRpc<PlayerSnapshot>('quiz_player_state', { p_code: roomCode, p_token: saved.token })
       .then(snapshot => { if (!cancelled) { applySnapshot(snapshot); setSession(saved); } })
       .catch(error => { if (!cancelled) setJoinError(error.message); })
       .finally(() => { if (!cancelled) setJoining(false); });
@@ -170,6 +172,15 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
       void supabase.removeChannel(channel);
     };
   }, [session, roomCode, applySnapshot]);
+
+  useEffect(() => {
+    if (!session || !playerId) return;
+    const channel = supabase.channel(`presence-${roomCode}`, { config: { presence: { key: playerId } } });
+    channel.subscribe(status => {
+      if (status === 'SUBSCRIBED') void channel.track({ player_id: playerId, joined_at: new Date().toISOString() });
+    });
+    return () => { void supabase.removeChannel(channel); };
+  }, [session, playerId, roomCode]);
 
   useEffect(() => {
     const tick = () => setSecondsLeft(roomState?.paused_remaining_ms != null

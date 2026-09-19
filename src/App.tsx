@@ -12,6 +12,7 @@ import { supabase } from './lib/supabaseClient';
 import { eligibleCategories, remainingSeconds } from './lib/gameRules';
 import { gameRpc, type OnlineRoom } from './lib/onlineGame';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
+import SpectatorView from './SpectatorView';
 import { getAvatarUrl } from './lib/avatars';
 import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -882,6 +883,7 @@ Garanta que:
   const [scoringMode, setScoringMode] = useState<'speed' | 'fixed'>('speed');
   const [fixedPoints, setFixedPoints] = useState(100);
   const [activePlayers, setActivePlayers] = useState<GamePlayer[]>([]);
+  const [onlinePlayerIds, setOnlinePlayerIds] = useState<string[]>([]);
   const [teamScores, setTeamScores] = useState<Record<string, number>>({});
   const [currentRoundIndex, setCurrentRoundIndex] = useState(1);
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([]);
@@ -1151,6 +1153,14 @@ Garanta que:
     const poll = window.setInterval(() => void refresh(), 2000);
     return () => { stopped = true; window.clearInterval(poll); void supabase.removeChannel(channel); };
   }, [roomCode, role, screen]);
+
+  useEffect(() => {
+    if (!roomCode || role !== 'operator' || !['game-lobby', 'game-play'].includes(screen) || !useRealSupabase) return;
+    const channel = supabase.channel(`presence-${roomCode}`)
+      .on('presence', { event: 'sync' }, () => setOnlinePlayerIds(Object.keys(channel.presenceState())))
+      .subscribe();
+    return () => { setOnlinePlayerIds([]); void supabase.removeChannel(channel); };
+  }, [roomCode, role, screen, useRealSupabase]);
 
   const revealAnswerRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
@@ -2009,6 +2019,8 @@ Garanta que:
   }, [roundState]);
 
   const sortedPlayers = [...activePlayers].sort((a, b) => b.score - a.score);
+  const onlineCount = activePlayers.filter(player => onlinePlayerIds.includes(player.id)).length;
+  const spectatorLink = roomLink ? `${roomLink}&view=spectator` : '';
   const sortedTeams = Object.entries(teamScores).sort(([, left], [, right]) => right - left);
   const prevSortedPlayers = prevScores
     ? activePlayers.map(p => ({ ...p, score: prevScores[p.id] ?? 0 })).sort((a, b) => b.score - a.score)
@@ -2021,6 +2033,7 @@ Garanta que:
   const firstPlace = sortedPlayers[0];
 
   if (URL_ROOM_CODE) {
+    if (urlParams.get('view') === 'spectator') return <SpectatorView roomCode={URL_ROOM_CODE} />;
     return <PlayerView roomCode={URL_ROOM_CODE} />;
   }
 
@@ -2772,6 +2785,17 @@ Garanta que:
                   </div>
                 </div>
 
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase">Pontuação</label>
+                  <select className="input-glow" value={scoringMode} onChange={event => setScoringMode(event.target.value as 'speed' | 'fixed')}>
+                    <option value="speed">Acerto + bônus por velocidade</option>
+                    <option value="fixed">Pontos fixos por acerto</option>
+                  </select>
+                  {scoringMode === 'fixed' && <label className="text-xs text-[hsl(var(--text-secondary))]">Pontos por acerto
+                    <input type="number" min="0" max="1000" value={fixedPoints} onChange={event => setFixedPoints(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))} className="input-glow mt-1 w-full" />
+                  </label>}
+                </div>
+
                 <button 
                   onClick={handleStartGameSetup}
                   className="btn-glow w-full justify-center py-3 text-sm mt-2"
@@ -3072,6 +3096,16 @@ Garanta que:
                     </div>
                   </div>
 
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase">Link para Espectadores</label>
+                    <div className="flex gap-2">
+                      <input type="text" readOnly value={spectatorLink} className="input-glow text-xs flex-grow font-semibold" onClick={event => event.currentTarget.select()} />
+                      <button type="button" onClick={() => void navigator.clipboard.writeText(spectatorLink)} className="p-2.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition text-white" title="Copiar link para espectadores" aria-label="Copiar link para espectadores">
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
                   {/* QR Code */}
                   <div className="flex flex-col items-center justify-center gap-3 pt-2">
                     <span className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
@@ -3091,7 +3125,7 @@ Garanta que:
                 <div className="flex flex-col gap-4">
                   <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
                     <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                    Jogadores na Sala ({activePlayers.length})
+                    Jogadores na Sala ({activePlayers.length}) · {onlineCount} online · {activePlayers.length - onlineCount} offline · {totalAnswered} responderam
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
@@ -3102,7 +3136,7 @@ Garanta que:
                           <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">{player.nickname}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className={`w-2.5 h-2.5 rounded-full ${onlinePlayerIds.includes(player.id) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} title={onlinePlayerIds.includes(player.id) ? 'Conectado' : 'Desconectado'} />
                           <button
                             onClick={() => handleRemovePlayer(player.id)}
                             className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
@@ -4092,13 +4126,13 @@ Garanta que:
               <div className="lg:col-span-4 glass-card p-6 flex flex-col gap-4 h-fit animate-fade-in">
                 <h3 className="text-md font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
                   <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                  Lobby Ativo ({activePlayers.length})
+                  Lobby Ativo ({activePlayers.length}) · {onlineCount} online · {totalAnswered} responderam
                 </h3>
                 
                 <div className="flex flex-col gap-2 max-h-[350px] overflow-y-auto pr-1">
                   {activePlayers.map(p => (
                     <div key={p.id} className="flex justify-between items-center p-2.5 bg-[rgba(255,255,255,0.01)] border border-[rgba(255,255,255,0.03)] rounded-lg">
-                      <span className="text-xs font-semibold text-[hsl(var(--text-secondary))] truncate">{p.nickname}</span>
+                      <span className="text-xs font-semibold text-[hsl(var(--text-secondary))] truncate"><span className={onlinePlayerIds.includes(p.id) ? 'text-emerald-400' : 'text-slate-500'}>●</span> {p.nickname}</span>
                       <span className="text-xs font-mono font-bold text-[hsl(var(--text-muted))]">{p.score} pts</span>
                     </div>
                   ))}
