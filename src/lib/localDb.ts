@@ -24,6 +24,7 @@ export interface LocalQuestion {
 }
 
 const STORAGE_KEY = 'quizziando_local_db';
+const BACKUP_STORAGE_KEY = 'quizziando_local_db_backup';
 
 let SQL: SqlJsStatic | null = null;
 let db: Database | null = null;
@@ -232,34 +233,110 @@ export function importFromSupabaseData(
   questions: LocalQuestion[]
 ): void {
   const database = getDb();
+  validateImport(categories, questions);
+  createBackup();
+  database.run('BEGIN');
+  try {
+    database.run('DELETE FROM alternatives');
+    database.run('DELETE FROM questions');
+    database.run('DELETE FROM categories');
+    writeImportedData(database, categories, questions);
+    database.run('COMMIT');
+    saveDb(database);
+  } catch (error) {
+    database.run('ROLLBACK');
+    throw error;
+  }
+}
 
-  // Limpar tabelas e recriar
-  database.run('DELETE FROM alternatives');
-  database.run('DELETE FROM questions');
-  database.run('DELETE FROM categories');
+/** Returns whether a restore point exists from the last full replacement. */
+export function hasLocalBackup(): boolean {
+  return Boolean(localStorage.getItem(BACKUP_STORAGE_KEY));
+}
 
-  for (const cat of categories) {
+/** Restores the database that existed immediately before the last replacement. */
+export function restoreLocalBackup(): void {
+  const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
+  if (!backup || !SQL) throw new Error('Nenhum backup local está disponível.');
+  try {
+    const binary = Uint8Array.from(atob(backup), character => character.charCodeAt(0));
+    const restored = new SQL.Database(binary);
+    // Confirma que o conteúdo é realmente um banco do Quizziando antes de trocar
+    // a instância atualmente em uso.
+    restored.exec('SELECT id, name FROM categories LIMIT 1');
+    db?.close();
+    db = restored;
+    saveDb(restored);
+  } catch {
+    throw new Error('O backup local está inválido e não pôde ser restaurado.');
+  }
+}
+
+function createBackup(): void {
+  const current = localStorage.getItem(STORAGE_KEY);
+  if (current) localStorage.setItem(BACKUP_STORAGE_KEY, current);
+}
+
+/**
+ * Atualiza somente os itens recebidos da nuvem. Conteúdo local que não veio no
+ * download permanece intacto; é a opção indicada para sincronização cotidiana.
+ */
+export function mergeFromSupabaseData(categories: LocalCategory[], questions: LocalQuestion[]): void {
+  const database = getDb();
+  validateImport(categories, questions);
+  database.run('BEGIN');
+  try {
+    writeImportedData(database, categories, questions, true);
+    database.run('COMMIT');
+    saveDb(database);
+  } catch (error) {
+    database.run('ROLLBACK');
+    throw error;
+  }
+}
+
+function validateImport(categories: LocalCategory[], questions: LocalQuestion[]): void {
+  const categoryIds = new Set(categories.map(category => category.id));
+  if (categoryIds.size !== categories.length || categories.some(category => !category.id || !category.name.trim())) {
+    throw new Error('As categorias recebidas são inválidas. Nada foi alterado.');
+  }
+  if (questions.some(question =>
+    !question.id || !categoryIds.has(question.category_id) || !question.question_text.trim() ||
+    question.time_limit < 5 || question.alternatives.length !== 4 ||
+    question.alternatives.filter(alternative => alternative.isCorrect).length !== 1 ||
+    question.alternatives.some(alternative => !alternative.text.trim())
+  )) {
+    throw new Error('Há uma pergunta inválida na sincronização. Nada foi alterado.');
+  }
+}
+
+function writeImportedData(
+  database: Database,
+  categories: LocalCategory[],
+  questions: LocalQuestion[],
+  preserveUnreceived = false,
+): void {
+  for (const category of categories) {
     database.run(
       'INSERT OR REPLACE INTO categories (id, name, color, icon) VALUES (?, ?, ?, ?)',
-      [cat.id, cat.name, cat.color, cat.icon]
+      [category.id, category.name, category.color, category.icon],
     );
   }
-
-  for (const q of questions) {
+  for (const question of questions) {
+    if (preserveUnreceived) {
+      database.run('DELETE FROM alternatives WHERE question_id = ?', [question.id]);
+    }
     database.run(
       'INSERT OR REPLACE INTO questions (id, category_id, question_text, time_limit) VALUES (?, ?, ?, ?)',
-      [q.id, q.category_id, q.question_text, q.time_limit]
+      [question.id, question.category_id, question.question_text, question.time_limit],
     );
-    for (const alt of q.alternatives) {
-      const altId = crypto.randomUUID();
+    for (const alternative of question.alternatives) {
       database.run(
         'INSERT INTO alternatives (id, question_id, alternative_text, is_correct) VALUES (?, ?, ?, ?)',
-        [altId, q.id, alt.text, alt.isCorrect ? 1 : 0]
+        [crypto.randomUUID(), question.id, alternative.text, alternative.isCorrect ? 1 : 0],
       );
     }
   }
-
-  saveDb(database);
 }
 
 export function hasLocalData(): boolean {

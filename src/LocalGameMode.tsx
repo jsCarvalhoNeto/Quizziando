@@ -11,7 +11,7 @@ import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   initDb, getLocalCategories, getLocalQuestions,
-  importFromSupabaseData,
+  importFromSupabaseData, mergeFromSupabaseData, hasLocalBackup, restoreLocalBackup,
   type LocalCategory, type LocalQuestion
 } from './lib/localDb';
 import logoCurso from './assets/logo_curso.png';
@@ -33,6 +33,29 @@ interface LocalPlayer {
   roundResults: Array<{ answered: boolean; correct: boolean | null }>;
 }
 
+interface SavedLocalGame {
+  version: 1;
+  savedAt: string;
+  players: [LocalPlayer, LocalPlayer];
+  totalRounds: number;
+  hasObstacles: boolean;
+  selectedCatIds: string[];
+  currentRound: number;
+  roundStarterIndex: number;
+  firstFailed: boolean;
+  phase: RoundPhase;
+  selectedCategory: LocalCategory | null;
+  currentQuestion: LocalQuestion | null;
+  usedQuestionIds: string[];
+  timeLeft: number;
+  rouletteAngle: number;
+  pointsPerCorrect: number;
+  pointsOnPass: number;
+  turnTimeLimit: number;
+  quickMode: boolean;
+  tiePolicy: 'shared' | 'extra';
+}
+
 type RoundPhase =
   | 'idle'
   | 'spinning'
@@ -44,6 +67,8 @@ type RoundPhase =
   | 'finished';
 
 type LocalScreen = 'loading' | 'setup' | 'game' | 'podium';
+
+const ACTIVE_GAME_STORAGE_KEY = 'quizziando_active_local_game_v1';
 
 interface Props {
   onBack: () => void;
@@ -195,10 +220,19 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
 
   const [dbError, setDbError]         = useState<string | null>(null);
+  const [showSyncOptions, setShowSyncOptions] = useState(false);
+  const [localBackupAvailable, setLocalBackupAvailable] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState(['Time A', 'Time B']);
   const [totalRounds, setTotalRounds] = useState(6);
   const [isCustomRounds, setIsCustomRounds] = useState(false);
   const [hasObstacles, setHasObstacles]     = useState(false);
+  const [pointsPerCorrect, setPointsPerCorrect] = useState(100);
+  const [pointsOnPass, setPointsOnPass] = useState(100);
+  const [turnTimeLimit, setTurnTimeLimit] = useState(20);
+  const [quickMode, setQuickMode] = useState(false);
+  const [tiePolicy, setTiePolicy] = useState<'shared' | 'extra'>('shared');
+  const transitionMs = (normal: number) => quickMode ? Math.max(250, Math.round(normal * 0.25)) : normal;
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [allCategories, setAllCategories]   = useState<LocalCategory[]>([]);
   const [allQuestions, setAllQuestions]     = useState<LocalQuestion[]>([]);
@@ -278,6 +312,9 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   }, [isSpinning]);
 
   const [roundResult, setRoundResult] = useState<{ scorer: number | null; correct: boolean } | null>(null);
+  const [savedGame, setSavedGame] = useState<SavedLocalGame | null>(null);
+  const [lastDecision, setLastDecision] = useState<Pick<SavedLocalGame, 'players' | 'firstFailed' | 'phase' | 'timeLeft'> | null>(null);
+  const roundCompletionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!soundEnabled) {
@@ -294,6 +331,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   useEffect(() => {
     return () => {
       sfx.stopAll();
+      if (roundCompletionTimerRef.current) clearTimeout(roundCompletionTimerRef.current);
     };
   }, []);
 
@@ -348,6 +386,48 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     reader.readAsDataURL(file);
   };
 
+  const loadSavedGame = (): SavedLocalGame | null => {
+    try {
+      const value = JSON.parse(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null') as SavedLocalGame | null;
+      if (!value || value.version !== 1 || !Array.isArray(value.players) || value.players.length !== 2 || !Array.isArray(value.usedQuestionIds)) return null;
+      return value;
+    } catch {
+      return null;
+    }
+  };
+
+  const discardSavedGame = () => {
+    localStorage.removeItem(ACTIVE_GAME_STORAGE_KEY);
+    setSavedGame(null);
+  };
+
+  const resumeSavedGame = () => {
+    if (!savedGame) return;
+    setPlayers(savedGame.players);
+    setTotalRounds(savedGame.totalRounds);
+    setHasObstacles(savedGame.hasObstacles);
+    setPointsPerCorrect(savedGame.pointsPerCorrect ?? 100);
+    setPointsOnPass(savedGame.pointsOnPass ?? 100);
+    setTurnTimeLimit(savedGame.turnTimeLimit ?? 20);
+    setQuickMode(savedGame.quickMode ?? false);
+    setTiePolicy(savedGame.tiePolicy ?? 'shared');
+    setSelectedCatIds(savedGame.selectedCatIds);
+    setCurrentRound(savedGame.currentRound);
+    setRoundStarterIndex(savedGame.roundStarterIndex);
+    setFirstFailed(savedGame.firstFailed);
+    setPhase(savedGame.phase);
+    setSelectedCategory(savedGame.selectedCategory);
+    setCurrentQuestion(savedGame.currentQuestion);
+    resetUsedQuestions(savedGame.usedQuestionIds);
+    setTimeLeft(savedGame.timeLeft);
+    setRouletteAngle(savedGame.rouletteAngle);
+    // A retomada é deliberada: não reiniciamos o tempo automaticamente ao abrir.
+    setTimerActive(false);
+    setLocalScreen('game');
+    setSavedGame(null);
+    sfx.playClick();
+  };
+
   // ─── Init banco ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -359,6 +439,8 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         setAllCategories(cats);
         setAllQuestions(qs);
         setSelectedCatIds(cats.map(c => c.id));
+        setLocalBackupAvailable(hasLocalBackup());
+        setSavedGame(loadSavedGame());
       } catch (err: any) {
         console.error('Erro no initDb:', err);
         setDbError(`Usando perguntas em memória (sql.js indisponível: ${err.message || String(err)}).`);
@@ -375,22 +457,73 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSyncWithCloud = () => {
+  // Salva cada estado jogável. O cronômetro fica pausado após restaurar para
+  // evitar que uma questão termine enquanto o apresentador ainda se recompõe.
+  useEffect(() => {
+    if (localScreen !== 'game' || phase === 'finished') return;
+    const snapshot: SavedLocalGame = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      players,
+      totalRounds,
+      hasObstacles,
+      selectedCatIds,
+      currentRound,
+      roundStarterIndex,
+      firstFailed,
+      phase,
+      selectedCategory,
+      currentQuestion,
+      usedQuestionIds,
+      timeLeft,
+      rouletteAngle,
+      pointsPerCorrect,
+      pointsOnPass,
+      turnTimeLimit,
+      quickMode,
+      tiePolicy,
+    };
+    localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(snapshot));
+  }, [localScreen, players, totalRounds, hasObstacles, selectedCatIds, currentRound, roundStarterIndex, firstFailed, phase, selectedCategory, currentQuestion, usedQuestionIds, timeLeft, rouletteAngle, pointsPerCorrect, pointsOnPass, turnTimeLimit, quickMode, tiePolicy]);
+
+  const refreshLocalContent = () => {
+    const cats = getLocalCategories();
+    const qs = getLocalQuestions();
+    setAllCategories(cats);
+    setAllQuestions(qs);
+    setSelectedCatIds(cats.map(category => category.id));
+  };
+
+  const handleSyncWithCloud = (mode: 'merge' | 'replace') => {
     if (!supabaseCategories?.length || !supabaseQuestions?.length) {
       alert('Não foi possível obter dados da nuvem no momento. Verifique sua conexão.');
       return;
     }
     sfx.playClick();
     try {
-      importFromSupabaseData(supabaseCategories, supabaseQuestions);
-      const cats = getLocalCategories();
-      const qs   = getLocalQuestions();
-      setAllCategories(cats);
-      setAllQuestions(qs);
-      setSelectedCatIds(cats.map(c => c.id));
-      alert('Sincronização concluída com sucesso!');
+      if (mode === 'merge') {
+        mergeFromSupabaseData(supabaseCategories, supabaseQuestions);
+        setSyncMessage('Conteúdo da nuvem mesclado. Itens locais que não vieram da nuvem foram preservados.');
+      } else {
+        importFromSupabaseData(supabaseCategories, supabaseQuestions);
+        setLocalBackupAvailable(true);
+        setSyncMessage('Conteúdo local substituído pela nuvem. Um backup foi salvo e pode ser restaurado abaixo.');
+      }
+      refreshLocalContent();
+      setShowSyncOptions(false);
     } catch (err: any) {
       alert(`Erro ao sincronizar com a nuvem: ${err.message || String(err)}`);
+    }
+  };
+
+  const handleRestoreBackup = () => {
+    try {
+      restoreLocalBackup();
+      refreshLocalContent();
+      setSyncMessage('Backup local restaurado com sucesso.');
+      sfx.playCorrect();
+    } catch (err: any) {
+      alert(`Não foi possível restaurar o backup: ${err.message || String(err)}`);
     }
   };
 
@@ -416,7 +549,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
       if (phase === 'question-first') {
         setFirstFailed(true);
         setPhase('question-second');
-        setTimeLeft(currentQuestion?.time_limit || 20);
+        setTimeLeft(turnTimeLimit || currentQuestion?.time_limit || 20);
         setTimerActive(true);
       } else {
         finishRound(null);
@@ -452,13 +585,26 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     resetUsedQuestions();
     setPhase('idle');
     setRouletteAngle(0);
+    discardSavedGame();
     setLocalScreen('game');
     sfx.playClick();
   };
 
   const handleSpin = useCallback(() => {
     if (isSpinning || phase !== 'idle') return;
-    let wheelCats = allCategories.filter(c => selectedCatIds.includes(c.id));
+    const used = usedQuestionIdsRef.current;
+    let wheelCats = allCategories.filter(category =>
+      selectedCatIds.includes(category.id) &&
+      allQuestions.some(question => question.category_id === category.id && !used.includes(question.id)),
+    );
+    // Todas as perguntas foram usadas: inicia um novo ciclo antes de sortear,
+    // preservando a coerência entre a categoria anunciada e a pergunta exibida.
+    if (!wheelCats.length) {
+      resetUsedQuestions();
+      wheelCats = allCategories.filter(category =>
+        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id),
+      );
+    }
     if (hasObstacles) {
       wheelCats = [
         ...wheelCats,
@@ -515,36 +661,23 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             return;
           }
 
-          const used = usedQuestionIdsRef.current;
-          const catQs = allQuestions.filter(q => q.category_id === chosen.id && !used.includes(q.id));
-          const anyQs = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && !used.includes(q.id));
-          let pool  = catQs.length > 0 ? catQs : anyQs;
-          let question = pickRandom(pool);
-
-          let chosenQuestion = question;
-          if (!chosenQuestion) {
-            // Fallback: todas as perguntas das categorias selecionadas foram usadas
-            // nesta jogada — zeramos o histórico e recomeçamos o ciclo
-            const resetPool = allQuestions.filter(q => selectedCatIds.includes(q.category_id));
-            chosenQuestion = pickRandom(resetPool);
-            if (chosenQuestion) {
-              resetUsedQuestions([chosenQuestion.id]);
-            }
-          } else {
-            markQuestionUsed(chosenQuestion.id);
-          }
+          const availableInCategory = allQuestions.filter(question =>
+            question.category_id === chosen.id && !usedQuestionIdsRef.current.includes(question.id),
+          );
+          const chosenQuestion = pickRandom(availableInCategory);
+          if (chosenQuestion) markQuestionUsed(chosenQuestion.id);
 
           if (!chosenQuestion) { setPhase('idle'); return; }
 
           setCurrentQuestion(chosenQuestion);
           setFirstFailed(false);
-          setTimeLeft(chosenQuestion.time_limit || 20);
+          setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
           setPhase('question-reveal');
           setTimerActive(false);
-        }, 3800);
-      }, 2000);
-    }, 8000);
-  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex]);
+        }, transitionMs(3800));
+      }, transitionMs(2000));
+    }, transitionMs(8000));
+  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex, quickMode]);
 
   const currentResponderIndex = firstFailed
     ? (roundStarterIndex === 0 ? 1 : 0)
@@ -552,6 +685,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   const handleJudge = (correct: boolean) => {
     if (phase !== 'question-first' && phase !== 'question-second') return;
+    setLastDecision({ players, firstFailed, phase, timeLeft });
     setTimerActive(false);
     if (correct) {
       sfx.playCorrect();
@@ -561,7 +695,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
       if (phase === 'question-first') {
         setFirstFailed(true);
         setPhase('question-second');
-        setTimeLeft(currentQuestion?.time_limit || 20);
+        setTimeLeft(turnTimeLimit || currentQuestion?.time_limit || 20);
         setTimerActive(true);
       } else {
         finishRound(null);
@@ -572,6 +706,10 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const finishRound = (scorerIndex: number | null) => {
     setTimerActive(false);
     setPhase('round-result');
+    const awardedPoints = firstFailed ? pointsOnPass : pointsPerCorrect;
+    const projectedTie = scorerIndex === null
+      ? players[0].score === players[1].score
+      : players[0].score + (scorerIndex === 0 ? awardedPoints : 0) === players[1].score + (scorerIndex === 1 ? awardedPoints : 0);
 
     setPlayers(prev => {
       const updated: [LocalPlayer, LocalPlayer] = [
@@ -579,7 +717,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         { ...prev[1], roundResults: [...prev[1].roundResults] },
       ];
       if (scorerIndex !== null) {
-        updated[scorerIndex].score += 100;
+        updated[scorerIndex].score += firstFailed ? pointsOnPass : pointsPerCorrect;
         updated[scorerIndex].roundResults.push({ answered: true, correct: true });
         updated[scorerIndex === 0 ? 1 : 0].roundResults.push({ answered: false, correct: null });
       } else {
@@ -592,9 +730,20 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
     setRoundResult({ scorer: scorerIndex, correct: scorerIndex !== null });
 
-    setTimeout(() => {
+    roundCompletionTimerRef.current = setTimeout(() => {
+      roundCompletionTimerRef.current = null;
       setRoundResult(null);
       if (currentRound >= totalRounds) {
+        if (projectedTie && tiePolicy === 'extra') {
+          setTotalRounds(rounds => rounds + 1);
+          setCurrentRound(round => round + 1);
+          setRoundStarterIndex(index => (index === 0 ? 1 : 0));
+          setFirstFailed(false);
+          setCurrentQuestion(null);
+          setSelectedCategory(null);
+          setPhase('idle');
+          return;
+        }
         setPhase('finished');
         setLocalScreen('podium');
         sfx.stopGameSound();
@@ -617,10 +766,32 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         setSelectedCategory(null);
         setPhase('idle');
       }
-    }, 5500);
+    }, transitionMs(5500));
+  };
+
+  const toggleTimer = () => {
+    if (phase !== 'question-first' && phase !== 'question-second') return;
+    setTimerActive(active => !active);
+    sfx.playClick();
+  };
+
+  const undoLastDecision = () => {
+    if (!lastDecision || phase !== 'round-result') return;
+    if (roundCompletionTimerRef.current) clearTimeout(roundCompletionTimerRef.current);
+    roundCompletionTimerRef.current = null;
+    setPlayers(lastDecision.players);
+    setFirstFailed(lastDecision.firstFailed);
+    setPhase(lastDecision.phase);
+    setTimeLeft(lastDecision.timeLeft);
+    setRoundResult(null);
+    setTimerActive(false);
+    setLastDecision(null);
+    sfx.playClick();
   };
 
   const resetGame = () => {
+    if (roundCompletionTimerRef.current) clearTimeout(roundCompletionTimerRef.current);
+    roundCompletionTimerRef.current = null;
     setLocalScreen('setup');
     setPhase('idle');
     setCurrentQuestion(null);
@@ -629,6 +800,8 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     setRoundResult(null);
     setTimerActive(false);
     setFirstFailed(false);
+    setLastDecision(null);
+    discardSavedGame();
     sfx.playClick();
   };
 
@@ -651,7 +824,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const WS        = 800; // wheel size
   const R         = WS / 2;
 
-  const timerMax  = currentQuestion?.time_limit || 20;
+  const timerMax  = turnTimeLimit || currentQuestion?.time_limit || 20;
   const timerPct  = timeLeft / timerMax * 100;
   const timerCol  = timerPct > 50 ? '#10B981' : timerPct > 25 ? '#F59E0B' : '#EF4444';
 
@@ -690,8 +863,8 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             </div>
             
             <button 
-              onClick={handleSyncWithCloud}
-              title="Baixar categorias e perguntas da nuvem para o SQLite local"
+              onClick={() => { setShowSyncOptions(open => !open); setSyncMessage(null); }}
+              title="Escolher como sincronizar categorias e perguntas da nuvem"
               style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '12px 22px', borderRadius: 12,
@@ -707,10 +880,39 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
             </button>
           </div>
 
+          {showSyncOptions && (
+            <div style={{ marginTop: 20, padding: 20, borderRadius: 14, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.28)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+              <div style={{ flex: '1 1 260px' }}>
+                <strong style={{ color: 'white', display: 'block', marginBottom: 4 }}>Como deseja sincronizar?</strong>
+                <span style={{ color: 'rgba(203,213,225,0.8)', fontSize: 14 }}>Mesclar preserva itens apenas locais. Substituir troca todo o acervo e cria um backup restaurável.</span>
+              </div>
+              <button onClick={() => handleSyncWithCloud('merge')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#BFDBFE', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.45)', fontWeight: 700 }}>Mesclar nuvem</button>
+              <button onClick={() => handleSyncWithCloud('replace')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 700 }}>Substituir e criar backup</button>
+            </div>
+          )}
+
+          {(localBackupAvailable || syncMessage) && (
+            <div role="status" style={{ marginTop: 14, padding: '12px 16px', borderRadius: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#D1FAE5' }}>
+              <span style={{ flex: '1 1 280px', fontSize: 14 }}>{syncMessage || 'Há um backup disponível da última substituição.'}</span>
+              {localBackupAvailable && <button onClick={handleRestoreBackup} style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', color: '#A7F3D0', background: 'rgba(16,185,129,0.16)', border: '1px solid rgba(16,185,129,0.4)', fontWeight: 700 }}>Restaurar backup</button>}
+            </div>
+          )}
+
           {dbError && (
             <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '16px 20px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <AlertCircle style={{ width: 22, height: 22, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
               <p style={{ margin: 0, fontSize: 15, color: '#EF4444', lineHeight: 1.5 }}>{dbError}</p>
+            </div>
+          )}
+
+          {savedGame && (
+            <div style={{ marginTop: 18, padding: 18, borderRadius: 14, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.4)', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+              <div style={{ flex: '1 1 300px' }}>
+                <strong style={{ color: 'white', display: 'block' }}>Partida em andamento encontrada</strong>
+                <span style={{ color: 'rgba(221,214,254,0.85)', fontSize: 14 }}>Rodada {savedGame.currentRound} de {savedGame.totalRounds} · salva em {new Date(savedGame.savedAt).toLocaleString('pt-BR')}.</span>
+              </div>
+              <button onClick={resumeSavedGame} className="btn-glow" style={{ padding: '10px 16px', fontWeight: 800 }}>Retomar partida</button>
+              <button onClick={discardSavedGame} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#CBD5E1', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }}>Descartar</button>
             </div>
           )}
 
@@ -835,7 +1037,33 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                   </button>
                 </div>
               </div>
-            </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                  Pontos por acerto
+                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} className="input-glow" />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                  Pontos no repasse
+                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} className="input-glow" />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                  Tempo por tentativa (s)
+                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} className="input-glow" />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 9, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                  Empate
+                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} className="input-glow">
+                    <option value="shared">Vitória compartilhada</option>
+                    <option value="extra">Pergunta extra</option>
+                  </select>
+                </label>
+              </div>
+
+              <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#DCFCE7' : '#CBD5E1', background: quickMode ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.05)', border: `1px solid ${quickMode ? 'rgba(34,197,94,0.45)' : 'rgba(255,255,255,0.13)'}`, fontWeight: 800 }}>
+                {quickMode ? 'Modo rápido ativado' : 'Ativar modo rápido'}
+              </button>
 
             {/* Coluna 2: Categorias e Regras */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
@@ -1224,6 +1452,10 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                       style={{ fontSize: 40, fontWeight: 900, color: timerCol, fontFamily: 'monospace', minWidth: 68, textAlign: 'right' }}>
                       {timeLeft}s
                     </motion.span>
+                    <button onClick={toggleTimer}
+                      style={{ padding: '7px 11px', borderRadius: 8, cursor: 'pointer', color: 'white', background: timerActive ? 'rgba(245,158,11,0.22)' : 'rgba(16,185,129,0.2)', border: `1px solid ${timerActive ? 'rgba(245,158,11,0.5)' : 'rgba(16,185,129,0.5)'}`, fontWeight: 800 }}>
+                      {timerActive ? 'Pausar' : 'Retomar'}
+                    </button>
                   </div>
                 </div>
 
@@ -1310,6 +1542,11 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                 transition={{ type: 'spring', stiffness: 220 }}
                 style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
 
+                <button onClick={undoLastDecision}
+                  style={{ position: 'absolute', top: 24, right: 24, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 800 }}>
+                  Desfazer decisão
+                </button>
+
                 {roundResult.scorer !== null ? (
                   <>
                     <div style={{ fontSize: 130 }}>🎉</div>
@@ -1318,7 +1555,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                       <h3 style={{ margin: '0 0 10px', fontSize: 72, fontWeight: 900, color: TEAM_COLORS[roundResult.scorer] }}>
                         {players[roundResult.scorer].name}
                       </h3>
-                      <p style={{ margin: 0, fontSize: 54, fontWeight: 900, color: '#34D399' }}>+100 pontos</p>
+                      <p style={{ margin: 0, fontSize: 54, fontWeight: 900, color: '#34D399' }}>+{firstFailed ? pointsOnPass : pointsPerCorrect} pontos</p>
                     </div>
                     {correctAnswer && (
                       <div style={{ padding: '22px 36px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 20 }}>

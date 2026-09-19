@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
+import { eligibleCategories, remainingSeconds } from './lib/gameRules';
+import { gameRpc, type OnlineRoom } from './lib/onlineGame';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
 import { getAvatarUrl } from './lib/avatars';
 import LocalGameMode from './LocalGameMode';
@@ -350,12 +352,13 @@ const DEFAULT_QUESTIONS: Question[] = [
 ];
 
 export default function App() {
-  // ==========================================
-  // Se acessado via link de sala → renderizar PlayerView
-  // ==========================================
-  if (URL_ROOM_CODE) {
-    return <PlayerView roomCode={URL_ROOM_CODE} />;
-  }
+  const [authUser, setAuthUser] = useState<{ id?: string, email: string } | null>(null);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ? { id: session.user.id, email: session.user.email || '' } : null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Configurações Globais / Conexão
   const [useRealSupabase] = useState(true);
@@ -418,6 +421,7 @@ export default function App() {
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   
   const handleToggleCategorySelect = (id: string) => {
     setSelectedCategoryIds(prev => {
@@ -454,6 +458,7 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       if (useRealSupabase) {
+        if (!authUser?.id) { setFolders([]); setCategories([]); setQuestions([]); setSelectedCategoryIds([]); return; }
         try {
           // 0. Carregar Pastas
           const { data: folderData } = await supabase
@@ -525,7 +530,7 @@ export default function App() {
     };
     
     fetchData();
-  }, [useRealSupabase]);
+  }, [useRealSupabase, authUser?.id]);
 
   // ==========================================
   // 🖥️ MODO DE JOGO: 'select' | 'online' | 'local'
@@ -565,11 +570,9 @@ export default function App() {
   const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [authUser, setAuthUser] = useState<{ id?: string, email: string } | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   // Estados de Configuração do Painel do Operador
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
   
@@ -873,7 +876,13 @@ Garanta que:
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
   const [gameTimeLimit, setGameTimeLimit] = useState(15);
+  const [maxPlayers, setMaxPlayers] = useState(50);
+  const [joinLocked, setJoinLocked] = useState(false);
+  const [autoReveal, setAutoReveal] = useState(false);
+  const [scoringMode, setScoringMode] = useState<'speed' | 'fixed'>('speed');
+  const [fixedPoints, setFixedPoints] = useState(100);
   const [activePlayers, setActivePlayers] = useState<GamePlayer[]>([]);
+  const [teamScores, setTeamScores] = useState<Record<string, number>>({});
   const [currentRoundIndex, setCurrentRoundIndex] = useState(1);
   const [usedQuestionIds, setUsedQuestionIds] = useState<string[]>([]);
   // Ref espelho: fonte da verdade para o filtro de perguntas usadas, imune a
@@ -895,7 +904,20 @@ Garanta que:
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [timeLeft, setTimeLeft] = useState(15);
-  const [timerRunning, setTimerRunning] = useState(false);
+  const [questionDeadline, setQuestionDeadline] = useState<string | null>(null);
+  const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
+  const [serverOffset, setServerOffset] = useState(0);
+  const [gameError, setGameError] = useState('');
+  const [hostBusy, setHostBusy] = useState(false);
+  const hostBusyRef = useRef(false);
+  const lastHostSnapshotRef = useRef(0);
+  const createRequestRef = useRef<string | null>(null);
+  const spinSequenceRef = useRef(0);
+  const onlineTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => {
+    spinSequenceRef.current++;
+    onlineTimersRef.current.forEach(clearTimeout);
+  }, []);
   const [playerAnswered, setPlayerAnswered] = useState<string | null>(null);
   
   // Efeito de Rotação da Roleta
@@ -945,7 +967,6 @@ Garanta que:
   }, [isSpinning]);
   
   // Referências
-  const timerIntervalRef = useRef<any | null>(null);
   const realtimeChannelRef = useRef<any | null>(null);
 
   // ==========================================
@@ -1008,8 +1029,7 @@ Garanta que:
       };
       return `#${f(m[1])}${f(m[2])}${f(m[3])}`;
     };
-    const cats = categories
-      .filter(c => selectedCategoryIds.includes(c.id))
+    const cats = eligibleCategories(categories, questions, selectedCategoryIds, usedQuestionIds)
       .map(c => ({ ...c, displayColor: c.color }));
     for (let i = 1; i < cats.length; i++) {
       if (cats[i].displayColor.toLowerCase() === cats[i - 1].displayColor.toLowerCase()) {
@@ -1021,7 +1041,7 @@ Garanta que:
       cats[cats.length - 1].displayColor = shade(cats[cats.length - 1].displayColor, -25);
     }
     return cats;
-  }, [categories, selectedCategoryIds]);
+  }, [categories, questions, selectedCategoryIds, usedQuestionIds]);
 
 
   // Efeito para som global
@@ -1069,77 +1089,81 @@ Garanta que:
     return () => { supabase.removeChannel(channel); };
   }, [screen, role, roomCode, useRealSupabase]);
 
-  // Escutar respostas dos jogadores em tempo real (operador)
+  type HostSnapshot = {
+    room: OnlineRoom;
+    host_question: Question | null;
+    used_question_ids: string[];
+    players: { id: string; nickname: string; score: number; team_name?: string | null }[];
+    team_scores: Record<string, number>;
+    answers: { player_id: string; round_index: number; answer_index: number; is_correct: boolean }[];
+    server_now: string;
+  };
+  const applyHostSnapshot = (snapshot: HostSnapshot) => {
+    const stamp = Date.parse(snapshot.server_now);
+    if (stamp < lastHostSnapshotRef.current) return;
+    lastHostSnapshotRef.current = stamp;
+    const room = snapshot.room;
+    setRoundState(room.round_state as typeof roundState);
+    setCurrentRoundIndex(room.current_round);
+    setCurrentQuestion(snapshot.host_question);
+    resetUsedQuestions(snapshot.used_question_ids);
+    setSelectedCategory(room.selected_category);
+    setQuestionDeadline(room.question_deadline);
+    setPausedRemaining(room.paused_remaining_ms);
+    setServerOffset(stamp - Date.now());
+    setTotalAnswered(room.answered_count);
+    setJoinLocked(room.join_locked);
+    setMaxPlayers(room.max_players);
+    setAutoReveal(room.reveal_when_all_answered);
+    setScoringMode(room.scoring_mode);
+    setFixedPoints(room.fixed_points);
+    const counts = [0, 0, 0, 0];
+    snapshot.answers.filter(a => a.round_index === room.current_round).forEach(a => counts[a.answer_index]++);
+    setRoomAnswers(counts);
+    setTeamScores(snapshot.team_scores || {});
+    setActivePlayers(snapshot.players.map(p => ({ ...p, team_name: p.team_name ?? undefined, stats: {
+      answers: Object.fromEntries(snapshot.answers.filter(a => a.player_id === p.id).map(a => [a.round_index, a.is_correct])),
+    } })));
+  };
+  const applyHostSnapshotRef = useRef(applyHostSnapshot);
+  useEffect(() => { applyHostSnapshotRef.current = applyHostSnapshot; });
+
+  // Scores always come from the server. Realtime and polling reconcile missed events.
   useEffect(() => {
-    if (screen !== 'game-play' || role !== 'operator' || !roomCode || !useRealSupabase) return;
-    
-    const channel = supabase
-      .channel(`answers-${roomCode}-${currentRoundIndex}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'player_answers',
-          filter: `room_code=eq.${roomCode}` },
-        (payload) => {
-          const ans = payload.new as any;
-          if (ans.round_index !== currentRoundIndex) return;
-          setRoomAnswers(prev => {
-            const next = [...prev];
-            if (ans.answer_index >= 0 && ans.answer_index <= 3) next[ans.answer_index]++;
-            return next;
-          });
-          setTotalAnswered(prev => prev + 1);
-          
-          setActivePlayers(prev => prev.map(p => {
-            if (p.nickname === ans.player_nickname) {
-              const newScore = ans.is_correct ? p.score + (ans.points_earned || 100) : p.score;
-              
-              if (ans.is_correct) {
-                // Atualizar o banco de dados para evitar que celulares fiquem dessincronizados ao dar refresh
-                supabase.from('room_players').update({ score: newScore })
-                  .eq('room_code', roomCode)
-                  .eq('nickname', p.nickname)
-                  .then();
-              }
-              
-              return { 
-                ...p, 
-                score: newScore,
-                stats: {
-                  ...p.stats,
-                  answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: ans.is_correct }
-                }
-              };
-            }
-            return p;
-          }));
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [screen, role, roomCode, currentRoundIndex, useRealSupabase]);
-
-
-  // Controlar o temporizador
-  useEffect(() => {
-    if (timerRunning && timeLeft > 0) {
-      timerIntervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            setTimerRunning(false);
-            revealAnswer();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    }
-    return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (!roomCode || role !== 'operator' || !['game-lobby', 'game-play'].includes(screen)) return;
+    let stopped = false;
+    let loading = false;
+    const refresh = async () => {
+      if (stopped || loading) return;
+      loading = true;
+      try {
+        const snapshot = await gameRpc<HostSnapshot>('quiz_host_state', { p_code: roomCode });
+        if (!stopped) applyHostSnapshotRef.current(snapshot);
+      } catch (error) {
+        if (!stopped) setGameError(error instanceof Error ? error.message : 'Falha ao sincronizar a sala.');
+      } finally { loading = false; }
     };
-  }, [timerRunning, timeLeft]);
+    const channel = supabase.channel(`host-${roomCode}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms', filter: `code=eq.${roomCode}` }, () => void refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_code=eq.${roomCode}` }, () => void refresh())
+      .subscribe(status => { if (status === 'SUBSCRIBED') void refresh(); });
+    void refresh();
+    const poll = window.setInterval(() => void refresh(), 2000);
+    return () => { stopped = true; window.clearInterval(poll); void supabase.removeChannel(channel); };
+  }, [roomCode, role, screen]);
+
+  const revealAnswerRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    if (roundState !== 'question') return;
+    const tick = () => {
+      const remaining = pausedRemaining !== null ? Math.ceil(pausedRemaining / 1000) : remainingSeconds(questionDeadline, serverOffset);
+      setTimeLeft(remaining);
+      if (questionDeadline && remaining === 0 && pausedRemaining === null && !hostBusyRef.current) void revealAnswerRef.current();
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [roundState, questionDeadline, pausedRemaining, serverOffset]);
 
   // ==========================================
   // 🔐 FUNÇÕES DE AUTENTICAÇÃO DO GERENCIADOR
@@ -1434,7 +1458,8 @@ Garanta que:
 
     // Remove do Supabase
     if (useRealSupabase) {
-      await supabase.from('room_players').delete().eq('id', playerId);
+      const { error } = await supabase.from('room_players').delete().eq('id', playerId);
+      if (error) { setGameError(error.message); return; }
     }
 
     // Remove do estado local
@@ -1663,14 +1688,21 @@ Garanta que:
   // 🏗️ FUNÇÕES DO SISTEMA DE SALAS
   // ==========================================
 
-  const generateRoomCode = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const publishRoomState = async (update: Record<string, unknown>) => {
+    const snapshot = await gameRpc<HostSnapshot>('quiz_host_update', {
+      p_code: roomCode, p_expected_round: currentRoundIndex, p_update: update,
+    });
+    applyHostSnapshot(snapshot);
+    setGameError('');
   };
-
-  const publishRoomState = async (update: Record<string, any>) => {
-    if (!useRealSupabase || !roomCode) return;
-    await supabase.from('game_rooms').update({ ...update, updated_at: new Date().toISOString() }).eq('code', roomCode);
+  const runHostAction = async (action: () => Promise<void>) => {
+    if (hostBusyRef.current) return;
+    hostBusyRef.current = true;
+    setHostBusy(true);
+    try { await action(); }
+    catch (error) {
+      setGameError(error instanceof Error ? error.message : 'Operação não confirmada. Tente novamente.');
+    } finally { hostBusyRef.current = false; setHostBusy(false); }
   };
 
   const handleCopyLink = () => {
@@ -1693,30 +1725,30 @@ Garanta que:
     sfx.playClick();
     
     if (role === 'operator') {
-      // Gerar código único de sala
-      const code = generateRoomCode();
-      const link = `${window.location.origin}${window.location.pathname}?room=${code}`;
-      setRoomCode(code);
-      setRoomLink(link);
-      setActivePlayers([]);
-      setRoomAnswers([0, 0, 0, 0]);
-      setTotalAnswered(0);
-
-      // Criar sala no Supabase
-      if (useRealSupabase) {
-        await supabase.from('game_rooms').insert({
-          code,
-          operator_email: authUser?.email || 'demo',
-          game_mode: gameMode,
-          rounds: gameRounds,
-          time_limit: gameTimeLimit,
-          status: 'lobby',
-          round_state: 'idle',
+      await runHostAction(async () => {
+        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id));
+        if (available.length < gameRounds) throw new Error(`Há ${available.length} perguntas para ${gameRounds} rodadas. Reduza as rodadas para jogar sem repetição.`);
+        createRequestRef.current ??= crypto.randomUUID();
+        const room = await gameRpc<OnlineRoom>('quiz_create_room', {
+          p_request_id: createRequestRef.current, p_mode: gameMode, p_rounds: gameRounds,
+          p_time_limit: gameTimeLimit, p_category_ids: selectedCategoryIds,
         });
-      }
-
-      setScreen('game-lobby');
-      sfx.playLobby();
+        const configured = await gameRpc<HostSnapshot>('quiz_host_configure_room', {
+          p_code: room.code,
+          p_settings: { max_players: maxPlayers, join_locked: joinLocked, reveal_when_all_answered: autoReveal, scoring_mode: scoringMode, fixed_points: fixedPoints },
+        });
+        createRequestRef.current = null;
+        lastHostSnapshotRef.current = 0;
+        setRoomCode(room.code);
+        setRoomLink(`${window.location.origin}${window.location.pathname}?room=${room.code}`);
+        setActivePlayers([]);
+        setRoomAnswers([0, 0, 0, 0]);
+        setTotalAnswered(0);
+        setGameError('');
+        applyHostSnapshot(configured);
+        setScreen('game-lobby');
+        sfx.playLobby();
+      });
     } else {
       // Jogador entra na fila
       if (joinRoomCode.trim()) {
@@ -1736,18 +1768,18 @@ Garanta que:
     }
   };
 
-  const handleStartMatch = async () => {
+  const handleStartMatch = async () => runHostAction(async () => {
+    await publishRoomState({ status: 'playing', round_state: 'idle', current_round: 1 });
     sfx.playClick();
     sfx.stopLobby();
-    setCurrentRoundIndex(1);
     resetUsedQuestions();
-    setRoundState('idle');
-    setRoomAnswers([0, 0, 0, 0]);
-    setTotalAnswered(0);
-    await publishRoomState({ status: 'playing', round_state: 'idle', current_round: 1 });
     setScreen('game-play');
-  };
+  });
 
+  const saveRoomControls = async (settings: Record<string, unknown>) => runHostAction(async () => {
+    const snapshot = await gameRpc<HostSnapshot>('quiz_host_configure_room', { p_code: roomCode, p_settings: settings });
+    applyHostSnapshot(snapshot);
+  });
 
   // ── Giro por arraste do mouse (flick) ─────────────────────────────────
   const rouletteAngleRef = useRef(0);
@@ -1795,164 +1827,57 @@ Garanta que:
   // Girar a Roleta de Categorias
   // boostTurns: voltas extras vindas do "arremesso" do mouse; startAngle: ângulo atual após arraste manual
   const handleSpinRoulette = async (boostTurns: number = 0, startAngle?: number) => {
-    if (selectedCategoryIds.length === 0) {
-      alert('Adicione pelo menos uma categoria antes de rodar!');
-      return;
-    }
-    sfx.playSpin();
-
-    // Gerar o giro e iniciar a animação IMEDIATAMENTE (no mesmo render),
-    // sem esperar a rede — senão a roda "engasga" aguardando o Supabase
+    if (hostBusyRef.current || isSpinning || roundState !== 'idle') return;
+    const eligible = eligibleCategories(categories, questions, selectedCategoryIds, usedQuestionIdsRef.current);
+    if (!eligible.length) { setGameError('As categorias selecionadas não têm mais perguntas disponíveis.'); return; }
     const numSpins = 4 + Math.random() * 4 + boostTurns;
     const finalAngle = (startAngle ?? rouletteAngle) + numSpins * 360 + Math.random() * 360;
-    setIsSpinning(true);
-    setRoundState('spinning');
-    setRouletteAngle(finalAngle);
-
-    // Publicar o estado de giro no Supabase em segundo plano (não bloqueia a animação)
-    if (useRealSupabase) {
-      publishRoomState({
-        round_state: 'spinning',
-        current_round: currentRoundIndex
-      }).catch(err => console.error('Erro ao publicar estado de giro:', err));
-    }
-    
-    setTimeout(async () => {
-      setIsSpinning(false);
-      sfx.playGameSound();
-      
-      // Determinar a categoria selecionada com base no ângulo final e na seta à direita (3 horas / 90 graus)
-      const selectedCats = categories.filter(c => selectedCategoryIds.includes(c.id));
-      const normalizedAngle = (90 - (finalAngle % 360) + 360) % 360;
-      const index = Math.floor((normalizedAngle / 360) * selectedCats.length);
-      const cat = selectedCats[index] || selectedCats[0];
-      
-      setSelectedCategory(cat);
-      
-      // Buscar pergunta elegível não repetida (lê do ref = sempre atualizado)
-      const used = usedQuestionIdsRef.current;
-      const availableQuestions = questions.filter(
-        q => q.category_id === cat.id && !used.includes(q.id)
-      );
-
-      let selectedQ;
-      if (availableQuestions.length === 0) {
-        // Fallback: se acabarem as perguntas daquela categoria, pegar qualquer uma não usada das categorias selecionadas
-        const fallbackQuestions = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !used.includes(q.id));
-        if (fallbackQuestions.length > 0) {
-          selectedQ = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
-          markQuestionUsed(selectedQ.id);
-        } else {
-          // Todas as perguntas das categorias selecionadas foram usadas nesta jogada:
-          // zerar o histórico e recomeçar o ciclo (a nova sorteada vira a única usada)
-          const activeQs = questions.filter(q => selectedCategoryIds.includes(q.category_id));
-          if (activeQs.length > 0) {
-            selectedQ = activeQs[Math.floor(Math.random() * activeQs.length)];
-          } else {
-            selectedQ = questions[Math.floor(Math.random() * questions.length)];
-          }
-          resetUsedQuestions([selectedQ.id]);
-        }
-      } else {
-        selectedQ = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
-        markQuestionUsed(selectedQ.id);
-      }
-      setCurrentQuestion(selectedQ);
-
-      // ⏳ Aguardar 2 segundos exibindo a roleta parada antes de revelar a categoria
-      setTimeout(async () => {
-        // Publicar categoria e pergunta no Supabase para os jogadores verem
-        await publishRoomState({
-          round_state: 'category-reveal',
-          current_round: currentRoundIndex,
-          selected_category: cat,
-          current_question: selectedQ,
-        });
-
-        setRoundState('category-reveal');
-        setTimeout(async () => {
-          setRoundState('question-reveal');
+    const index = Math.floor(((90 - (finalAngle % 360) + 360) % 360) / 360 * eligible.length);
+    const cat = eligible[index];
+    const pool = questions.filter(q => q.category_id === cat.id && !usedQuestionIdsRef.current.includes(q.id));
+    const selectedQ = pool[Math.floor(Math.random() * pool.length)];
+    const sequence = ++spinSequenceRef.current;
+    const later = (delay: number, action: () => Promise<void>) => {
+      onlineTimersRef.current.push(setTimeout(() => {
+        if (sequence === spinSequenceRef.current) void runHostAction(action);
+      }, delay));
+    };
+    await runHostAction(async () => {
+      await publishRoomState({ round_state: 'spinning' });
+      setIsSpinning(true);
+      setRouletteAngle(finalAngle);
+      sfx.playSpin();
+      later(10000, async () => {
+        setIsSpinning(false);
+        sfx.playGameSound();
+        await publishRoomState({ round_state: 'category-reveal', current_question: { id: selectedQ.id } });
+        later(2200, async () => {
           await publishRoomState({ round_state: 'question-reveal' });
-          setTimeout(async () => {
-            setRoundState('question');
-            setTimeLeft(selectedQ.time_limit || gameTimeLimit);
-            setTimerRunning(true);
-            setPlayerAnswered(null);
-            setRoomAnswers([0, 0, 0, 0]);
-            setTotalAnswered(0);
-            await publishRoomState({ round_state: 'question' });
-          }, 5000);
-        }, 2200);
-      }, 2000);
-
-    }, 8000);
+          later(5000, async () => { await publishRoomState({ round_state: 'question' }); setPlayerAnswered(null); });
+        });
+      });
+    });
   };
 
   const handlePlayerAnswer = (altIndex: number) => {
-    if (playerAnswered !== null || !timerRunning || !currentQuestion) return;
-    
-    const alt = currentQuestion.alternatives[altIndex];
-    setPlayerAnswered(alt.text);
-    
-    if (alt.isCorrect) {
-      sfx.playCorrect();
-    } else {
-      sfx.playWrong();
-    }
-    
-    // Incrementar score do jogador principal e salvar stats
-    setActivePlayers(prev => prev.map(p => {
-      if (p.id === 'player-self') {
-        const speedBonus = alt.isCorrect ? Math.floor((timeLeft / gameTimeLimit) * 50) : 0;
-        const newScore = alt.isCorrect ? p.score + 100 + speedBonus : p.score;
-        return { 
-          ...p, 
-          score: newScore,
-          stats: {
-            ...p.stats,
-            answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: alt.isCorrect }
-          }
-        };
-      }
-      return p;
-    }));
+    void altIndex;
+    // Participantes respondem exclusivamente pela URL da sala, onde a resposta
+    // é validada no servidor. Esta tela pertence ao controle do organizador.
+    setGameError('Abra o link ou QR Code da sala no dispositivo do participante para responder.');
   };
 
-  const revealAnswer = async () => {
-    sfx.stopGameSound();
-    setTimerRunning(false);
-    setRoundState('answered');
+  const revealAnswer = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'answered' });
-    
-    // Simular respostas e scores para outros jogadores do lobby (bots) no modo demo
-    if (!useRealSupabase) {
-      if (role === 'operator' || activePlayers.length > 1) {
-        setActivePlayers(prev => prev.map(p => {
-          if (p.id !== 'player-self') {
-            const isCorrect = Math.random() > 0.4;
-            const addedScore = isCorrect ? 100 + Math.floor(Math.random() * 50) : 0;
-            return { 
-              ...p, 
-              score: p.score + addedScore,
-              stats: {
-                ...p.stats,
-                answers: { ...(p.stats?.answers || {}), [currentRoundIndex]: isCorrect }
-              }
-            };
-          }
-          return p;
-        }));
-      }
-    }
-  };
+    sfx.stopGameSound();
+  });
+  useEffect(() => { revealAnswerRef.current = revealAnswer; });
 
-  const handleGoToRanking = async () => {
-    setRoundState('ranking');
-    sfx.playClick();
+  const handleGoToRanking = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'ranking' });
-  };
+    sfx.playClick();
+  });
 
-  const handleNextRound = async () => {
+  const handleNextRound = async () => runHostAction(async () => {
     sfx.playClick();
     if (currentRoundIndex < gameRounds) {
       const nextRound = currentRoundIndex + 1;
@@ -1973,19 +1898,14 @@ Garanta que:
         subtitle: roundsLeft === 0 ? `Última rodada! ${randomMsg}` : `Faltam ${roundsLeft} rodadas. ${randomMsg}`
       });
 
-      setTimeout(async () => {
-        setRoundTransitionMessage(null);
-        setCurrentRoundIndex(nextRound);
-        setRoundState('idle');
-        setSelectedCategory(null);
-        setCurrentQuestion(null);
-        await publishRoomState({ round_state: 'idle', current_round: nextRound });
-      }, 2500);
+      await publishRoomState({ round_state: 'idle', current_round: nextRound });
+      if (currentQuestion) markQuestionUsed(currentQuestion.id);
+      setRoundTransitionMessage(null);
     } else {
       // Fim do jogo! Chamar Pódio de Suspense
+      await publishRoomState({ status: 'finished', round_state: 'idle' });
       setScreen('podium');
       setPodiumStep(0);
-      await publishRoomState({ status: 'finished', round_state: 'idle' });
       sfx.playDrumRoll();
       
       // Animação de suspense do pódio dinâmica conforme o número de jogadores
@@ -2055,13 +1975,16 @@ Garanta que:
         });
       }, delay);
     }
-  };
+  });
 
   // Ajuste fino do cronômetro em tempo real pelo host
-  const adjustTimer = (amount: number) => {
-    setTimeLeft(prev => Math.max(5, prev + amount));
+  const adjustTimer = async (amount: number) => runHostAction(async () => {
+    await publishRoomState({ adjust_seconds: amount });
     sfx.playClick();
-  };
+  });
+  const toggleTimerPause = async () => runHostAction(async () => {
+    await publishRoomState({ paused: pausedRemaining === null });
+  });
 
   // Ordenação de vencedores
   // ── Leaderboard animado: mostra o placar anterior primeiro, depois revela o novo ──
@@ -2086,6 +2009,7 @@ Garanta que:
   }, [roundState]);
 
   const sortedPlayers = [...activePlayers].sort((a, b) => b.score - a.score);
+  const sortedTeams = Object.entries(teamScores).sort(([, left], [, right]) => right - left);
   const prevSortedPlayers = prevScores
     ? activePlayers.map(p => ({ ...p, score: prevScores[p.id] ?? 0 })).sort((a, b) => b.score - a.score)
     : sortedPlayers;
@@ -2258,6 +2182,18 @@ Garanta que:
     <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen ? '' : 'app-container'}`}
       style={isGamePlayFullscreen ? { maxWidth: '100%', margin: 0, padding: '0' } : undefined}
     >
+      {gameError && <div role="alert" style={{ position: 'fixed', top: 12, left: '10%', right: '10%', zIndex: 9999, background: '#451a1a', color: 'white', padding: 16, borderRadius: 12 }}>
+        <p>{gameError}</p>
+        {screen === 'game-play' && ['spinning', 'category-reveal', 'question-reveal'].includes(roundState) && <button disabled={hostBusy} onClick={() => void runHostAction(async () => {
+          if (roundState === 'spinning') {
+            const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !usedQuestionIdsRef.current.includes(q.id));
+            if (!available.length) throw new Error('Não há perguntas disponíveis.');
+            setIsSpinning(false);
+            await publishRoomState({ round_state: 'category-reveal', current_question: { id: available[0].id } });
+          } else await publishRoomState({ round_state: roundState === 'category-reveal' ? 'question-reveal' : 'question' });
+        })}>Retomar rodada</button>}
+        <button onClick={() => setGameError('')} style={{ marginLeft: 12 }}>Fechar aviso</button>
+      </div>}
       {/* HEADER PREMIUM — oculto durante game-play fullscreen */}
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6"
         style={isGamePlayFullscreen ? { display: 'none' } : undefined}
@@ -3237,6 +3173,24 @@ Garanta que:
               </>
             )}
 
+            {role === 'operator' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white/5 border border-[rgba(255,255,255,0.06)]">
+                <label className="text-xs text-[hsl(var(--text-secondary))]">Limite de participantes
+                  <input type="number" min="1" max="500" value={maxPlayers}
+                    onChange={event => { const value = Math.max(1, Math.min(500, Number(event.target.value) || 1)); setMaxPlayers(value); void saveRoomControls({ max_players: value }); }}
+                    className="input-glow mt-1 w-full text-center" />
+                </label>
+                <div className="flex flex-col gap-2 text-xs text-[hsl(var(--text-secondary))]">
+                  <button onClick={() => { const value = !joinLocked; setJoinLocked(value); void saveRoomControls({ join_locked: value }); }} className="btn-secondary-glow py-2">
+                    {joinLocked ? 'Liberar entradas' : 'Bloquear novas entradas'}
+                  </button>
+                  <button onClick={() => { const value = !autoReveal; setAutoReveal(value); void saveRoomControls({ reveal_when_all_answered: value }); }} className="btn-secondary-glow py-2">
+                    {autoReveal ? 'Revelar manualmente' : 'Revelar quando todos responderem'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Controles */}
             <div className="flex justify-between items-center gap-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
               <button 
@@ -3688,8 +3642,9 @@ Garanta que:
                     <div className="flex items-center gap-3">
                       {role === 'operator' && roundState === 'question' && (
                         <div className="flex gap-1.5">
-                          <button onClick={() => adjustTimer(-5)} className="px-2 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded font-mono text-[10px] text-red-400 hover:bg-[rgba(255,255,255,0.1)]">-5s</button>
-                          <button onClick={() => adjustTimer(5)} className="px-2 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded font-mono text-[10px] text-emerald-400 hover:bg-[rgba(255,255,255,0.1)]">+5s</button>
+                          <button disabled={hostBusy} onClick={toggleTimerPause} className="px-2 py-1 rounded text-xs">{pausedRemaining === null ? 'Pausar' : 'Retomar'}</button>
+                          <button disabled={hostBusy} onClick={() => adjustTimer(-5)} className="px-2 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded font-mono text-[10px] text-red-400 hover:bg-[rgba(255,255,255,0.1)]">-5s</button>
+                          <button disabled={hostBusy} onClick={() => adjustTimer(5)} className="px-2 py-1 bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] rounded font-mono text-[10px] text-emerald-400 hover:bg-[rgba(255,255,255,0.1)]">+5s</button>
                         </div>
                       )}
                       
@@ -3963,6 +3918,17 @@ Garanta que:
               {/* PLACAR PARCIAL / LEADERBOARD DA RODADA */}
               {roundState === 'ranking' && (
                 <div style={{ width: '100%', maxWidth: '720px', margin: '24px auto 0', position: 'relative' }}>
+
+                  {gameMode === 'team' && sortedTeams.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      {sortedTeams.map(([name, score], index) => (
+                        <div key={name} className="p-4 rounded-xl border border-purple-400/30 bg-purple-500/10 flex justify-between items-center">
+                          <span className="font-bold text-white">{index + 1}º {name}</span>
+                          <span className="font-mono text-xl font-black text-amber-300">{score}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Main Board Container — estilo premium adaptável */}
                   <div style={{

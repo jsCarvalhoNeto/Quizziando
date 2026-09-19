@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Trophy, CheckCircle, XCircle, Clock, Users, Wifi, WifiOff } from 'lucide-react';
 import { supabase } from './lib/supabaseClient';
 import { getAvatarUrl } from './lib/avatars';
+import { gameRpc, newPlayerToken, readPlayerSession, savePlayerSession, type OnlineRoom, type PlayerSnapshot, type PlayerSession } from './lib/onlineGame';
+import { remainingSeconds } from './lib/gameRules';
 
 // ==========================================
 // 🎨 CORES DAS ALTERNATIVAS (A/B/C/D)
@@ -20,20 +22,7 @@ interface PlayerViewProps {
   roomCode: string;
 }
 
-interface RoomState {
-  code: string;
-  status: string;
-  round_state: string;
-  current_round: number;
-  rounds: number;
-  current_question: {
-    id: string;
-    question_text: string;
-    alternatives: { text: string; isCorrect: boolean }[];
-  } | null;
-  selected_category: { name: string; color: string } | null;
-  time_limit?: number;
-}
+type RoomState = OnlineRoom;
 
 type PlayerScreen = 'join' | 'waiting' | 'spinning' | 'category-reveal' | 'question-reveal' | 'question' | 'answered' | 'round-result' | 'ranking' | 'finished';
 
@@ -68,6 +57,8 @@ const getRoundStatusMessage = (current: number, total: number): string => {
 export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [playerScreen, setPlayerScreen] = useState<PlayerScreen>('join');
   const [nickname, setNickname] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [roomMode, setRoomMode] = useState<OnlineRoom['game_mode'] | null>(null);
   const [joinError, setJoinError] = useState('');
   const [joining, setJoining] = useState(false);
 
@@ -80,89 +71,114 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [answeredCount, setAnsweredCount] = useState(0);
   const [connected, setConnected] = useState(false);
 
-  const earnedRef = useRef<number>(0);
-  const questionStartTimeRef = useRef<number>(0);
+  useEffect(() => {
+    supabase.from('game_rooms').select('game_mode').eq('code', roomCode).maybeSingle()
+      .then(({ data }) => setRoomMode((data?.game_mode as OnlineRoom['game_mode']) || null));
+  }, [roomCode]);
 
-  const [categories, setCategories] = useState<any[]>([]);
+  const [session, setSession] = useState<PlayerSession | null>(null);
+  const [sending, setSending] = useState(false);
+  const [answerError, setAnswerError] = useState('');
+  const [pendingAnswer, setPendingAnswer] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [serverOffset, setServerOffset] = useState(0);
+  const sendingRef = useRef(false);
+  const lastSnapshot = useRef(0);
+  const lastRound = useRef(0);
   const [playerRank, setPlayerRank] = useState<number | null>(null);
   const [isWinner, setIsWinner] = useState(false);
-  const [rankingPlayers, setRankingPlayers] = useState<any[]>([]);
+  const [rankingPlayers, setRankingPlayers] = useState<PlayerSnapshot['players']>([]);
+  const categories = roomState?.categories || [];
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      const { data } = await supabase.from('categories').select('*');
-      if (data) {
-        setCategories(data);
-      }
-    };
-    fetchCategories();
+  const applySnapshot = useCallback((snapshot: PlayerSnapshot) => {
+    const stamp = Date.parse(snapshot.server_now);
+    if (stamp < lastSnapshot.current) return;
+    lastSnapshot.current = stamp;
+    const { room, player, answer, players } = snapshot;
+    if (lastRound.current !== room.current_round) {
+      setAnswerError('');
+      setPendingAnswer(null);
+      lastRound.current = room.current_round;
+    }
+    setRoomState(room);
+    setNickname(player.nickname);
+    setMyScore(player.score);
+    setChosenIndex(answer?.answer_index ?? null);
+    setWasCorrect(answer?.is_correct ?? null);
+    setPointsEarned(answer?.points_earned ?? 0);
+    if (answer) { setPendingAnswer(null); setAnswerError(''); }
+    setAnsweredCount(room.answered_count);
+    setTotalPlayers(players.length);
+    setRankingPlayers(players);
+    setPlayerRank(players.findIndex(p => p.id === player.id) + 1);
+    setIsWinner(players.length > 0 && player.score > 0 && player.score === players[0].score);
+    setServerOffset(stamp - Date.now());
+    setConnected(true);
+    if (room.status === 'finished') setPlayerScreen('finished');
+    else if (room.round_state === 'question') setPlayerScreen(answer ? 'answered' : 'question');
+    else if (room.round_state === 'answered') setPlayerScreen('round-result');
+    else if (room.round_state === 'ranking') setPlayerScreen('ranking');
+    else if (['spinning', 'category-reveal', 'question-reveal'].includes(room.round_state)) setPlayerScreen(room.round_state as PlayerScreen);
+    else setPlayerScreen('waiting');
   }, []);
 
-  // Buscar posição e verificar se é o vencedor ao finalizar o jogo
+  // Resume only with the secret saved on this device. A nickname is not an identity.
   useEffect(() => {
-    if (playerScreen === 'finished') {
-      const fetchRank = async () => {
-        const { data } = await supabase
-          .from('room_players')
-          .select('nickname, score')
-          .eq('room_code', roomCode)
-          .order('score', { ascending: false });
-        
-        if (data && data.length > 0) {
-          const rank = data.findIndex(p => p.nickname === nickRef.current || p.nickname === nickname) + 1;
-          setPlayerRank(rank);
-          
-          const topScore = data[0].score;
-          const myData = data.find(p => p.nickname === nickRef.current || p.nickname === nickname);
-          
-          if (myData && myData.score === topScore && topScore > 0) {
-            setIsWinner(true);
-          }
-        }
-      };
-      fetchRank();
-    }
-  }, [playerScreen, roomCode, nickname]);
+    const saved = readPlayerSession(roomCode);
+    if (!saved) return;
+    let cancelled = false;
+    setJoining(true);
+    gameRpc<PlayerSnapshot>('quiz_join_room', { p_code: roomCode, p_nickname: saved.nickname, p_token: saved.token })
+      .then(snapshot => { if (!cancelled) { applySnapshot(snapshot); setSession(saved); } })
+      .catch(error => { if (!cancelled) setJoinError(error.message); })
+      .finally(() => { if (!cancelled) setJoining(false); });
+    return () => { cancelled = true; };
+  }, [roomCode, applySnapshot]);
 
-  const channelRef = useRef<any>(null);
-  const nickRef = useRef('');
-
-  // Subscrição Realtime na sala
+  // Subscribe once per session, resync on reconnect, and recover missed events by polling.
   useEffect(() => {
-    if (playerScreen === 'join') return;
+    if (!session) return;
+    let stopped = false;
+    let loading = false;
+    let queued = false;
+    const refresh = async () => {
+      if (stopped) return;
+      if (loading) { queued = true; return; }
+      loading = true;
+      try {
+        const snapshot = await gameRpc<PlayerSnapshot>('quiz_player_state', { p_code: roomCode, p_token: session.token });
+        if (!stopped) applySnapshot(snapshot);
+      } catch { if (!stopped) setConnected(false); }
+      finally {
+        loading = false;
+        if (queued && !stopped) { queued = false; void refresh(); }
+      }
+    };
+    const channel = supabase.channel(`room-${roomCode}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_rooms', filter: `code=eq.${roomCode}` }, () => void refresh())
+      .subscribe(status => { if (status === 'SUBSCRIBED') void refresh(); else if (!stopped) setConnected(false); });
+    void refresh();
+    const poll = window.setInterval(() => void refresh(), 2000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      window.clearInterval(poll);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [session, roomCode, applySnapshot]);
 
-    const channel = supabase
-      .channel(`room-${roomCode}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'game_rooms', filter: `code=eq.${roomCode}` },
-        (payload) => {
-          const room = payload.new as RoomState;
-          setRoomState(room);
-          handleRoomStateChange(room);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'player_answers', filter: `room_code=eq.${roomCode}` },
-        () => {
-          setAnsweredCount(prev => prev + 1);
-        }
-      )
-      .subscribe((status) => {
-        setConnected(status === 'SUBSCRIBED');
-      });
-
-    channelRef.current = channel;
-    return () => { supabase.removeChannel(channel); };
-  }, [playerScreen, roomCode]);
-
-  // Carregar estado inicial da sala
   useEffect(() => {
-    if (playerScreen === 'join') return;
-    fetchRoomState();
-    fetchPlayerCount();
-  }, [playerScreen]);
+    const tick = () => setSecondsLeft(roomState?.paused_remaining_ms != null
+      ? Math.ceil(roomState.paused_remaining_ms / 1000)
+      : remainingSeconds(roomState?.question_deadline ?? null, serverOffset));
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [roomState?.question_deadline, roomState?.paused_remaining_ms, serverOffset]);
 
   // Evitar que a tela do celular apague durante o jogo (Screen Wake Lock API)
   useEffect(() => {
@@ -198,202 +214,39 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     };
   }, [playerScreen]);
 
-  const fetchRoomState = async () => {
-    const { data } = await supabase
-      .from('game_rooms')
-      .select('*')
-      .eq('code', roomCode)
-      .single();
-    if (data) {
-      setRoomState(data);
-      handleRoomStateChange(data);
-    }
-  };
-
-  const fetchPlayerCount = async () => {
-    const { count } = await supabase
-      .from('room_players')
-      .select('*', { count: 'exact', head: true })
-      .eq('room_code', roomCode);
-    setTotalPlayers(count || 0);
-  };
-
-  const handleRoomStateChange = (room: RoomState) => {
-    if (room.status === 'finished') {
-      setPlayerScreen('finished');
-      return;
-    }
-    if (room.round_state === 'spinning') {
-      setPlayerScreen('spinning');
-    } else if (room.round_state === 'category-reveal') {
-      const isNewCategory = !roomState || roomState.selected_category?.name !== room.selected_category?.name;
-      if (isNewCategory || playerScreen !== 'category-reveal') {
-        setChosenIndex(null);
-        setWasCorrect(null);
-        setAnsweredCount(0);
-        setPlayerScreen('category-reveal');
-      }
-    } else if (room.round_state === 'question-reveal') {
-      const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
-      if (isNewQuestion || playerScreen !== 'question-reveal') {
-        setChosenIndex(null);
-        setWasCorrect(null);
-        setAnsweredCount(0);
-        setPlayerScreen('question-reveal');
-      }
-    } else if (room.round_state === 'question') {
-      // Nova pergunta — resetar resposta APENAS se mudou a pergunta!
-      const isNewQuestion = !roomState || roomState.current_question?.id !== room.current_question?.id;
-      const shouldSetQuestionScreen = isNewQuestion || (playerScreen !== 'question' && playerScreen !== 'answered');
-      if (shouldSetQuestionScreen) {
-        setChosenIndex(null);
-        setWasCorrect(null);
-        setAnsweredCount(0);
-        questionStartTimeRef.current = Date.now();
-        setPlayerScreen('question');
-      }
-    } else if (room.round_state === 'answered') {
-      // Revelar resultado
-      if (chosenIndex !== null && room.current_question) {
-        const correct = room.current_question.alternatives?.[chosenIndex]?.isCorrect;
-        
-        // Evitar soma dupla caso o evento chegue mais de uma vez
-        if (wasCorrect === null) {
-          setWasCorrect(correct);
-          if (correct) {
-            const pts = earnedRef.current;
-            setPointsEarned(pts);
-            setMyScore(prev => prev + pts);
-          }
-        }
-      }
-      setPlayerScreen('round-result');
-    } else if (room.round_state === 'ranking') {
-      // Mostrar ranking se não for a última rodada
-      if (room.current_round < room.rounds) {
-        setPlayerScreen('ranking');
-        fetchRankingPlayers(roomCode);
-      } else {
-        // Última rodada: pula direto para finished (pódio)
-        setPlayerScreen('finished');
-      }
-    } else if (room.round_state === 'idle' && room.status === 'playing') {
-      setPlayerScreen('waiting');
-    } else if (room.status === 'lobby') {
-      setPlayerScreen('waiting');
-    }
-  };
-
-  const fetchRankingPlayers = async (code: string) => {
-    const { data } = await supabase
-      .from('room_players')
-      .select('nickname, score')
-      .eq('room_code', code)
-      .order('score', { ascending: false });
-
-    if (data) {
-      setRankingPlayers(data);
-    }
-  };
-
-  // Entrar na sala
   const handleJoin = async () => {
     if (!nickname.trim()) { setJoinError('Insira um nickname para continuar.'); return; }
     setJoining(true);
     setJoinError('');
-
-    // Verificar se a sala existe
-    const { data: room, error: roomErr } = await supabase
-      .from('game_rooms')
-      .select('*')
-      .eq('code', roomCode.toUpperCase())
-      .single();
-
-    if (roomErr || !room) {
-      setJoinError(`Sala "${roomCode}" não encontrada. Verifique o código.`);
-      setJoining(false);
-      return;
-    }
-
-    if (room.status === 'finished') {
-      setJoinError('Esta sala já foi encerrada.');
-      setJoining(false);
-      return;
-    }
-
-    // Inserir jogador na sala ou recuperar score se existir
-    const { data: existingPlayer } = await supabase
-      .from('room_players')
-      .select('score')
-      .eq('room_code', roomCode.toUpperCase())
-      .eq('nickname', nickname.trim())
-      .maybeSingle();
-
-    if (existingPlayer) {
-      setMyScore(existingPlayer.score || 0);
-    } else {
-      // Bloquear novos jogadores se a partida já tiver começado
-      if (room.status === 'playing') {
-        setJoinError('A partida já começou! Não é possível entrar agora.');
-        setJoining(false);
-        return;
-      }
-
-      const { error: playerErr } = await supabase
-        .from('room_players')
-        .insert({ room_code: roomCode.toUpperCase(), nickname: nickname.trim(), score: 0 });
-
-      if (playerErr) {
-        setJoinError('Erro ao entrar na sala. Tente novamente.');
-        setJoining(false);
-        return;
-      }
-    }
-
-    nickRef.current = nickname.trim();
-    setRoomState(room);
-    setJoining(false);
-
-    if (room.round_state === 'question') {
-      setPlayerScreen('question');
-    } else if (room.round_state === 'question-reveal') {
-      setPlayerScreen('question-reveal');
-    } else if (room.round_state === 'spinning') {
-      setPlayerScreen('spinning');
-    } else if (room.round_state === 'category-reveal') {
-      setPlayerScreen('category-reveal');
-    } else {
-      setPlayerScreen('waiting');
-    }
+    try {
+      const saved = readPlayerSession(roomCode);
+      const nextSession = saved?.nickname === nickname.trim() ? saved : { token: newPlayerToken(), nickname: nickname.trim() };
+      // Persist before the request: even a lost response can be retried with the same identity.
+      savePlayerSession(roomCode, nextSession);
+      const snapshot = await gameRpc<PlayerSnapshot>('quiz_join_room_v2', {
+        p_code: roomCode, p_nickname: nextSession.nickname, p_token: nextSession.token, p_team_name: teamName || null,
+      });
+      applySnapshot(snapshot);
+      setSession(nextSession);
+    } catch (error) {
+      setJoinError(error instanceof Error ? error.message : 'Não foi possível entrar na sala.');
+    } finally { setJoining(false); }
   };
 
-  // Responder pergunta
   const handleAnswer = async (answerIndex: number) => {
-    if (chosenIndex !== null || !roomState?.current_question) return;
-    setChosenIndex(answerIndex);
-    setPlayerScreen('answered');
-
-    const isCorrect = roomState.current_question?.alternatives?.[answerIndex]?.isCorrect || false;
-
-    // Cálculo do bônus de velocidade
-    let totalPoints = 0;
-    if (isCorrect) {
-      const timeElapsed = Date.now() - questionStartTimeRef.current;
-      const timeLimitMs = (roomState?.time_limit || 15) * 1000;
-      const timeLeft = Math.max(0, timeLimitMs - timeElapsed);
-      const speedBonus = Math.floor((timeLeft / timeLimitMs) * 50);
-      totalPoints = 100 + speedBonus;
-    }
-    earnedRef.current = totalPoints;
-
-    await supabase.from('player_answers').insert({
-      room_code: roomCode,
-      player_nickname: nickRef.current || nickname.trim(),
-      round_index: roomState.current_round,
-      answer_index: answerIndex,
-      is_correct: isCorrect,
-      points_earned: totalPoints,
-    });
+    if (sendingRef.current || chosenIndex !== null || !session || roomState?.round_state !== 'question') return;
+    sendingRef.current = true;
+    setSending(true);
+    setPendingAnswer(answerIndex);
+    setAnswerError('');
+    try {
+      const snapshot = await gameRpc<PlayerSnapshot>('quiz_submit_answer', {
+        p_code: roomCode, p_token: session.token, p_round: roomState.current_round, p_answer: answerIndex,
+      });
+      applySnapshot(snapshot);
+    } catch (error) {
+      setAnswerError(error instanceof Error ? error.message : 'Não foi possível confirmar a resposta. Tente novamente.');
+    } finally { sendingRef.current = false; setSending(false); }
   };
 
   // ==========================================
@@ -414,7 +267,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <label style={styles.label}>SEU NICKNAME</label>
-            <input
+          <input
               type="text"
               placeholder="Ex: QuizMaster99"
               value={nickname}
@@ -422,7 +275,18 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
               onKeyDown={e => e.key === 'Enter' && handleJoin()}
               maxLength={20}
               style={styles.input}
+          />
+          {roomMode === 'team' && (
+            <input
+              type="text"
+              value={teamName}
+              onChange={e => setTeamName(e.target.value)}
+              placeholder="Nome do seu time"
+              maxLength={30}
+              style={styles.nicknameInput}
+              onKeyDown={e => e.key === 'Enter' && handleJoin()}
             />
+          )}
             {joinError && (
               <div style={styles.errorBox}>
                 <XCircle style={{ width: 15, height: 15, flexShrink: 0 }} />
@@ -648,6 +512,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             <span style={{ color: '#A78BFA', fontSize: 12, fontWeight: 700 }}>{myScore} pts</span>
           </div>
 
+          <p role="status" aria-live="polite" style={{ color: '#A78BFA', textAlign: 'center' }}>
+            {roomState.paused_remaining_ms !== null ? `Pausado · ${secondsLeft}s restantes` : secondsLeft > 0 ? `${secondsLeft}s restantes` : 'Tempo encerrado. Aguarde o resultado.'}
+          </p>
+          {sending && <p role="status" style={{ color: 'white', textAlign: 'center' }}>Enviando resposta…</p>}
+          {answerError && <div role="alert" style={{ color: '#FEB2B2', textAlign: 'center' }}>
+            <p>{answerError}</p>
+            {pendingAnswer !== null && <button style={{ padding: 12, borderRadius: 8, cursor: 'pointer' }} disabled={sending} onClick={() => handleAnswer(pendingAnswer)}>Tentar confirmar novamente</button>}
+          </div>}
           {/* Instrução */}
           <div style={{ textAlign: 'center', padding: '12px 0' }}>
             <p style={{ color: '#718096', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
@@ -664,6 +536,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
               <button
                 key={color.index}
                 onClick={() => handleAnswer(color.index)}
+                disabled={sending || pendingAnswer !== null || secondsLeft === 0 || roomState.paused_remaining_ms !== null}
                 style={{
                   ...styles.answerBtn,
                   background: `linear-gradient(135deg, ${color.bg} 0%, ${color.bgHover} 100%)`,
@@ -709,7 +582,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             }}>
               {chosen.label}
             </div>
-            <h2 style={styles.title}>Resposta enviada!</h2>
+            <h2 style={styles.title}>Resposta confirmada!</h2>
             <p style={{ color: '#718096', fontSize: 13, marginTop: 8 }}>
               Você escolheu <strong style={{ color: chosen.bg }}>{chosen.name}</strong> ({chosen.label})
             </p>
