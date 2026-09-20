@@ -1605,7 +1605,7 @@ Garanta que:
         p_question_text: draft.question_text.trim(),
         p_time_limit: draft.time_limit || 20,
         p_explanation: draft.explanation?.trim() || '',
-        p_reference_url: draft.reference_url?.trim() || '',
+        p_reference_url: draft.reference_url?.trim() || null,
         p_difficulty: draft.difficulty || 'medium',
         p_tags: draft.tags || [],
         p_alternatives: alternatives
@@ -1686,7 +1686,7 @@ Garanta que:
           p_question_text: managerQText.trim(),
           p_time_limit: managerQTimeLimit,
           p_explanation: managerQExplanation.trim(),
-          p_reference_url: managerQReference.trim(),
+          p_reference_url: managerQReference.trim() || null,
           p_difficulty: managerQDifficulty,
           p_tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean),
           p_alternatives: updatedAlts.map(alt => ({ text: alt.text.trim(), isCorrect: alt.isCorrect }))
