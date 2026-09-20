@@ -19,6 +19,7 @@ import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './l
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 import { localCategoryPool } from './lib/gameRules';
 import { parseLocalGameSnapshot, type LocalPlayer, type RoundPhase, type SavedLocalGame } from './lib/localGameSnapshot';
+import { getOfflineAssetsStatus, prepareOfflineAssets, type OfflineAssetsStatus } from './lib/offline';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -212,6 +213,10 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   const [newQuizName, setNewQuizName] = useState('');
   const [allCategories, setAllCategories]   = useState<LocalCategory[]>([]);
   const [allQuestions, setAllQuestions]     = useState<LocalQuestion[]>([]);
+  const [localDbReady, setLocalDbReady] = useState(false);
+  const [offlineAssets, setOfflineAssets] = useState<OfflineAssetsStatus | null>(null);
+  const [offlinePreparing, setOfflinePreparing] = useState(false);
+  const [offlineNotice, setOfflineNotice] = useState('');
 
   const [players, setPlayers] = useState<[LocalPlayer, LocalPlayer]>([
     { name: 'Time A', score: 0, roundResults: [] },
@@ -409,12 +414,14 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
         await initDb();
         const cats = getLocalCategories();
         const qs   = getLocalQuestions();
+        setLocalDbReady(true);
         setAllCategories(cats);
         setAllQuestions(qs);
         setSelectedCatIds(cats.map(c => c.id));
         setLocalBackupAvailable(hasLocalBackup());
         setSavedGame(loadSavedGame());
       } catch (err: any) {
+        setLocalDbReady(false);
         console.error('Erro no initDb:', err);
         setDbError(`Usando perguntas em memória (sql.js indisponível: ${err.message || String(err)}).`);
         if (supabaseCategories?.length) {
@@ -429,6 +436,21 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (localScreen !== 'setup') return;
+    let cancelled = false;
+    const check = () => {
+      void getOfflineAssetsStatus()
+        .then(status => { if (!cancelled) setOfflineAssets(status); })
+        .catch(error => { if (!cancelled) setOfflineAssets({ ready: false, cached: 0, total: 0,
+          reason: error instanceof Error ? error.message : 'Não foi possível verificar o cache offline.' }); });
+    };
+    check();
+    window.addEventListener('online', check);
+    window.addEventListener('offline', check);
+    return () => { cancelled = true; window.removeEventListener('online', check); window.removeEventListener('offline', check); };
+  }, [localScreen]);
 
   // Salva cada estado jogável. O cronômetro fica pausado após restaurar para
   // evitar que uma questão termine enquanto o apresentador ainda se recompõe.
@@ -501,6 +523,35 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
       setShowSyncOptions(false);
     } catch (err: any) {
       alert(`Erro ao sincronizar com a nuvem: ${err.message || String(err)}`);
+    }
+  };
+
+  const handlePrepareOffline = async () => {
+    if (offlinePreparing) return;
+    setOfflinePreparing(true);
+    setOfflineNotice('');
+    try {
+      await initDb();
+      setLocalDbReady(true);
+      if (navigator.onLine && supabaseCategories?.length && supabaseQuestions?.length) {
+        mergeFromSupabaseData(supabaseCategories, supabaseQuestions);
+        refreshLocalContent();
+        setLocalBackupAvailable(hasLocalBackup());
+      }
+      const categories = getLocalCategories();
+      const questions = getLocalQuestions();
+      setAllCategories(categories);
+      setAllQuestions(questions);
+      if (!selectedCatIds.length) setSelectedCatIds(categories.map(category => category.id));
+      const assets = await prepareOfflineAssets();
+      setOfflineAssets(assets);
+      setOfflineNotice(assets.ready
+        ? 'Arquivos do aplicativo verificados. Confira abaixo se as perguntas selecionadas cobrem todas as rodadas.'
+        : assets.reason);
+    } catch (error) {
+      setOfflineNotice(error instanceof Error ? error.message : 'Não foi possível preparar o modo offline.');
+    } finally {
+      setOfflinePreparing(false);
     }
   };
 
@@ -838,6 +889,13 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   const timerMax  = turnTimeLimit || currentQuestion?.time_limit || 20;
   const timerPct  = timeLeft / timerMax * 100;
   const timerCol  = timerPct > 50 ? '#10B981' : timerPct > 25 ? '#F59E0B' : '#EF4444';
+  const selectedOfflineQuestions = allQuestions.filter(question =>
+    selectedCatIds.includes(question.category_id) &&
+    matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter));
+  const offlineBankValid = localDbReady && allCategories.length > 0 &&
+    allQuestions.every(question => allCategories.some(category => category.id === question.category_id) &&
+      question.alternatives.length === 4 && question.alternatives.filter(alternative => alternative.isCorrect).length === 1);
+  const offlineReady = Boolean(offlineAssets?.ready && offlineBankValid && selectedOfflineQuestions.length >= totalRounds);
 
   // ─── LOADING ──────────────────────────────────────────────────────────────
 
@@ -901,6 +959,29 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
               <button onClick={() => handleSyncWithCloud('replace')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 700 }}>Substituir e criar backup</button>
             </div>
           )}
+
+          <section aria-label="Preparação offline" style={{ padding: 18, borderRadius: 14,
+            background: offlineReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)',
+            border: `1px solid ${offlineReady ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.35)'}`,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
+            <div style={{ flex: '1 1 280px' }}>
+              <strong style={{ color: 'white', display: 'block', marginBottom: 5 }}>Jogar sem internet</strong>
+              <p role="status" style={{ margin: 0, color: offlineReady ? '#A7F3D0' : '#FDE68A', fontSize: 14 }}>
+                {offlinePreparing ? 'Baixando e conferindo o aplicativo...' : offlineReady
+                  ? `Pronto para jogar offline: ${selectedOfflineQuestions.length} perguntas para ${totalRounds} rodadas; ${offlineAssets?.cached} arquivos conferidos.`
+                  : !offlineBankValid ? 'Acervo local ausente ou inválido. Sincronize ou importe perguntas.'
+                  : selectedOfflineQuestions.length < totalRounds
+                    ? `${selectedOfflineQuestions.length} perguntas disponíveis para ${totalRounds} rodadas. Ajuste a seleção ou sincronize o acervo.`
+                    : offlineAssets?.reason || 'Os arquivos do aplicativo ainda não foram preparados.'}
+              </p>
+              {offlineNotice && <p style={{ margin: '6px 0 0', color: '#CBD5E1', fontSize: 12 }}>{offlineNotice}</p>}
+            </div>
+            <button type="button" onClick={() => void handlePrepareOffline()} disabled={offlinePreparing}
+              style={{ padding: '10px 16px', borderRadius: 10, cursor: offlinePreparing ? 'wait' : 'pointer',
+                color: 'white', background: 'linear-gradient(135deg,#7C3AED,#EC4899)', border: 'none', fontWeight: 800 }}>
+              {offlinePreparing ? 'Preparando...' : 'Preparar para jogar sem internet'}
+            </button>
+          </section>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => downloadQuestionBank(createQuestionBank(allCategories, allQuestions))} style={{ padding: '10px 14px', borderRadius: 10, color: '#C4B5FD', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.35)', cursor: 'pointer' }}>Exportar acervo JSON</button>
