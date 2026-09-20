@@ -11,6 +11,12 @@ export interface SavedQuiz {
   fixedPoints: number;
   difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
   tagFilter?: string;
+  thumbnailUrl?: string;
+  folderId?: string | null;
+  isFavorite?: boolean;
+  description?: string;
+  authorName?: string;
+  questionCount?: number;
   localRules: {
     hasObstacles: boolean;
     pointsPerCorrect: number;
@@ -44,4 +50,25 @@ export function deleteSavedQuiz(id: string): SavedQuiz[] {
   const next = readSavedQuizzes().filter(item => item.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
+}
+
+export function toggleFavoriteQuiz(id: string): SavedQuiz[] {
+  const quizzes = readSavedQuizzes();
+  const next = quizzes.map(q => q.id === id ? { ...q, isFavorite: !q.isFavorite } : q);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function duplicateQuiz(id: string): SavedQuiz[] {
+  const quizzes = readSavedQuizzes();
+  const target = quizzes.find(q => q.id === id);
+  if (!target) return quizzes;
+  const copy: SavedQuiz = {
+    ...target,
+    id: `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    name: `${target.name} (Cópia)`,
+    savedAt: new Date().toISOString(),
+    isFavorite: false
+  };
+  return saveQuiz(copy);
 }

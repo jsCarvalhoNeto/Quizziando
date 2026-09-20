@@ -3,10 +3,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
   Clock, CheckCircle, XCircle, RotateCcw, 
-  Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
+  Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, FolderOpen
+  ArrowLeft
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -16,9 +16,12 @@ import PlayerView, { ANSWER_COLORS } from './PlayerView';
 import SpectatorView from './SpectatorView';
 import PracticeView from './PracticeView';
 import { getAvatarUrl } from './lib/avatars';
-import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
+import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, duplicateQuiz, toggleFavoriteQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 import LocalGameMode from './LocalGameMode';
+import LoginPortal from './components/auth/LoginPortal';
+import TeacherDashboard from './components/teacher/TeacherDashboard';
+import QuizConfigModal from './components/teacher/QuizConfigModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
@@ -441,8 +444,6 @@ export default function App() {
 
   // Estados de Pastas
   const [folders, setFolders] = useState<CategoryFolder[]>([]);
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
 
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
@@ -467,24 +468,6 @@ export default function App() {
         return prev;
       }
       return [...prev, id];
-    });
-  };
-
-  // Seleciona/deseleciona todas as categorias de uma pasta de uma vez
-  const handleToggleFolderSelect = (folderId: string) => {
-    const folderCatIds = categories.filter(c => c.folder_id === folderId).map(c => c.id);
-    if (folderCatIds.length === 0) return;
-    const allSelected = folderCatIds.every(id => selectedCategoryIds.includes(id));
-    setSelectedCategoryIds(prev => {
-      if (allSelected) {
-        return prev.filter(id => !folderCatIds.includes(id));
-      }
-      const merged = [...prev, ...folderCatIds.filter(id => !prev.includes(id))];
-      if (merged.length > 14) {
-        alert('Você só pode selecionar até 14 categorias para o jogo.');
-        return prev;
-      }
-      return merged;
     });
   };
 
@@ -575,20 +558,28 @@ export default function App() {
   }, [useRealSupabase, authUser?.id]);
 
   // ==========================================
-  // 🖥️ MODO DE JOGO: 'select' | 'online' | 'local'
+  // 🖥️ MODO DE JOGO: 'portal' | 'select' | 'online' | 'local' | 'practice'
   // ==========================================
-  const [appMode, setAppMode] = useState<'select' | 'online' | 'local' | 'practice'>('select');
+  const [appMode, setAppMode] = useState<'portal' | 'select' | 'online' | 'local' | 'practice'>('portal');
+  const [studentRoomCode, setStudentRoomCode] = useState<string | null>(null);
+  const [showQuizConfigModal, setShowQuizConfigModal] = useState(false);
   const [hybridMode, setHybridMode] = useState(false);
 
   const handleReturnToSelectMode = () => {
     if (screen === 'game-play' || screen === 'game-lobby') {
-      const confirmLeave = window.confirm('Deseja realmente sair da sala atual e retornar à escolha do tipo de quiz?');
+      const confirmLeave = window.confirm('Deseja realmente sair da sala atual?');
       if (!confirmLeave) return;
       setScreen(authUser ? 'operator-dashboard' : 'welcome');
     }
     sfx.stopLobby();
     sfx.playClick();
-    setAppMode('select');
+    if (authUser) {
+      setAppMode('online');
+      setScreen('operator-dashboard');
+    } else {
+      setAppMode('portal');
+      setScreen('welcome');
+    }
   };
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
@@ -616,6 +607,8 @@ export default function App() {
     void load();
     return () => { cancelled = true; };
   }, [screen, authUser?.id, useRealSupabase, hostRoomsRefresh]);
+  void hostRoomsLoading;
+  void hostRoomsError;
   const [podiumStep, setPodiumStep] = useState(0); // 0: cortina, 1: abre, 2: 3º lugar, 3: 2º lugar, 4: 1º lugar
   const [role, setRole] = useState<'operator' | 'player'>('player');
   const [nickname, setNickname] = useState('');
@@ -653,16 +646,6 @@ export default function App() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
   const [showQuickCategoryForm, setShowQuickCategoryForm] = useState(false);
-  
-  // Estados para Edição de Categorias
-  const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [editingCatName, setEditingCatName] = useState('');
-  const [editingCatColor, setEditingCatColor] = useState('');
-
-  // Estados para Edição de Pastas
-  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
-  const [editingFolderName, setEditingFolderName] = useState('');
-  const [editingFolderColor, setEditingFolderColor] = useState('');
   
   // Estados para Modal de Configurações
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -1374,143 +1357,122 @@ Garanta que:
     }
     setAuthUser(null);
     setScreen('welcome');
+    setAppMode('portal');
     setRole('player');
   };
 
-  // ==========================================
-  // ⚙️ FUNÇÕES DE NEGÓCIO & EVENTOS
-  // ==========================================
-  
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('#7C3AED');
-
-  const handleAddFolder = async () => {
-    if (!newFolderName.trim()) return;
-
-    let newFolder: CategoryFolder = {
-      id: Math.random().toString(),
-      name: newFolderName.trim(),
-      color: newFolderColor,
-      created_by: ''
-    };
-
-    if (useRealSupabase) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = authUser?.id || sessionData.session?.user?.id;
-
-        if (!userId) {
-          alert('Erro: Usuário não autenticado no Supabase.');
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('category_folders')
-          .insert({
-            name: newFolder.name,
-            color: newFolder.color,
-            created_by: userId
-          })
-          .select()
-          .single();
-
-        if (error) {
-          alert('Erro ao salvar pasta no banco: ' + error.message);
-          return;
-        }
-        if (data) {
-          newFolder = data;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão ao salvar pasta: ' + err.message);
-        return;
+  const handleTeacherLoginFromPortal = async (email: string, pass: string, isSignUp: boolean) => {
+    setRole('operator');
+    if (!useRealSupabase) {
+      if (email === 'admin@quizziando.com' && pass === 'admin123') {
+        setAuthUser({ id: 'demo-id', email });
+        setAppMode('online');
+        setScreen('operator-dashboard');
+        sfx.playCorrect();
+        return { success: true };
+      } else {
+        return { success: false, error: 'Modo Demo: use admin@quizziando.com / admin123' };
       }
     }
 
-    setFolders([...folders, newFolder]);
-    setNewFolderName('');
+    try {
+      if (!isSignUp) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: pass,
+        });
+        if (error) return { success: false, error: 'E-mail ou senha incorretos. Tente novamente.' };
+        if (data.user) {
+          setAuthUser({ id: data.user.id, email: data.user.email || email });
+          setAppMode('online');
+          setScreen('operator-dashboard');
+          sfx.playCorrect();
+          return { success: true };
+        }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: pass,
+        });
+        if (error) return { success: false, error: error.message || 'Erro ao criar conta. Tente novamente.' };
+        if (data.user) {
+          setAuthUser({ id: data.user.id, email: data.user.email || email });
+          setAppMode('online');
+          setScreen('operator-dashboard');
+          sfx.playCorrect();
+          return { success: true };
+        }
+      }
+      return { success: false, error: 'Não foi possível concluir o login.' };
+    } catch {
+      return { success: false, error: 'Erro inesperado. Verifique sua conexão.' };
+    }
+  };
+
+  const handleDemoLoginFromPortal = () => {
+    setRole('operator');
+    setAuthUser({ id: 'demo-id', email: 'admin@quizziando.com' });
+    setAppMode('online');
+    setScreen('operator-dashboard');
     sfx.playCorrect();
   };
 
-  const handleMoveCategory = async (catId: string, folderId: string | null) => {
-    if (useRealSupabase) {
-      try {
-        const { error } = await supabase
-          .from('categories')
-          .update({ folder_id: folderId })
-          .eq('id', catId);
-        
-        if (error) {
-          alert('Erro ao mover categoria: ' + error.message);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão ao mover: ' + err.message);
-        return;
-      }
-    }
-    
-    setCategories(prev => prev.map(c => c.id === catId ? { ...c, folder_id: folderId } : c));
+  const handleJoinAsStudentFromPortal = (pin: string) => {
+    setStudentRoomCode(pin.toUpperCase());
+    sfx.playClick();
   };
-  
+
+
+
+
+  const handleRemovePlayer = async (playerId: string) => {
+    if (!confirm('Tem certeza que deseja remover este jogador?')) return;
+    if (useRealSupabase) {
+      const { error } = await supabase.from('room_players').delete().eq('id', playerId);
+      if (error) { setGameError(error.message); return; }
+    }
+    setActivePlayers(prev => prev.filter(p => p.id !== playerId));
+    sfx.playClick();
+  };
+
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
-    if (newCatName.trim().length > 80) {
-      alert('O nome da categoria pode ter no máximo 80 caracteres!');
-      return;
-    }
-    if (categories.length >= 20) {
-      alert('Você atingiu o limite máximo de 20 categorias!');
-      return;
-    }
-    
     let newCat: Category = {
       id: Math.random().toString(),
       name: newCatName.trim(),
       color: newCatColor,
       icon: 'HelpCircle',
-      folder_id: activeFolderId
+      folder_id: null
     };
 
     if (useRealSupabase) {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const userId = authUser?.id || sessionData.session?.user?.id;
+        if (userId) {
+          const { data, error } = await supabase
+            .from('categories')
+            .insert({
+              name: newCat.name,
+              color: newCat.color,
+              icon: newCat.icon,
+              created_by: userId
+            })
+            .select()
+            .single();
 
-        if (!userId) {
-          alert('Erro: Usuário não autenticado no Supabase.');
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('categories')
-          .insert({
-            name: newCat.name,
-            color: newCat.color,
-            icon: newCat.icon,
-            folder_id: activeFolderId,
-            created_by: userId
-          })
-          .select()
-          .single();
-
-        if (error) {
-          alert('Erro ao salvar categoria no banco: ' + error.message);
-          return;
-        }
-        if (data) {
-          newCat = {
-            id: data.id.toString(),
-            name: data.name,
-            color: data.color,
-            icon: data.icon,
-            folder_id: data.folder_id
-          };
+          if (!error && data) {
+            newCat = {
+              id: data.id.toString(),
+              name: data.name,
+              color: data.color,
+              icon: data.icon,
+              folder_id: data.folder_id
+            };
+          }
         }
       } catch (err: any) {
-        alert('Erro de conexão ao salvar categoria: ' + err.message);
-        return;
+        console.error('Erro ao adicionar categoria:', err);
       }
     }
 
@@ -1518,144 +1480,6 @@ Garanta que:
     setNewCatName('');
     sfx.playCorrect();
   };
-
-  const startEditFolder = (folder: CategoryFolder) => {
-    setEditingFolderId(folder.id);
-    setEditingFolderName(folder.name);
-    setEditingFolderColor(folder.color);
-    sfx.playClick();
-  };
-
-  const handleSaveFolderEdit = async (id: string) => {
-    if (!editingFolderName.trim()) {
-      alert('O nome da pasta não pode ser vazio!');
-      return;
-    }
-
-    if (useRealSupabase) {
-      try {
-        const { error } = await supabase
-          .from('category_folders')
-          .update({ name: editingFolderName.trim(), color: editingFolderColor })
-          .eq('id', id);
-        
-        if (error) {
-          alert('Erro ao atualizar pasta: ' + error.message);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão: ' + err.message);
-        return;
-      }
-    }
-
-    setFolders(prev => prev.map(f => f.id === id ? { ...f, name: editingFolderName.trim(), color: editingFolderColor } : f));
-    setEditingFolderId(null);
-    sfx.playClick();
-  };
-
-  const handleDeleteFolder = async (id: string) => {
-    if (useRealSupabase) {
-      try {
-        const { error } = await supabase
-          .from('category_folders')
-          .delete()
-          .eq('id', id);
-        if (error) {
-          alert('Erro ao excluir pasta: ' + error.message);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão: ' + err.message);
-        return;
-      }
-    }
-    
-    // Categorias perdem o folder_id por causa de "on delete set null" no DB
-    setCategories(prev => prev.map(c => c.folder_id === id ? { ...c, folder_id: null } : c));
-    setFolders(prev => prev.filter(f => f.id !== id));
-    sfx.playClick();
-  };
-
-  // Remover jogador do lobby
-  const handleRemovePlayer = async (playerId: string) => {
-    if (!confirm('Tem certeza que deseja remover este jogador?')) return;
-
-    // Remove do Supabase
-    if (useRealSupabase) {
-      const { error } = await supabase.from('room_players').delete().eq('id', playerId);
-      if (error) { setGameError(error.message); return; }
-    }
-
-    // Remove do estado local
-    setActivePlayers(prev => prev.filter(p => p.id !== playerId));
-    sfx.playClick();
-  };
-
-  const handleDeleteCategory = async (id: string) => {
-    if (useRealSupabase) {
-      try {
-        const { error } = await supabase
-          .from('categories')
-          .delete()
-          .eq('id', id);
-        
-        if (error) {
-          alert('Erro ao excluir categoria do banco: ' + error.message);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão ao excluir categoria: ' + err.message);
-        return;
-      }
-    }
-    setCategories(categories.filter(c => c.id !== id));
-    sfx.playClick();
-  };
-
-  const handleSaveCategoryEdit = async (id: string) => {
-    if (!editingCatName.trim()) {
-      alert('O nome da categoria não pode ser vazio!');
-      return;
-    }
-    if (editingCatName.trim().length > 80) {
-      alert('O nome da categoria pode ter no máximo 80 caracteres!');
-      return;
-    }
-
-    if (useRealSupabase) {
-      try {
-        const { error } = await supabase
-          .from('categories')
-          .update({
-            name: editingCatName.trim(),
-            color: editingCatColor
-          })
-          .eq('id', id);
-
-        if (error) {
-          alert('Erro ao atualizar categoria no banco: ' + error.message);
-          return;
-        }
-      } catch (err: any) {
-        alert('Erro de conexão ao atualizar categoria: ' + err.message);
-        return;
-      }
-    }
-
-    setCategories(categories.map(c => c.id === id ? { ...c, name: editingCatName.trim(), color: editingCatColor } : c));
-    setEditingCatId(null);
-    sfx.playCorrect();
-  };
-
-  const startEditCategory = (cat: Category) => {
-    setEditingCatId(cat.id);
-    setEditingCatName(cat.name);
-    setEditingCatColor(cat.color);
-    sfx.playClick();
-  };
-
-
 
   const persistAiDraft = async (draft: Question): Promise<Question> => {
     let savedQuestionId = draft.id || crypto.randomUUID();
@@ -2119,6 +1943,38 @@ Garanta que:
       onlineRounds !== quiz.rounds ? 'O modo online permite até 20 rodadas; a quantidade foi ajustada.' : '');
   };
 
+  const handlePlayQuizFromDashboard = (quiz: SavedQuiz) => {
+    handleLoadQuiz(quiz);
+    setShowQuizConfigModal(true);
+    sfx.playClick();
+  };
+
+  const handleEditQuizFromDashboard = (quiz: SavedQuiz) => {
+    handleLoadQuiz(quiz);
+    setShowQuestionManagerModal(true);
+    sfx.playClick();
+  };
+
+  const handleDuplicateQuizFromDashboard = (quizId: string) => {
+    const updated = duplicateQuiz(quizId);
+    setSavedQuizzes(updated);
+    sfx.playCorrect();
+  };
+
+  const handleToggleFavoriteFromDashboard = (quizId: string) => {
+    const updated = toggleFavoriteQuiz(quizId);
+    setSavedQuizzes(updated);
+    sfx.playClick();
+  };
+
+  const handleDeleteQuizFromDashboard = (quizId: string) => {
+    const confirmDelete = window.confirm('Tem certeza de que deseja excluir este quiz da sua biblioteca?');
+    if (!confirmDelete) return;
+    const updated = deleteSavedQuiz(quizId);
+    setSavedQuizzes(updated);
+    sfx.playClick();
+  };
+
   const revealAnswer = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'answered' });
     sfx.stopGameSound();
@@ -2284,16 +2140,44 @@ Garanta que:
   const secondPlace = sortedPlayers[1];
   const firstPlace = sortedPlayers[0];
 
-  if (URL_ROOM_CODE) {
-    if (urlParams.get('view') === 'spectator') return <SpectatorView roomCode={URL_ROOM_CODE} />;
-    return <PlayerView roomCode={URL_ROOM_CODE} />;
+  if (URL_ROOM_CODE || studentRoomCode) {
+    const activeRoom = (URL_ROOM_CODE || studentRoomCode)!;
+    if (urlParams.get('view') === 'spectator') return <SpectatorView roomCode={activeRoom} />;
+    return (
+      <div className="relative w-full min-h-screen">
+        {!URL_ROOM_CODE && (
+          <button
+            type="button"
+            onClick={() => { setStudentRoomCode(null); setAppMode('portal'); }}
+            className="fixed top-3 left-3 z-50 px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 text-white/80 hover:text-white text-xs font-bold border border-white/10 backdrop-blur-md transition-all flex items-center gap-1.5 shadow-lg"
+            title="Voltar ao início para trocar de sala"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Sair da Sala</span>
+          </button>
+        )}
+        <PlayerView roomCode={activeRoom} />
+      </div>
+    );
   }
 
-  if (appMode === 'practice') return <PracticeView onBack={() => setAppMode('select')}
+  if (appMode === 'practice') return <PracticeView onBack={() => setAppMode(authUser ? 'online' : 'portal')}
     seedCategories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
     seedQuestions={questions.map(q => ({ id: q.id, category_id: q.category_id, question_text: q.question_text,
       time_limit: q.time_limit || 20, explanation: q.explanation, reference_url: q.reference_url,
       difficulty: q.difficulty, tags: q.tags, alternatives: q.alternatives }))} />;
+
+  if (appMode === 'portal') {
+    return (
+      <LoginPortal
+        onJoinAsStudent={handleJoinAsStudentFromPortal}
+        onGoToPractice={() => setAppMode('practice')}
+        onTeacherLogin={handleTeacherLoginFromPortal}
+        onDemoLogin={handleDemoLoginFromPortal}
+        initialPin={URL_ROOM_CODE || ''}
+      />
+    );
+  }
 
   // ─── Modo Local: renderizar componente dedicado ──────────────────────────
   if (appMode === 'local') {
@@ -2304,9 +2188,9 @@ Garanta que:
           <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
             <button
               type="button"
-              onClick={() => { setAppMode('select'); sfx.playClick(); }}
+              onClick={() => { setAppMode(authUser ? 'online' : 'portal'); sfx.playClick(); }}
               className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition group cursor-pointer border border-transparent hover:border-white/10"
-              title="Voltar à tela de escolha do tipo de quiz"
+              title="Voltar à tela anterior"
             >
               <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle group-hover:scale-105 transition-transform" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
               <div>
@@ -2321,12 +2205,12 @@ Garanta que:
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={() => { setAppMode('select'); sfx.playClick(); }}
+                onClick={() => { setAppMode(authUser ? 'online' : 'portal'); sfx.playClick(); }}
                 className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 group cursor-pointer"
-                title="Voltar à tela de escolha do tipo de quiz"
+                title="Voltar à tela anterior"
               >
                 <ArrowLeft className="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="hidden sm:inline">Trocar Modo</span>
+                <span className="hidden sm:inline">Voltar</span>
               </button>
               <button
                 onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
@@ -2489,8 +2373,8 @@ Garanta que:
   }
 
   return (
-    <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen ? '' : 'app-container'}`}
-      style={isGamePlayFullscreen ? { maxWidth: '100%', margin: 0, padding: '0' } : undefined}
+    <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen || screen === 'operator-dashboard' ? '' : 'app-container'}`}
+      style={isGamePlayFullscreen || screen === 'operator-dashboard' ? { maxWidth: '100%', margin: 0, padding: '0' } : undefined}
     >
       {gameError && <div role="alert" style={{ position: 'fixed', top: 12, left: '10%', right: '10%', zIndex: 9999, background: '#451a1a', color: 'white', padding: 16, borderRadius: 12 }}>
         <p>{gameError}</p>
@@ -2504,9 +2388,9 @@ Garanta que:
         })}>Retomar rodada</button>}
         <button onClick={() => setGameError('')} style={{ marginLeft: 12 }}>Fechar aviso</button>
       </div>}
-      {/* HEADER PREMIUM — oculto durante game-play fullscreen */}
+      {/* HEADER PREMIUM — oculto durante game-play fullscreen ou no dashboard do operador */}
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6"
-        style={isGamePlayFullscreen ? { display: 'none' } : undefined}
+        style={isGamePlayFullscreen || screen === 'operator-dashboard' ? { display: 'none' } : undefined}
       >
         <button
           type="button"
@@ -2998,7 +2882,7 @@ Garanta que:
       </header>
 
       {/* CONTEÚDO PRINCIPAL DINÂMICO */}
-      <main className={`flex-grow flex flex-col justify-center ${isGamePlayFullscreen ? 'py-0' : 'py-4'}`}>
+      <main className={`flex-grow flex flex-col justify-center ${isGamePlayFullscreen || screen === 'operator-dashboard' ? 'py-0' : 'py-4'}`}>
         
         {/* ==========================================
             1. TELA DE ENTRADA (WELCOME)
@@ -3106,416 +2990,74 @@ Garanta que:
             2. PAINEL DE CONTROLE DO OPERADOR
             ========================================== */}
         {screen === 'operator-dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
-            <section className="md:col-span-2 glass-card p-6" aria-label="Salas em andamento">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <h3 className="text-lg font-bold text-white">Retomar sala</h3>
-                <button type="button" onClick={() => setHostRoomsRefresh(value => value + 1)} className="btn-secondary-glow px-3 py-2 text-xs" disabled={hostRoomsLoading}>Atualizar</button>
-              </div>
-              {hostRoomsLoading && <p className="text-sm text-slate-300">Carregando suas salas...</p>}
-              {hostRoomsError && <p role="alert" className="text-sm text-red-300">{hostRoomsError}</p>}
-              {!hostRoomsLoading && !hostRoomsError && hostRooms.length === 0 &&
-                <p className="text-sm text-slate-400">Nenhuma sala aberta para este organizador.</p>}
-              <div className="grid gap-3">
-                {hostRooms.map(room => <div key={room.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div>
-                    <p className="font-bold text-white">Sala {room.code} · {room.game_mode === 'duel' ? 'Duelo' : room.game_mode === 'team' ? 'Times' : 'Aberto'}</p>
-                    <p className="text-xs text-slate-300">{room.status === 'lobby' ? 'Aguardando participantes' : `Rodada ${room.current_round} de ${room.rounds}`} · Atualizada em {new Date(room.updated_at).toLocaleString('pt-BR')}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" className="btn-secondary-glow px-4 py-2 text-xs text-red-300 disabled:opacity-50" disabled={hostBusy} aria-label={`Encerrar sala ${room.code}`} onClick={() => void handleCloseRoom(room.code)}>Encerrar sala</button>
-                    <button type="button" className="btn-glow px-4 py-2 text-xs" disabled={hostBusy} onClick={() => void handleRecoverRoom(room.code)}>Retomar</button>
-                  </div>
-                </div>)}
-              </div>
-            </section>
-            {hybridMode && <div className="md:col-span-2 rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 text-sm text-pink-100">
-              <strong>Presencial com celulares:</strong> configure o quiz e abra o lobby. Compartilhe o QR com os participantes e abra a tela do público no projetor. É necessária conexão com a internet.
-            </div>}
-            {/* Esquerda: Novo Quiz */}
-            <div className="glass-card p-6 flex flex-col gap-5 h-fit">
-              <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
-                <Play className="w-5 h-5 text-[hsl(var(--primary))]" />
-                Iniciar Novo Quiz
-              </h3>
-              
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase block mb-1.5">Modo de Competição</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['duel', 'team', 'open'].map(mode => (
-                      <button
-                        key={mode}
-                        onClick={() => setGameMode(mode as any)}
-                        className={`py-2 px-1 text-center rounded-lg border text-xs font-bold transition capitalize ${
-                          gameMode === mode 
-                            ? 'border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.08)] text-white' 
-                            : 'border-[rgba(255,255,255,0.05)] bg-transparent text-[hsl(var(--text-muted))]'
-                        }`}
-                      >
-                        {mode === 'duel' ? 'Duelo 1v1' : mode === 'team' ? 'Times' : 'Aberto'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          <div className="w-full min-h-screen flex flex-col">
+            <TeacherDashboard
+              teacherEmail={authUser?.email || 'professor@quizziando.com'}
+              quizzes={savedQuizzes}
+              folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
+              activeRooms={hostRooms}
+              onLogout={handleLogout}
+              onPlayQuiz={handlePlayQuizFromDashboard}
+              onEditQuiz={handleEditQuizFromDashboard}
+              onDuplicateQuiz={handleDuplicateQuizFromDashboard}
+              onToggleFavorite={handleToggleFavoriteFromDashboard}
+              onDeleteQuiz={handleDeleteQuizFromDashboard}
+              onCreateNewQuiz={() => { setShowQuizConfigModal(true); sfx.playClick(); }}
+              onOpenQuestionManager={() => { setShowQuestionManagerModal(true); sfx.playClick(); }}
+              onOpenSettings={() => { setShowSettingsModal(true); sfx.playClick(); }}
+              onRecoverRoom={handleRecoverRoom}
+              onCloseRoom={handleCloseRoom}
+              onLaunchNewRoom={(mode) => {
+                if (mode === 'hybrid') {
+                  setHybridMode(true);
+                  setGameMode('open');
+                  setShowQuizConfigModal(true);
+                } else if (mode === 'online') {
+                  setHybridMode(false);
+                  setShowQuizConfigModal(true);
+                } else {
+                  setAppMode('local');
+                }
+                sfx.playClick();
+              }}
+            />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase block mb-1.5">Rodadas</label>
-                    <input 
-                      type="number" 
-                      min="1" 
-                      max="20"
-                      value={gameRounds} 
-                      onChange={e => setGameRounds(parseInt(e.target.value) || 3)}
-                      className="input-glow text-center font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase block mb-1.5">Tempo da Pergunta</label>
-                    <input 
-                      type="number" 
-                      min="5" 
-                      max="120"
-                      value={gameTimeLimit} 
-                      onChange={e => setGameTimeLimit(parseInt(e.target.value) || 15)}
-                      className="input-glow text-center font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase">Pontuação</label>
-                  <select className="input-glow" value={scoringMode} onChange={event => setScoringMode(event.target.value as 'speed' | 'fixed')}>
-                    <option value="speed">Acerto + bônus por velocidade</option>
-                    <option value="fixed">Pontos fixos por acerto</option>
-                  </select>
-                  {scoringMode === 'fixed' && <label className="text-xs text-[hsl(var(--text-secondary))]">Pontos por acerto
-                    <input type="number" min="0" max="1000" value={fixedPoints} onChange={event => setFixedPoints(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))} className="input-glow mt-1 w-full" />
-                  </label>}
-                </div>
-
-                <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase">Quizzes salvos neste navegador</label>
-                  <div className="flex gap-2">
-                    <input className="input-glow min-w-0 flex-1 text-sm" value={newQuizName} onChange={event => setNewQuizName(event.target.value)} maxLength={80} placeholder="Nome do quiz" aria-label="Nome do quiz para salvar" />
-                    <button type="button" onClick={handleSaveQuiz} className="btn-secondary-glow px-3 text-xs">Salvar</button>
-                  </div>
-                  {savedQuizzes.map(quiz => <div key={quiz.id} className="flex items-center gap-2 text-xs">
-                    <span className="min-w-0 flex-1 truncate text-white" title={quiz.name}>{quiz.name}</span>
-                    <button type="button" onClick={() => handleLoadQuiz(quiz)} className="text-violet-300 hover:text-white">Carregar</button>
-                    <button type="button" onClick={() => setSavedQuizzes(deleteSavedQuiz(quiz.id))} className="text-red-300 hover:text-white" aria-label={`Excluir ${quiz.name}`}>Excluir</button>
-                  </div>)}
-                  {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} className="self-start text-xs text-sky-300">Incluir todas as perguntas atuais</button>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <label className="text-xs text-[hsl(var(--text-secondary))]">Dificuldade
-                    <select className="input-glow mt-1 w-full" value={difficultyFilter} onChange={event => setDifficultyFilter(event.target.value as typeof difficultyFilter)}>
-                      <option value="all">Todas</option><option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
-                    </select>
-                  </label>
-                  <label className="text-xs text-[hsl(var(--text-secondary))]">Etiqueta
-                    <input className="input-glow mt-1 w-full" value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" />
-                  </label>
-                </div>
-
-                <p role="status" className={`text-xs ${availableQuestionCount < gameRounds ? 'text-amber-300' : 'text-emerald-300'}`}>
-                  {availableQuestionCount} pergunta{availableQuestionCount === 1 ? '' : 's'} disponível{availableQuestionCount === 1 ? '' : 'is'} para {gameRounds} rodada{gameRounds === 1 ? '' : 's'} com os filtros atuais.
-                </p>
-
-                <button 
-                  onClick={handleStartGameSetup}
-                  className="btn-glow w-full justify-center py-3 text-sm mt-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Abrir Lobby de Espera
-                </button>
-              </div>
-            </div>
-
-            {/* Centro: Categorias (Limite 20) */}
-            <div className="glass-card p-6 flex flex-col gap-4">
-              {activeFolderId === null ? (
-                <>
-                  <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.05)] pb-3">
-                    <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox"
-                        checked={categories.length > 0 && selectedCategoryIds.length === categories.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCategoryIds(categories.map(c => c.id));
-                          } else {
-                            setSelectedCategoryIds([]);
-                          }
-                        }}
-                        className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 mt-0.5"
-                        title="Selecionar todas"
-                      />
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <List className="w-5 h-5 text-[hsl(var(--secondary))]" />
-                        Categorias ({selectedCategoryIds.length}/{categories.length})
-                      </h3>
-                    </div>
-                  </div>
-
-                  {/* Lista de Pastas e Categorias Raiz */}
-                  <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
-                    {folders.map(folder => {
-                      const isEditing = editingFolderId === folder.id;
-                      const isExpanded = expandedFolderIds.includes(folder.id);
-                      const folderCategories = categories.filter(c => c.folder_id === folder.id);
-                      return (
-                        <div key={folder.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl group transition hover:bg-[rgba(255,255,255,0.08)]">
-                          <div className="flex items-center justify-between gap-3">
-                            {isEditing ? (
-                              <>
-                                <div className="flex items-center gap-2 flex-grow">
-                                  <input type="color" value={editingFolderColor} onChange={e => setEditingFolderColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" value={editingFolderName} onChange={e => setEditingFolderName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold border-purple-500" placeholder="Nome da pasta..." autoFocus />
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <button onClick={(e) => { e.stopPropagation(); handleSaveFolderEdit(folder.id); }} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); setEditingFolderId(null); }} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-2 flex-grow min-w-0">
-                                  {(() => {
-                                    const folderCatIds = categories.filter(c => c.folder_id === folder.id).map(c => c.id);
-                                    const selectedCount = folderCatIds.filter(id => selectedCategoryIds.includes(id)).length;
-                                    const allSelected = folderCatIds.length > 0 && selectedCount === folderCatIds.length;
-                                    return (
-                                      <input
-                                        type="checkbox"
-                                        checked={allSelected}
-                                        disabled={folderCatIds.length === 0}
-                                        ref={el => { if (el) el.indeterminate = selectedCount > 0 && !allSelected; }}
-                                        onChange={() => handleToggleFolderSelect(folder.id)}
-                                        onClick={e => e.stopPropagation()}
-                                        className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-                                        title={folderCatIds.length === 0
-                                          ? 'Pasta sem categorias'
-                                          : allSelected
-                                            ? `Desmarcar as ${folderCatIds.length} categorias da pasta`
-                                            : `Selecionar as ${folderCatIds.length} categorias da pasta`}
-                                      />
-                                    );
-                                  })()}
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setExpandedFolderIds((ids) => ids.includes(folder.id) ? ids.filter((id) => id !== folder.id) : [...ids, folder.id]);
-                                    }}
-                                    className={`folder-expand-button ${isExpanded ? 'folder-expand-button--open' : ''}`}
-                                    title={isExpanded ? 'Recolher subcategorias' : 'Expandir subcategorias'}
-                                    aria-label={isExpanded ? `Recolher subcategorias de ${folder.name}` : `Expandir subcategorias de ${folder.name}`}
-                                    aria-expanded={isExpanded}
-                                  >
-                                    <ChevronRight className="w-4 h-4" />
-                                  </button>
-                                  <div 
-                                    className="flex items-center gap-2.5 cursor-pointer flex-grow min-w-0 select-none" 
-                                    onClick={() => {
-                                      setExpandedFolderIds((ids) => ids.includes(folder.id) ? ids.filter((id) => id !== folder.id) : [...ids, folder.id]);
-                                    }}
-                                    title="Clique para expandir/recolher subcategorias"
-                                  >
-                                    <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
-                                    <span className="font-semibold text-sm truncate">📁 {folder.name}</span>
-                                    <span className="text-[11px] text-[hsl(var(--text-muted))] font-normal">
-                                      ({folderCategories.length})
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={(e) => { e.stopPropagation(); setActiveFolderId(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-purple-400 transition" title="Abrir / Gerenciar pasta"><FolderOpen className="w-4 h-4" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); startEditFolder(folder); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                          {!isEditing && isExpanded && (
-                            <div className="folder-subcategories">
-                              {folderCategories.length > 0 ? folderCategories.map((category) => (
-                                <label key={category.id} className="folder-subcategory">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedCategoryIds.includes(category.id)}
-                                    onChange={() => handleToggleCategorySelect(category.id)}
-                                    className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0"
-                                  />
-                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
-                                  <span className="truncate">{category.name}</span>
-                                </label>
-                              )) : (
-                                <span className="folder-subcategories__empty">Nenhuma subcategoria nesta pasta.</span>
-                              )}
-                              <button type="button" className="folder-subcategories__open" onClick={() => setActiveFolderId(folder.id)}>
-                                Gerenciar pasta <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {categories.filter(c => !c.folder_id).map(cat => {
-                      const isEditing = editingCatId === cat.id;
-                      return (
-                        <div key={cat.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
-                          <div className="flex justify-between items-center gap-3">
-                            {isEditing ? (
-                              <>
-                                <div className="flex items-center gap-2 flex-grow">
-                                  <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" maxLength={80} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
-                                  <button onClick={() => setEditingCatId(null)} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-3 flex-grow">
-                                  <input type="checkbox" checked={selectedCategoryIds.includes(cat.id)} onChange={() => handleToggleCategorySelect(cat.id)} className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0" />
-                                  <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                                  <span className="font-semibold text-sm truncate">{cat.name}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <select 
-                                    className="bg-[rgba(255,255,255,0.1)] text-xs text-white rounded p-1 border-0 cursor-pointer max-w-[80px]"
-                                    onChange={(e) => handleMoveCategory(cat.id, e.target.value || null)}
-                                    value={cat.folder_id || ""}
-                                  >
-                                    <option value="" className="text-black">Raiz</option>
-                                    {folders.map(f => (
-                                      <option key={f.id} value={f.id} className="text-black">{f.name}</option>
-                                    ))}
-                                  </select>
-                                  <button onClick={() => startEditCategory(cat)} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Criar nova Pasta ou Categoria */}
-                  <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                    <div className="flex gap-2">
-                      <button onClick={() => setIsCreatingFolder(false)} className={`flex-1 text-xs py-1.5 rounded-lg font-bold transition ${!isCreatingFolder ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[rgba(255,255,255,0.05)] text-gray-400'}`}>+ Categoria</button>
-                      <button onClick={() => setIsCreatingFolder(true)} className={`flex-1 text-xs py-1.5 rounded-lg font-bold transition ${isCreatingFolder ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[rgba(255,255,255,0.05)] text-gray-400'}`}>+ Pasta</button>
-                    </div>
-
-                    {!isCreatingFolder ? (
-                      <>
-                        <input type="text" placeholder="Nova categoria..." maxLength={80} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
-                        <div className="flex justify-between items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
-                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
-                          </div>
-                          <button onClick={handleAddCategory} className="btn-glow py-2 px-4 text-xs"><Plus className="w-4 h-4" /> Add</button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <input type="text" placeholder="Nome da pasta..." value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="input-glow py-2 text-sm border-purple-500" />
-                        <div className="flex justify-between items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
-                            <input type="color" value={newFolderColor} onChange={e => setNewFolderColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
-                          </div>
-                          <button onClick={handleAddFolder} className="btn-glow py-2 px-4 text-xs bg-purple-600"><Plus className="w-4 h-4" /> Criar</button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.05)] pb-3">
-                    <button onClick={() => setActiveFolderId(null)} className="p-1 rounded-lg bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] transition text-white" title="Voltar">
-                      <ChevronRight className="w-5 h-5 rotate-180" />
-                    </button>
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: folders.find(f => f.id === activeFolderId)?.color }} />
-                      {folders.find(f => f.id === activeFolderId)?.name}
-                    </h3>
-                  </div>
-
-                  <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
-                    {categories.filter(c => c.folder_id === activeFolderId).map(cat => {
-                      const isEditing = editingCatId === cat.id;
-                      return (
-                        <div key={cat.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl">
-                          <div className="flex justify-between items-center gap-3">
-                            {isEditing ? (
-                              <>
-                                <div className="flex items-center gap-2 flex-grow">
-                                  <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" maxLength={80} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
-                                  <button onClick={() => setEditingCatId(null)} className="p-1 text-red-400 hover:text-red-300 transition" title="Cancelar"><X className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center gap-3 flex-grow">
-                                  <input type="checkbox" checked={selectedCategoryIds.includes(cat.id)} onChange={() => handleToggleCategorySelect(cat.id)} className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0" />
-                                  <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                                  <span className="font-semibold text-sm truncate">{cat.name}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <select 
-                                    className="bg-[rgba(255,255,255,0.1)] text-xs text-white rounded p-1 border-0 cursor-pointer max-w-[80px]"
-                                    onChange={(e) => handleMoveCategory(cat.id, e.target.value || null)}
-                                    value={cat.folder_id || ""}
-                                  >
-                                    <option value="" className="text-black">Raiz</option>
-                                    {folders.map(f => (
-                                      <option key={f.id} value={f.id} className="text-black">{f.name}</option>
-                                    ))}
-                                  </select>
-                                  <button onClick={() => startEditCategory(cat)} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                  <button onClick={() => handleDeleteCategory(cat.id)} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {categories.filter(c => c.folder_id === activeFolderId).length === 0 && (
-                      <p className="text-center text-sm text-[hsl(var(--text-muted))] py-4">Nenhuma categoria nesta pasta.</p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                    <input type="text" placeholder="Nova categoria nesta pasta..." maxLength={80} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
-                    <div className="flex justify-between items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
-                        <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} className="w-8 h-8 rounded border-0 cursor-pointer bg-transparent" />
-                      </div>
-                      <button onClick={handleAddCategory} className="btn-glow py-2 px-4 text-xs"><Plus className="w-4 h-4" /> Add</button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
+            <QuizConfigModal
+              isOpen={showQuizConfigModal}
+              onClose={() => setShowQuizConfigModal(false)}
+              onStartGame={() => {
+                setShowQuizConfigModal(false);
+                handleStartGameSetup();
+              }}
+              gameMode={gameMode}
+              setGameMode={setGameMode}
+              gameRounds={gameRounds}
+              setGameRounds={setGameRounds}
+              gameTimeLimit={gameTimeLimit}
+              setGameTimeLimit={setGameTimeLimit}
+              scoringMode={scoringMode}
+              setScoringMode={setScoringMode}
+              fixedPoints={fixedPoints}
+              setFixedPoints={setFixedPoints}
+              difficultyFilter={difficultyFilter}
+              setDifficultyFilter={setDifficultyFilter}
+              tagFilter={tagFilter}
+              setTagFilter={setTagFilter}
+              availableQuestionCount={availableQuestionCount}
+              newQuizName={newQuizName}
+              setNewQuizName={setNewQuizName}
+              onSaveQuiz={handleSaveQuiz}
+              categories={categories}
+              selectedCategoryIds={selectedCategoryIds}
+              onToggleCategorySelect={handleToggleCategorySelect}
+              onToggleSelectAllCategories={(selectAll) => {
+                if (selectAll) {
+                  setSelectedCategoryIds(categories.map(c => c.id));
+                } else {
+                  setSelectedCategoryIds([]);
+                }
+              }}
+            />
           </div>
         )}
 
