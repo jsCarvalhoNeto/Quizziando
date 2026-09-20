@@ -5221,7 +5221,7 @@ Garanta que:
               />
 
               {/* Lista Scrollable */}
-              <div className="flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
+              <div className="question-library__list flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
                 {questions
                   .filter((q) => {
                     const matchesSearch = q.question_text

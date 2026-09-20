@@ -217,7 +217,8 @@ select.input-glow option {
 }
 
 .question-composer {
-  width: 46%;
+  width: 46% !important;
+  flex: 0 0 46%;
   max-height: 90vh;
   overflow-y: auto;
   border-right: 1px solid rgba(255,255,255,.07);
@@ -225,7 +226,10 @@ select.input-glow option {
 }
 
 .question-library {
-  width: 54%;
+  width: 54% !important;
+  flex: 0 0 54%;
+  height: 90vh;
+  min-height: 0;
   background: rgba(255,255,255,.012);
 }
 
@@ -346,7 +350,15 @@ select.input-glow option {
   padding: 14px 0 28px;
   background: linear-gradient(0deg, #090d1e 72%, transparent);
 }
-.question-library > div:last-child { max-height: calc(90vh - 230px) !important; }
+.question-library__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+  scrollbar-gutter: stable;
+}
 
 @media (min-width: 1024px) {
   .question-manager-modal { flex-direction: row; }
@@ -354,7 +366,7 @@ select.input-glow option {
 
 @media (max-width: 1023px) {
   .question-manager-modal { flex-direction: column; overflow-y: auto !important; }
-  .question-composer, .question-library { width: 100%; max-height: none; padding: 24px; }
+  .question-composer, .question-library { width: 100% !important; flex-basis: 100%; height: auto; max-height: none; padding: 24px; }
   .question-composer { overflow: visible; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.07); }
   .question-save-bar { bottom: -24px; }
 }
