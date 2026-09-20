@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft
+  ArrowLeft, FolderOpen
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -3282,34 +3282,28 @@ Garanta que:
                               </>
                             ) : (
                               <>
-                                {(() => {
-                                  const folderCatIds = categories.filter(c => c.folder_id === folder.id).map(c => c.id);
-                                  const selectedCount = folderCatIds.filter(id => selectedCategoryIds.includes(id)).length;
-                                  const allSelected = folderCatIds.length > 0 && selectedCount === folderCatIds.length;
-                                  return (
-                                    <input
-                                      type="checkbox"
-                                      checked={allSelected}
-                                      disabled={folderCatIds.length === 0}
-                                      ref={el => { if (el) el.indeterminate = selectedCount > 0 && !allSelected; }}
-                                      onChange={() => handleToggleFolderSelect(folder.id)}
-                                      onClick={e => e.stopPropagation()}
-                                      className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-                                      title={folderCatIds.length === 0
-                                        ? 'Pasta sem categorias'
-                                        : allSelected
-                                          ? `Desmarcar as ${folderCatIds.length} categorias da pasta`
-                                          : `Selecionar as ${folderCatIds.length} categorias da pasta`}
-                                    />
-                                  );
-                                })()}
-                                <div className="flex items-center gap-3 cursor-pointer flex-grow" onClick={() => setActiveFolderId(folder.id)}>
-                                  <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
-                                  <span className="font-semibold text-sm">📁 {folder.name}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button onClick={(e) => { e.stopPropagation(); startEditFolder(folder); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
+                                <div className="flex items-center gap-2 flex-grow min-w-0">
+                                  {(() => {
+                                    const folderCatIds = categories.filter(c => c.folder_id === folder.id).map(c => c.id);
+                                    const selectedCount = folderCatIds.filter(id => selectedCategoryIds.includes(id)).length;
+                                    const allSelected = folderCatIds.length > 0 && selectedCount === folderCatIds.length;
+                                    return (
+                                      <input
+                                        type="checkbox"
+                                        checked={allSelected}
+                                        disabled={folderCatIds.length === 0}
+                                        ref={el => { if (el) el.indeterminate = selectedCount > 0 && !allSelected; }}
+                                        onChange={() => handleToggleFolderSelect(folder.id)}
+                                        onClick={e => e.stopPropagation()}
+                                        className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title={folderCatIds.length === 0
+                                          ? 'Pasta sem categorias'
+                                          : allSelected
+                                            ? `Desmarcar as ${folderCatIds.length} categorias da pasta`
+                                            : `Selecionar as ${folderCatIds.length} categorias da pasta`}
+                                      />
+                                    );
+                                  })()}
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -3317,12 +3311,30 @@ Garanta que:
                                       setExpandedFolderIds((ids) => ids.includes(folder.id) ? ids.filter((id) => id !== folder.id) : [...ids, folder.id]);
                                     }}
                                     className={`folder-expand-button ${isExpanded ? 'folder-expand-button--open' : ''}`}
-                                    title={isExpanded ? 'Recolher subcategorias' : 'Mostrar subcategorias'}
-                                    aria-label={isExpanded ? `Recolher subcategorias de ${folder.name}` : `Mostrar subcategorias de ${folder.name}`}
+                                    title={isExpanded ? 'Recolher subcategorias' : 'Expandir subcategorias'}
+                                    aria-label={isExpanded ? `Recolher subcategorias de ${folder.name}` : `Expandir subcategorias de ${folder.name}`}
                                     aria-expanded={isExpanded}
                                   >
                                     <ChevronRight className="w-4 h-4" />
                                   </button>
+                                  <div 
+                                    className="flex items-center gap-2.5 cursor-pointer flex-grow min-w-0 select-none" 
+                                    onClick={() => {
+                                      setExpandedFolderIds((ids) => ids.includes(folder.id) ? ids.filter((id) => id !== folder.id) : [...ids, folder.id]);
+                                    }}
+                                    title="Clique para expandir/recolher subcategorias"
+                                  >
+                                    <span className="w-3.5 h-3.5 rounded-full flex-shrink-0" style={{ backgroundColor: folder.color }} />
+                                    <span className="font-semibold text-sm truncate">📁 {folder.name}</span>
+                                    <span className="text-[11px] text-[hsl(var(--text-muted))] font-normal">
+                                      ({folderCategories.length})
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={(e) => { e.stopPropagation(); setActiveFolderId(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-purple-400 transition" title="Abrir / Gerenciar pasta"><FolderOpen className="w-4 h-4" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); startEditFolder(folder); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
                                 </div>
                               </>
                             )}
