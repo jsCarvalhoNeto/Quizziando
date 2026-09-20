@@ -668,6 +668,16 @@ export default function App() {
     }
     return 'gemini-1.5-flash';
   });
+  const [geminiCustomModels, setGeminiCustomModels] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const savedModels = JSON.parse(localStorage.getItem('geminiCustomModels') || '[]');
+      return Array.isArray(savedModels) ? savedModels.filter((model): model is string => typeof model === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newGeminiModel, setNewGeminiModel] = useState('');
 
   // Sincroniza os valores com localStorage sempre que mudam
   useEffect(() => {
@@ -677,6 +687,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('geminiModel', geminiModel);
   }, [geminiModel]);
+
+  useEffect(() => {
+    localStorage.setItem('geminiCustomModels', JSON.stringify(geminiCustomModels));
+  }, [geminiCustomModels]);
   const [managerTab, setManagerTab] = useState<'manual' | 'ai'>('manual');
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiQuantity, setAiQuantity] = useState<number>(1);
@@ -2644,7 +2658,7 @@ Garanta que:
                       <div className="flex flex-col gap-4 animate-fade-in pt-2">
                         <div>
                           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Integração Gemini AI</h4>
-                          <p className="text-[11px] text-slate-400">Configure a chave de acesso e o modelo preditivo.</p>
+                          <p className="text-[11px] text-slate-400">Configure a chave de acesso e escolha ou cadastre um modelo compatível com a API Gemini.</p>
                         </div>
 
                         <div className="flex flex-col gap-3">
@@ -2666,7 +2680,7 @@ Garanta que:
 
                           {/* Nome do Modelo */}
                           <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Modelo do Gemini</label>
+                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Modelo ativo</label>
                             <select
                               value={geminiModel}
                               onChange={(e) => {
@@ -2680,7 +2694,61 @@ Garanta que:
                               <option value="gemini-1.5-pro">gemini-1.5-pro (Precisão Máxima)</option>
                               <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
                               <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
+                              {geminiCustomModels.map((model) => (
+                                <option key={model} value={model}>{model} (Personalizado)</option>
+                              ))}
                             </select>
+                          </div>
+
+                          <div className="ai-model-manager">
+                            <div className="ai-model-manager__heading">
+                              <span>Modelos personalizados</span>
+                              <small>Ex.: gemini-2.5-pro</small>
+                            </div>
+                            <div className="ai-model-manager__add">
+                              <input
+                                type="text"
+                                value={newGeminiModel}
+                                onChange={(e) => setNewGeminiModel(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter') return;
+                                  e.preventDefault();
+                                  const model = newGeminiModel.trim();
+                                  if (!model || geminiCustomModels.includes(model)) return;
+                                  setGeminiCustomModels((models) => [...models, model]);
+                                  setGeminiModel(model);
+                                  setNewGeminiModel('');
+                                  setAiTestStatus('idle');
+                                }}
+                                placeholder="ID do modelo"
+                                className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                              />
+                              <button
+                                type="button"
+                                className="ai-model-manager__button"
+                                onClick={() => {
+                                  const model = newGeminiModel.trim();
+                                  if (!model || geminiCustomModels.includes(model)) return;
+                                  setGeminiCustomModels((models) => [...models, model]);
+                                  setGeminiModel(model);
+                                  setNewGeminiModel('');
+                                  setAiTestStatus('idle');
+                                }}
+                                disabled={!newGeminiModel.trim() || geminiCustomModels.includes(newGeminiModel.trim())}
+                              >Adicionar</button>
+                            </div>
+                            {geminiCustomModels.length > 0 && (
+                              <div className="ai-model-manager__chips">
+                                {geminiCustomModels.map((model) => (
+                                  <span key={model}>{model}
+                                    <button type="button" aria-label={`Remover ${model}`} onClick={() => {
+                                      setGeminiCustomModels((models) => models.filter((item) => item !== model));
+                                      if (geminiModel === model) setGeminiModel('gemini-1.5-flash');
+                                    }}>×</button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           {/* Teste de Conexão */}
