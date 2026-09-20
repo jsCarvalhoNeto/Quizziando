@@ -23,6 +23,7 @@ export interface OnlineRoom {
   current_question: RoomQuestion | null;
   selected_category: { id: string; name: string; color: string; icon: string } | null;
   categories: { id: string; name: string; color: string; icon: string }[];
+  question_ids: string[];
   question_deadline: string | null;
   paused_remaining_ms: number | null;
   answered_count: number;

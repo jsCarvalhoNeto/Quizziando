@@ -13,9 +13,14 @@ declare
   v_player_b uuid;
   v_snapshot jsonb;
   v_count integer;
+  v_category uuid;
+  v_saved_question uuid;
+  v_lobby uuid := gen_random_uuid();
+  v_lobby_code text := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
 begin
-  select id into v_host from public.profiles where role = 'operator' limit 1;
-  if v_host is null then raise exception 'Teste requer um perfil de organizador.'; end if;
+  select c.created_by, c.id, q.id into v_host, v_category, v_saved_question
+    from public.questions q join public.categories c on c.id = q.category_id limit 1;
+  if v_host is null then raise exception 'Teste requer um organizador com uma pergunta.'; end if;
   perform set_config('request.jwt.claim.sub', v_host::text, true);
 
   insert into public.game_rooms(id, code, host_id, game_mode, status, round_state,
@@ -74,6 +79,36 @@ begin
     (v_snapshot->'players'->0->>'id') is null then
     raise exception 'Recuperação do organizador perdeu a rodada ou respostas.';
   end if;
+
+  -- The lobby preserves the exact question selection for a later host login.
+  insert into public.game_rooms(id, code, host_id, game_mode, status, round_state,
+    rounds, current_round, time_limit, categories)
+  values(v_lobby, v_lobby_code, v_host, 'open', 'lobby', 'idle', 1, 1, 15,
+    jsonb_build_array(jsonb_build_object('id', v_category)));
+  v_snapshot := public.quiz_host_configure_room(v_lobby_code,
+    jsonb_build_object('question_ids', jsonb_build_array(v_saved_question)));
+  if (v_snapshot->'room'->'question_ids'->>0) <> v_saved_question::text then
+    raise exception 'Seleção de perguntas não foi salva na sala.';
+  end if;
+  v_snapshot := public.quiz_host_state(v_lobby_code);
+  if (v_snapshot->'room'->'question_ids'->>0) <> v_saved_question::text then
+    raise exception 'Seleção de perguntas não foi recuperada para o organizador.';
+  end if;
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  begin
+    perform public.quiz_host_state(v_lobby_code);
+    raise exception 'Outro usuário conseguiu recuperar o painel do organizador.';
+  exception when others then
+    if sqlerrm <> 'Acesso restrito ao organizador.' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', v_host::text, true);
+  begin
+    perform public.quiz_host_configure_room(v_lobby_code,
+      jsonb_build_object('question_ids', jsonb_build_array(gen_random_uuid())));
+    raise exception 'Pergunta de outra seleção foi aceita.';
+  exception when others then
+    if sqlerrm <> 'A seleção de perguntas não pertence às categorias desta sala.' then raise; end if;
+  end;
 end $$;
 
 rollback;

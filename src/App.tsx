@@ -275,6 +275,16 @@ interface Alternative {
   isCorrect: boolean;
 }
 
+interface HostRoomSummary {
+  code: string;
+  status: string;
+  round_state: string;
+  current_round: number;
+  rounds: number;
+  game_mode: 'open' | 'team' | 'duel';
+  updated_at: string;
+}
+
 interface GamePlayer {
   id: string;
   nickname: string;
@@ -570,6 +580,29 @@ export default function App() {
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
+  const [hostRooms, setHostRooms] = useState<HostRoomSummary[]>([]);
+  const [hostRoomsLoading, setHostRoomsLoading] = useState(false);
+  const [hostRoomsError, setHostRoomsError] = useState('');
+  const [hostRoomsRefresh, setHostRoomsRefresh] = useState(0);
+  useEffect(() => {
+    if (screen !== 'operator-dashboard' || !authUser?.id || !useRealSupabase) return;
+    let cancelled = false;
+    const load = async () => {
+      setHostRoomsLoading(true);
+      setHostRoomsError('');
+      setHostRooms([]);
+      const { data, error } = await supabase.from('game_rooms')
+        .select('code,status,round_state,current_round,rounds,game_mode,updated_at')
+        .eq('host_id', authUser.id).in('status', ['lobby', 'playing'])
+        .order('updated_at', { ascending: false });
+      if (cancelled) return;
+      setHostRoomsLoading(false);
+      if (error) setHostRoomsError('Não foi possível carregar suas salas. Tente novamente.');
+      else setHostRooms((data || []) as HostRoomSummary[]);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [screen, authUser?.id, useRealSupabase, hostRoomsRefresh]);
   const [podiumStep, setPodiumStep] = useState(0); // 0: cortina, 1: abre, 2: 3º lugar, 3: 2º lugar, 4: 1º lugar
   const [role, setRole] = useState<'operator' | 'player'>('player');
   const [nickname, setNickname] = useState('');
@@ -910,6 +943,7 @@ Garanta que:
   const [pausedRemaining, setPausedRemaining] = useState<number | null>(null);
   const [serverOffset, setServerOffset] = useState(0);
   const [gameError, setGameError] = useState('');
+  const [recoveredTransition, setRecoveredTransition] = useState(false);
   const [hostBusy, setHostBusy] = useState(false);
   const hostBusyRef = useRef(false);
   const lastHostSnapshotRef = useRef(0);
@@ -1674,6 +1708,53 @@ Garanta que:
     } finally { hostBusyRef.current = false; setHostBusy(false); }
   };
 
+  const handleRecoverRoom = (code: string) => runHostAction(async () => {
+    const snapshot = await gameRpc<HostSnapshot>('quiz_host_state', { p_code: code });
+    const room = snapshot.room;
+    if (!['lobby', 'playing'].includes(room.status)) throw new Error('Esta sala já foi encerrada. Atualize a lista.');
+    spinSequenceRef.current++;
+    onlineTimersRef.current.forEach(clearTimeout);
+    onlineTimersRef.current = [];
+    lastHostSnapshotRef.current = 0;
+    setRole('operator');
+    setRoomCode(room.code);
+    setRoomLink(`${window.location.origin}${window.location.pathname}?room=${room.code}`);
+    setGameMode(room.game_mode);
+    setGameRounds(room.rounds);
+    setGameTimeLimit(room.time_limit);
+    setSelectedCategoryIds(room.categories.map(category => category.id));
+    setSelectedQuestionIds(room.question_ids?.length ? room.question_ids : null);
+    setDifficultyFilter('all');
+    setTagFilter('');
+    setIsSpinning(false);
+    setOnlinePlayerIds([]);
+    setPlayerAnswered(null);
+    setPrevScores(null);
+    setShowNewScores(true);
+    setRoundTransitionMessage(null);
+    setRecoveredTransition(room.status === 'playing' &&
+      ['spinning', 'category-reveal', 'question-reveal'].includes(room.round_state));
+    applyHostSnapshot(snapshot);
+    setScreen(room.status === 'lobby' ? 'game-lobby' : 'game-play');
+    setGameError('');
+  });
+
+  const continueRecoveredRound = () => runHostAction(async () => {
+    if (roundState === 'spinning') {
+      const available = questions.filter(question =>
+        selectedCategoryIds.includes(question.category_id) &&
+        (!selectedQuestionIds || selectedQuestionIds.includes(question.id)) &&
+        !usedQuestionIdsRef.current.includes(question.id));
+      if (!available.length) throw new Error('Não há perguntas disponíveis para continuar esta rodada. Confira o acervo da sala.');
+      await publishRoomState({ round_state: 'category-reveal', current_question: { id: available[0].id } });
+    } else if (roundState === 'category-reveal') {
+      await publishRoomState({ round_state: 'question-reveal' });
+    } else if (roundState === 'question-reveal') {
+      await publishRoomState({ round_state: 'question' });
+      setRecoveredTransition(false);
+    }
+  });
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomLink).then(() => {
       setLinkCopied(true);
@@ -1708,7 +1789,10 @@ Garanta que:
         });
         const configured = await gameRpc<HostSnapshot>('quiz_host_configure_room', {
           p_code: room.code,
-          p_settings: { max_players: maxPlayers, join_locked: joinLocked, reveal_when_all_answered: autoReveal, scoring_mode: scoringMode, fixed_points: fixedPoints },
+          p_settings: { max_players: maxPlayers, join_locked: joinLocked, reveal_when_all_answered: autoReveal,
+            scoring_mode: scoringMode, fixed_points: fixedPoints,
+            question_ids: questions.filter(q => selectedCategoryIds.includes(q.category_id) &&
+              matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)).map(q => q.id) },
         });
         createRequestRef.current = null;
         lastHostSnapshotRef.current = 0;
@@ -2778,6 +2862,25 @@ Garanta que:
             ========================================== */}
         {screen === 'operator-dashboard' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
+            <section className="md:col-span-2 glass-card p-6" aria-label="Salas em andamento">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="text-lg font-bold text-white">Retomar sala</h3>
+                <button type="button" onClick={() => setHostRoomsRefresh(value => value + 1)} className="btn-secondary-glow px-3 py-2 text-xs" disabled={hostRoomsLoading}>Atualizar</button>
+              </div>
+              {hostRoomsLoading && <p className="text-sm text-slate-300">Carregando suas salas...</p>}
+              {hostRoomsError && <p role="alert" className="text-sm text-red-300">{hostRoomsError}</p>}
+              {!hostRoomsLoading && !hostRoomsError && hostRooms.length === 0 &&
+                <p className="text-sm text-slate-400">Nenhuma sala aberta para este organizador.</p>}
+              <div className="grid gap-3">
+                {hostRooms.map(room => <div key={room.code} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div>
+                    <p className="font-bold text-white">Sala {room.code} · {room.game_mode === 'duel' ? 'Duelo' : room.game_mode === 'team' ? 'Times' : 'Aberto'}</p>
+                    <p className="text-xs text-slate-300">{room.status === 'lobby' ? 'Aguardando participantes' : `Rodada ${room.current_round} de ${room.rounds}`} · Atualizada em {new Date(room.updated_at).toLocaleString('pt-BR')}</p>
+                  </div>
+                  <button type="button" className="btn-glow px-4 py-2 text-xs" disabled={hostBusy} onClick={() => void handleRecoverRoom(room.code)}>Retomar</button>
+                </div>)}
+              </div>
+            </section>
             {hybridMode && <div className="md:col-span-2 rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 text-sm text-pink-100">
               <strong>Presencial com celulares:</strong> configure o quiz e abra o lobby. Compartilhe o QR com os participantes e abra a tela do público no projetor. É necessária conexão com a internet.
             </div>}
@@ -3284,8 +3387,8 @@ Garanta que:
               </>
             )}
 
-            {hybridMode && role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
-              <span>Compartilhe o QR com os participantes e abra a projeção em outra janela.</span>
+            {role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
+              <span>Abra a tela do público em outra janela para projetar a partida.</span>
               <button type="button" onClick={() => window.open(spectatorLink, '_blank', 'noopener,noreferrer')} className="btn-glow px-4 py-2 text-xs">Abrir tela do público</button>
             </div>}
 
@@ -3340,6 +3443,11 @@ Garanta que:
             ========================================== */}
         {screen === 'game-play' && (
           <div className="w-full transition-all duration-500" style={{ maxWidth: '100%', padding: '0 24px' }}>
+            {recoveredTransition && ['spinning', 'category-reveal', 'question-reveal'].includes(roundState) &&
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <span>A apresentação foi interrompida nesta rodada. Continue quando o público estiver pronto.</span>
+                <button type="button" className="btn-glow px-4 py-2 text-xs" disabled={hostBusy} onClick={() => void continueRecoveredRound()}>Continuar rodada</button>
+              </div>}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" style={{ minHeight: 'calc(100vh - 40px)', alignItems: 'stretch' }}>
             
               {/* LADO ESQUERDO: CONTROLES DO HOST / ROLETAS / TIMER */}
@@ -4183,7 +4291,7 @@ Garanta que:
                       </AnimatePresence>
             </div>
 
-            {hybridMode && role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
+            {role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
               <span>Abra ou recupere a projeção em outra janela.</span>
               <button type="button" onClick={() => window.open(spectatorLink, '_blank', 'noopener,noreferrer')} className="btn-glow px-4 py-2 text-xs">Abrir tela do público</button>
             </div>}
