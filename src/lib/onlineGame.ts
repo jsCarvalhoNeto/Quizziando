@@ -45,6 +45,7 @@ export interface PlayerSnapshot {
 export async function gameRpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
   if (error) {
+    if (error.code === 'PGRST202' && name === 'quiz_host_close_room') throw new Error('O encerramento de salas ainda precisa ser habilitado no servidor. Aplique a migração 20260920_host_close_room.');
     if (error.code === 'PGRST202') throw new Error('O servidor precisa da atualização de segurança. Aplique a migração 20260919_secure_gameplay antes de jogar online.');
     throw new Error(error.message || 'Não foi possível confirmar a operação. Tente novamente.');
   }

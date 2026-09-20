@@ -1708,6 +1708,16 @@ Garanta que:
     } finally { hostBusyRef.current = false; setHostBusy(false); }
   };
 
+  const handleCloseRoom = (code: string) => {
+    if (hostBusyRef.current || !window.confirm(`Encerrar a sala ${code}? Os participantes não poderão continuar jogando. Os pontos já contabilizados serão preservados, mas a rodada em andamento será interrompida. Esta ação não pode ser desfeita.`)) return;
+    return runHostAction(async () => {
+      await gameRpc('quiz_host_close_room', { p_code: code });
+      setHostRooms(rooms => rooms.filter(room => room.code !== code));
+      setHostRoomsRefresh(value => value + 1);
+      setGameError('');
+    });
+  };
+
   const handleRecoverRoom = (code: string) => runHostAction(async () => {
     const snapshot = await gameRpc<HostSnapshot>('quiz_host_state', { p_code: code });
     const room = snapshot.room;
@@ -2877,7 +2887,10 @@ Garanta que:
                     <p className="font-bold text-white">Sala {room.code} · {room.game_mode === 'duel' ? 'Duelo' : room.game_mode === 'team' ? 'Times' : 'Aberto'}</p>
                     <p className="text-xs text-slate-300">{room.status === 'lobby' ? 'Aguardando participantes' : `Rodada ${room.current_round} de ${room.rounds}`} · Atualizada em {new Date(room.updated_at).toLocaleString('pt-BR')}</p>
                   </div>
-                  <button type="button" className="btn-glow px-4 py-2 text-xs" disabled={hostBusy} onClick={() => void handleRecoverRoom(room.code)}>Retomar</button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" className="btn-secondary-glow px-4 py-2 text-xs text-red-300 disabled:opacity-50" disabled={hostBusy} aria-label={`Encerrar sala ${room.code}`} onClick={() => void handleCloseRoom(room.code)}>Encerrar sala</button>
+                    <button type="button" className="btn-glow px-4 py-2 text-xs" disabled={hostBusy} onClick={() => void handleRecoverRoom(room.code)}>Retomar</button>
+                  </div>
                 </div>)}
               </div>
             </section>

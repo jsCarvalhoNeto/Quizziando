@@ -109,6 +109,41 @@ begin
   exception when others then
     if sqlerrm <> 'A seleção de perguntas não pertence às categorias desta sala.' then raise; end if;
   end;
+  -- Closing is owner-only, works before the last round, and is idempotent.
+  perform set_config('request.jwt.claim.sub', gen_random_uuid()::text, true);
+  begin
+    perform public.quiz_host_close_room(v_code);
+    raise exception 'Outro usuário conseguiu encerrar a sala.';
+  exception when others then
+    if sqlerrm <> 'Somente o organizador pode encerrar esta sala.' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', '', true);
+  begin
+    perform public.quiz_host_close_room(v_code);
+    raise exception 'Usuário anônimo conseguiu encerrar a sala.';
+  exception when others then
+    if sqlerrm <> 'Somente o organizador pode encerrar esta sala.' then raise; end if;
+  end;
+  perform set_config('request.jwt.claim.sub', v_host::text, true);
+  update public.game_rooms set rounds = 3 where id = v_room;
+  update public.room_players set score = 42 where id = v_player_a;
+  perform public.quiz_host_close_room(lower(v_code));
+  perform public.quiz_host_close_room(v_code);
+  perform public.quiz_host_close_room(v_lobby_code);
+  if (select count(*) from public.game_rooms where id in (v_room, v_lobby)
+      and status = 'finished' and round_state = 'idle' and join_locked
+      and question_deadline is null and paused_remaining_ms is null) <> 2 then
+    raise exception 'Encerramento não fechou a partida e o lobby.';
+  end if;
+  if (select score from public.room_players where id = v_player_a) <> 42 then
+    raise exception 'Encerramento alterou pontos já contabilizados.';
+  end if;
+  begin
+    perform public.quiz_submit_answer(v_code, v_token_b, 1, 0);
+    raise exception 'Resposta após encerramento foi aceita.';
+  exception when others then
+    if sqlerrm <> 'O tempo de resposta está encerrado ou pausado.' then raise; end if;
+  end;
 end $$;
 
 rollback;
