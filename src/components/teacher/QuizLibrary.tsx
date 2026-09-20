@@ -5,9 +5,8 @@ import {
   List as ListIcon, 
   Plus, 
   Sparkles, 
-  Star, 
   FileQuestion, 
-  Filter 
+  Filter
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import QuizCard from './QuizCard';
@@ -42,7 +41,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   onOpenQuestionManager,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'recent' | 'all' | 'favorites' | 'drafts'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'recent' | 'favorites' | 'drafts'>('all');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -69,7 +68,6 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       // Filtro de abas
       if (activeTab === 'favorites') return !!quiz.isFavorite;
       if (activeTab === 'recent') {
-        // Quizzes salvos nos últimos 7 dias
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         return new Date(quiz.savedAt).getTime() >= sevenDaysAgo;
       }
@@ -82,147 +80,199 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   }, [quizzes, searchQuery, activeTab, selectedFolderId]);
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      {/* Barra de Ações Superiores da Biblioteca (Estilo Kahoot) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
-        {/* Abas Superiores */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'all'
-                ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            Todos os Quizzes ({quizzes.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('recent')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'recent'
-                ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            Recentes
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('favorites')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'favorites'
-                ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            <span>Favoritos</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('drafts')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-              activeTab === 'drafts'
-                ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            Rascunhos
-          </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+      {/* ─── Barra de Ações Superiores da Biblioteca (Estilo Kahoot!) ───────── */}
+      <div 
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid #e2e8f0',
+        }}
+      >
+        {/* Abas Superiores (Pílulas Limpas) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto' }}>
+          {[
+            { id: 'all', label: `Todos os Quizzes (${quizzes.length})` },
+            { id: 'recent', label: 'Recentes' },
+            { id: 'favorites', label: 'Favoritos' },
+            { id: 'drafts', label: 'Rascunhos' },
+          ].map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as any)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  border: isActive ? '1px solid #46178f' : '1px solid transparent',
+                  backgroundColor: isActive ? '#f3e8ff' : '#ffffff',
+                  color: isActive ? '#46178f' : '#64748b',
+                  boxShadow: isActive ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.03)',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Busca e Alternância de Visualização (Grid/Lista) */}
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        {/* Busca e Alternância Grade / Lista */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ position: 'relative', width: '240px' }}>
+            <Search 
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '15px',
+                height: '15px',
+                color: '#94a3b8',
+                pointerEvents: 'none',
+              }}
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Pesquisar quizzes..."
-              className="w-full py-2 pl-9 pr-3 text-xs rounded-xl bg-black/40 border border-white/10 text-white placeholder:text-slate-500 focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 outline-none transition-all"
+              placeholder="Filtrar por nome..."
+              style={{
+                width: '100%',
+                height: '36px',
+                paddingLeft: '34px',
+                paddingRight: '12px',
+                borderRadius: '8px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #d1d5db',
+                color: '#1e293b',
+                fontSize: '13px',
+                outline: 'none',
+              }}
             />
           </div>
 
           {/* Botões de Grade / Lista */}
-          <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/10">
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#ffffff',
+              padding: '2px',
+              borderRadius: '8px',
+              border: '1px solid #d1d5db',
+            }}
+          >
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-lg transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              style={{
+                padding: '6px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: viewMode === 'grid' ? '#f3e8ff' : 'transparent',
+                color: viewMode === 'grid' ? '#46178f' : '#94a3b8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
               title="Visualização em Grade"
             >
-              <LayoutGrid className="w-4 h-4" />
+              <LayoutGrid style={{ width: '16px', height: '16px' }} />
             </button>
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-lg transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              style={{
+                padding: '6px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: viewMode === 'list' ? '#f3e8ff' : 'transparent',
+                color: viewMode === 'list' ? '#46178f' : '#94a3b8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
               title="Visualização em Lista"
             >
-              <ListIcon className="w-4 h-4" />
+              <ListIcon style={{ width: '16px', height: '16px' }} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Barra de Filtro de Pastas (se houver pastas cadastradas) */}
+      {/* ─── Filtro de Pastas (se houver) ────────────────────────────────────── */}
       {folders.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1 shrink-0">
-            <Filter className="w-3 h-3 text-purple-400" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Filter style={{ width: '12px', height: '12px' }} />
             Pastas:
           </span>
           <button
             type="button"
             onClick={() => setSelectedFolderId(null)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all ${
-              selectedFolderId === null
-                ? 'bg-white/15 text-white'
-                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-            }`}
+            style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: selectedFolderId === null ? '1px solid #46178f' : '1px solid #e2e8f0',
+              backgroundColor: selectedFolderId === null ? '#f3e8ff' : '#ffffff',
+              color: selectedFolderId === null ? '#46178f' : '#475569',
+            }}
           >
-            Todas as pastas
+            Todas
           </button>
           {folders.map(f => (
             <button
               key={f.id}
               type="button"
               onClick={() => setSelectedFolderId(f.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all border ${
-                selectedFolderId === f.id
-                  ? 'bg-purple-600/30 border-purple-500/50 text-white'
-                  : 'bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/10'
-              }`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: selectedFolderId === f.id ? '1px solid #46178f' : '1px solid #e2e8f0',
+                backgroundColor: selectedFolderId === f.id ? '#f3e8ff' : '#ffffff',
+                color: selectedFolderId === f.id ? '#46178f' : '#475569',
+              }}
             >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: f.color || '#A855F7' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: f.color || '#46178f' }} />
               <span>{f.name}</span>
             </button>
           ))}
         </div>
       )}
 
-      {/* Listagem dos Quizzes */}
+      {/* ─── Listagem dos Quizzes ou Empty State Estilo Kahoot! ─────────────── */}
       {filteredQuizzes.length > 0 ? (
-        <div className={
-          viewMode === 'grid'
-            ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5'
-            : 'flex flex-col gap-2.5'
-        }>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: viewMode === 'grid' 
+              ? 'repeat(auto-fill, minmax(280px, 1fr))' 
+              : '1fr',
+            gap: '20px',
+          }}
+        >
           {filteredQuizzes.map(quiz => (
             <QuizCard
               key={quiz.id}
@@ -237,37 +287,97 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
           ))}
         </div>
       ) : (
-        /* Estado Vazio Elegante */
-        <div className="flex flex-col items-center justify-center p-12 rounded-3xl border border-dashed border-white/15 bg-white/[0.02] text-center max-w-xl mx-auto my-6">
-          <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center mb-4 text-purple-400 shadow-lg shadow-purple-600/10">
-            <FileQuestion className="w-8 h-8" />
+        /* Estado Vazio Amigável Estilo Kahoot! */
+        <div 
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '56px 24px',
+            textAlign: 'center',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.03)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div 
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#f3e8ff',
+              color: '#46178f',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+            }}
+          >
+            <FileQuestion style={{ width: '32px', height: '32px' }} />
           </div>
-          <h3 className="font-extrabold text-lg text-white mb-1">
-            {searchQuery ? 'Nenhum quiz encontrado' : 'Sua biblioteca está vazia'}
+
+          <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#1e1b4b', marginBottom: '8px' }}>
+            Sua biblioteca de quizzes está vazia
           </h3>
-          <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
+
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '440px', lineHeight: 1.6, marginBottom: '24px' }}>
             {searchQuery 
-              ? `Não foram encontrados quizzes correspondentes a "${searchQuery}". Tente outro termo.`
-              : 'Crie seu primeiro quiz interativo ou acesse o banco de questões para montar suas perguntas e lançar rodadas empolgantes!'}
+              ? 'Nenhum quiz encontrado para os termos pesquisados. Tente buscar com outras palavras.'
+              : 'Crie seu primeiro quiz interativo ou gere perguntas completas com Inteligência Artificial para animar sua turma!'}
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
             <button
               type="button"
               onClick={onCreateNewQuiz}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition-all"
+              style={{
+                height: '42px',
+                padding: '0 22px',
+                borderRadius: '8px',
+                backgroundColor: '#1368ce',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '13px',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(19, 104, 206, 0.3)',
+                transition: 'transform 0.1s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
             >
-              <Plus className="w-4 h-4" />
-              <span>Criar Novo Quiz</span>
+              <Plus style={{ width: '16px', height: '16px', strokeWidth: 3 }} />
+              <span>Criar Meu Primeiro Quiz</span>
             </button>
 
             <button
               type="button"
               onClick={onOpenQuestionManager}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-bold transition-all"
+              style={{
+                height: '42px',
+                padding: '0 18px',
+                borderRadius: '8px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #d1d5db',
+                color: '#334155',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#ffffff')}
             >
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              <span>Explorar Banco de Questões</span>
+              <Sparkles style={{ width: '16px', height: '16px', color: '#8b5cf6' }} />
+              <span>Gerar Questões com IA</span>
             </button>
           </div>
         </div>

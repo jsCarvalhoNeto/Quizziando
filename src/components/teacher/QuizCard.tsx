@@ -7,7 +7,6 @@ import {
   Trash, 
   Edit3, 
   HelpCircle,
-  Clock,
   Sparkles
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
@@ -22,14 +21,14 @@ interface QuizCardProps {
   isCompactList?: boolean;
 }
 
-// Paleta de gradientes atraentes para capas quando não houver imagem
+// Gradientes coloridos e vivos para as capas (estilo Kahoot)
 const CARD_GRADIENTS = [
-  'from-purple-900 via-indigo-900 to-slate-900',
-  'from-blue-900 via-sky-950 to-slate-900',
-  'from-emerald-950 via-teal-900 to-slate-900',
-  'from-rose-950 via-pink-950 to-slate-900',
-  'from-amber-950 via-orange-950 to-slate-900',
-  'from-fuchsia-950 via-purple-950 to-slate-900',
+  'linear-gradient(135deg, #46178f 0%, #1368ce 100%)',
+  'linear-gradient(135deg, #059669 0%, #0284c7 100%)',
+  'linear-gradient(135deg, #d97706 0%, #dc2626 100%)',
+  'linear-gradient(135deg, #7c3aed 0%, #db2777 100%)',
+  'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
+  'linear-gradient(135deg, #0d9488 0%, #1e40af 100%)',
 ];
 
 export const QuizCard: React.FC<QuizCardProps> = ({
@@ -69,94 +68,239 @@ export const QuizCard: React.FC<QuizCardProps> = ({
     month: 'short',
   });
 
+  // ─── Visualização em Lista ───────────────────────────────────────────────
   if (isCompactList) {
     return (
-      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 transition-all group">
-        <div className="flex items-center gap-4 min-w-0 flex-1">
+      <div 
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 18px',
+          borderRadius: '12px',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+          transition: 'all 0.15s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: 0, flex: 1 }}>
           {/* Mini Thumbnail */}
-          <div className={`w-14 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 border border-white/10 overflow-hidden relative shadow`}>
+          <div 
+            style={{
+              width: '52px',
+              height: '40px',
+              borderRadius: '8px',
+              background: gradient,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
             {quiz.thumbnailUrl ? (
-              <img src={quiz.thumbnailUrl} alt={quiz.name} className="w-full h-full object-cover" />
+              <img src={quiz.thumbnailUrl} alt={quiz.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <Sparkles className="w-5 h-5 text-white/60" />
+              <Sparkles style={{ width: '18px', height: '18px', color: '#ffffff', opacity: 0.8 }} />
             )}
-            <span className="absolute bottom-0.5 right-1 text-[9px] font-extrabold text-white/90 drop-shadow">
+            <span 
+              style={{
+                position: 'absolute',
+                bottom: '2px',
+                right: '4px',
+                fontSize: '9px',
+                fontWeight: 900,
+                color: '#ffffff',
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+              }}
+            >
               {totalQuestions}Q
             </span>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h4 className="font-bold text-sm text-white truncate" title={quiz.name}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <h4 
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 800,
+                  color: '#1e293b',
+                  margin: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+                title={quiz.name}
+              >
                 {quiz.name}
               </h4>
               {quiz.isFavorite && (
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                <Star style={{ width: '14px', height: '14px', fill: '#eab308', color: '#eab308', flexShrink: 0 }} />
               )}
             </div>
-            <p className="text-xs text-slate-400 truncate">
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
               {quiz.authorName || 'Professor'} · Modificado em {formattedDate}
             </p>
           </div>
         </div>
 
         {/* Ações da Lista */}
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
             onClick={() => onPlay(quiz)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-xs shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              backgroundColor: '#1368ce',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(19, 104, 206, 0.2)',
+            }}
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
+            <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
             <span>Jogar</span>
           </button>
 
           {/* Menu Dropdown */}
-          <div className="relative" ref={menuRef}>
+          <div style={{ position: 'relative' }} ref={menuRef}>
             <button
               type="button"
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              style={{
+                padding: '6px',
+                borderRadius: '6px',
+                color: '#64748b',
+                cursor: 'pointer',
+                border: 'none',
+                background: 'transparent',
+              }}
               aria-label="Mais opções"
             >
-              <MoreVertical className="w-4 h-4" />
+              <MoreVertical style={{ width: '16px', height: '16px' }} />
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-2xl bg-[#141b2d] border border-white/15 p-1.5 shadow-2xl z-50 animate-fade-in backdrop-blur-xl">
+              <div 
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: '6px',
+                  width: '180px',
+                  borderRadius: '10px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '6px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+                  zIndex: 50,
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => { setShowMenu(false); onToggleFavorite(quiz.id); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#334155',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <Star className={`w-4 h-4 ${quiz.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
-                  <span>{quiz.isFavorite ? 'Remover dos favoritos' : 'Favoritar'}</span>
+                  <Star style={{ width: '14px', height: '14px', color: quiz.isFavorite ? '#eab308' : '#94a3b8' }} />
+                  <span>{quiz.isFavorite ? 'Remover Favorito' : 'Favoritar'}</span>
                 </button>
                 {onEdit && (
                   <button
                     type="button"
                     onClick={() => { setShowMenu(false); onEdit(quiz); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#334155',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <Edit3 className="w-4 h-4 text-sky-400" />
+                    <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
                     <span>Editar Perguntas</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => { setShowMenu(false); onDuplicate(quiz.id); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#334155',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <Copy className="w-4 h-4 text-purple-400" />
+                  <Copy style={{ width: '14px', height: '14px', color: '#8b5cf6' }} />
                   <span>Duplicar</span>
                 </button>
-                <div className="h-px bg-white/10 my-1" />
+                <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '4px 0' }} />
                 <button
                   type="button"
                   onClick={() => { setShowMenu(false); onDelete(quiz.id); }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-red-400 hover:text-red-300 hover:bg-red-500/15 transition"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#ef4444',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <Trash className="w-4 h-4" />
+                  <Trash style={{ width: '14px', height: '14px' }} />
                   <span>Excluir</span>
                 </button>
               </div>
@@ -167,119 +311,254 @@ export const QuizCard: React.FC<QuizCardProps> = ({
     );
   }
 
-  // Visualização Padrão em Card / Grid (Estilo Kahoot)
+  // ─── Visualização em Grade Estilo Kahoot! ──────────────────────────────────
   return (
-    <div className="group relative flex flex-col rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-purple-500/40 transition-all duration-300 shadow-lg hover:shadow-purple-500/10 overflow-hidden">
+    <div 
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: '14px',
+        backgroundColor: '#ffffff',
+        border: '1px solid #e2e8f0',
+        overflow: 'hidden',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(0, 0, 0, 0.08)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
+      }}
+    >
       {/* Capa com Thumbnail ou Gradiente */}
-      <div className={`relative w-full h-36 bg-gradient-to-br ${gradient} overflow-hidden flex items-center justify-center`}>
+      <div 
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: '140px',
+          background: gradient,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}
+      >
         {quiz.thumbnailUrl ? (
           <img
             src={quiz.thumbnailUrl}
             alt={quiz.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
-          <div className="flex flex-col items-center gap-1.5 opacity-40 group-hover:opacity-60 transition-opacity">
-            <Sparkles className="w-10 h-10 text-white" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-white">Quizziando</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.85 }}>
+            <Sparkles style={{ width: '32px', height: '32px', color: '#ffffff' }} />
+            <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', color: '#ffffff', textTransform: 'uppercase' }}>
+              Quizziando
+            </span>
           </div>
         )}
 
-        {/* Badge de Quantidade de Perguntas (Canto inferior direito da imagem) */}
-        <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md border border-white/20 text-white text-xs font-bold shadow-md flex items-center gap-1">
-          <HelpCircle className="w-3.5 h-3.5 text-purple-300" />
-          <span>{totalQuestions} perguntas</span>
+        {/* Badge de Quantidade de Perguntas estilo Kahoot */}
+        <div 
+          style={{
+            position: 'absolute',
+            bottom: '10px',
+            right: '10px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            color: '#ffffff',
+            fontSize: '11px',
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+          }}
+        >
+          <HelpCircle style={{ width: '12px', height: '12px' }} />
+          <span>{totalQuestions} {totalQuestions === 1 ? 'questão' : 'questões'}</span>
         </div>
 
         {/* Botão de Favorito Rápido */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(quiz.id); }}
-          className={`absolute top-2.5 left-2.5 p-1.5 rounded-lg backdrop-blur-md border transition-all ${
-            quiz.isFavorite 
-              ? 'bg-amber-500/30 border-amber-400/50 text-amber-300' 
-              : 'bg-black/40 border-white/10 text-white/50 hover:text-white opacity-0 group-hover:opacity-100'
-          }`}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            padding: '6px',
+            borderRadius: '6px',
+            backgroundColor: quiz.isFavorite ? 'rgba(234, 179, 8, 0.9)' : 'rgba(0, 0, 0, 0.4)',
+            color: '#ffffff',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
           title={quiz.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
         >
-          <Star className={`w-4 h-4 ${quiz.isFavorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+          <Star style={{ width: '14px', height: '14px', fill: quiz.isFavorite ? '#ffffff' : 'none' }} />
         </button>
-
-        {/* Hover Overlay com Botão de Jogar Direto */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
-          <button
-            type="button"
-            onClick={() => onPlay(quiz)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-sm shadow-xl shadow-emerald-500/30 scale-95 group-hover:scale-100 transition-all cursor-pointer"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            <span>Iniciar Quiz</span>
-          </button>
-        </div>
       </div>
 
       {/* Corpo do Card */}
-      <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between', gap: '12px' }}>
         <div>
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="font-extrabold text-base text-white line-clamp-2 leading-snug group-hover:text-purple-300 transition-colors" title={quiz.name}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+            <h3 
+              style={{
+                fontSize: '15px',
+                fontWeight: 800,
+                color: '#1e293b',
+                lineHeight: 1.3,
+                margin: 0,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+              title={quiz.name}
+            >
               {quiz.name}
             </h3>
 
             {/* Menu 3 Pontos */}
-            <div className="relative shrink-0" ref={menuRef}>
+            <div style={{ position: 'relative' }} ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                style={{
+                  padding: '4px',
+                  borderRadius: '6px',
+                  color: '#94a3b8',
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
                 aria-label="Opções do quiz"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical style={{ width: '16px', height: '16px' }} />
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 bottom-full mb-1 w-44 rounded-2xl bg-[#141b2d] border border-white/15 p-1.5 shadow-2xl z-50 animate-fade-in backdrop-blur-xl">
+                <div 
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: '100%',
+                    marginBottom: '6px',
+                    width: '180px',
+                    borderRadius: '10px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    padding: '6px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.12)',
+                    zIndex: 50,
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => { setShowMenu(false); onPlay(quiz); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/10 transition"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#1368ce',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#eff6ff')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <Play className="w-4 h-4 fill-current" />
+                    <Play style={{ width: '14px', height: '14px', fill: 'currentColor' }} />
                     <span>Jogar Agora</span>
                   </button>
                   {onEdit && (
                     <button
                       type="button"
                       onClick={() => { setShowMenu(false); onEdit(quiz); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#334155',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
-                      <Edit3 className="w-4 h-4 text-sky-400" />
+                      <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
                       <span>Editar Perguntas</span>
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => { setShowMenu(false); onDuplicate(quiz.id); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#334155',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <Copy className="w-4 h-4 text-purple-400" />
-                    <span>Duplicar Quiz</span>
+                    <Copy style={{ width: '14px', height: '14px', color: '#8b5cf6' }} />
+                    <span>Duplicar</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowMenu(false); onToggleFavorite(quiz.id); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition"
-                  >
-                    <Star className={`w-4 h-4 ${quiz.isFavorite ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
-                    <span>{quiz.isFavorite ? 'Desfavoritar' : 'Favoritar'}</span>
-                  </button>
-                  <div className="h-px bg-white/10 my-1" />
+                  <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '4px 0' }} />
                   <button
                     type="button"
                     onClick={() => { setShowMenu(false); onDelete(quiz.id); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-red-400 hover:text-red-300 hover:bg-red-500/15 transition"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: '#ef4444',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <Trash className="w-4 h-4" />
+                    <Trash style={{ width: '14px', height: '14px' }} />
                     <span>Excluir</span>
                   </button>
                 </div>
@@ -287,27 +566,42 @@ export const QuizCard: React.FC<QuizCardProps> = ({
             </div>
           </div>
 
-          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
-            <span>{quiz.authorName || 'Você'}</span>
-            <span>·</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '11px', color: '#64748b' }}>
+            <span>{quiz.authorName || 'Educador'}</span>
+            <span>•</span>
             <span>{formattedDate}</span>
-          </p>
+          </div>
         </div>
 
-        {/* Rodapé com atalho rápido */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-white/10 text-xs">
-          <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-            <Clock className="w-3 h-3 text-slate-500" />
-            {quiz.timeLimit || 15}s por questão
+        {/* Botão de Ação Estilo Kahoot! */}
+        <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+            {quiz.tagFilter || 'Geral'}
           </span>
 
           <button
             type="button"
             onClick={() => onPlay(quiz)}
-            className="flex items-center gap-1 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 16px',
+              borderRadius: '6px',
+              backgroundColor: '#1368ce',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(19, 104, 206, 0.25)',
+              transition: 'background-color 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
           >
-            <span>Iniciar</span>
-            <Play className="w-3 h-3 fill-current" />
+            <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
+            <span>Jogar</span>
           </button>
         </div>
       </div>
