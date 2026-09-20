@@ -256,6 +256,8 @@ interface Question {
   question_text: string;
   alternatives: Alternative[];
   time_limit?: number;
+  explanation?: string | null;
+  reference_url?: string | null;
 }
 
 interface Alternative {
@@ -502,6 +504,8 @@ export default function App() {
               category_id,
               question_text,
               time_limit,
+              explanation,
+              reference_url,
               alternatives (
                 alternative_text,
                 is_correct
@@ -513,6 +517,8 @@ export default function App() {
               category_id: q.category_id,
               question_text: q.question_text,
               time_limit: q.time_limit,
+              explanation: q.explanation,
+              reference_url: q.reference_url,
               alternatives: q.alternatives.map((alt: any) => ({
                 text: alt.alternative_text,
                 isCorrect: alt.is_correct
@@ -868,6 +874,8 @@ Garanta que:
   const [managerQText, setManagerQText] = useState('');
   const [managerQCatId, setManagerQCatId] = useState('');
   const [managerQTimeLimit, setManagerQTimeLimit] = useState(20);
+  const [managerQExplanation, setManagerQExplanation] = useState('');
+  const [managerQReference, setManagerQReference] = useState('');
   const [managerQAlts, setManagerQAlts] = useState<Alternative[]>([
     { text: '', isCorrect: true },
     { text: '', isCorrect: false },
@@ -1555,6 +1563,12 @@ Garanta que:
       alert('Preencha todas as 4 alternativas!');
       return;
     }
+    if (managerQReference.trim()) {
+      try {
+        const url = new URL(managerQReference.trim());
+        if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Protocolo inválido');
+      } catch { alert('Informe uma URL de referência http ou https válida.'); return; }
+    }
 
     let savedQuestionId = editingQuestionId || Math.random().toString();
     const updatedAlts = [...managerQAlts];
@@ -1568,7 +1582,9 @@ Garanta que:
             .update({
               category_id: managerQCatId,
               question_text: managerQText.trim(),
-              time_limit: managerQTimeLimit
+              time_limit: managerQTimeLimit,
+              explanation: managerQExplanation.trim() || null,
+              reference_url: managerQReference.trim() || null
             })
             .eq('id', editingQuestionId);
 
@@ -1610,7 +1626,9 @@ Garanta que:
             .insert({
               category_id: managerQCatId,
               question_text: managerQText.trim(),
-              time_limit: managerQTimeLimit
+              time_limit: managerQTimeLimit,
+              explanation: managerQExplanation.trim() || null,
+              reference_url: managerQReference.trim() || null
             })
             .select()
             .single();
@@ -1651,6 +1669,8 @@ Garanta que:
       category_id: managerQCatId,
       question_text: managerQText.trim(),
       time_limit: managerQTimeLimit,
+      explanation: managerQExplanation.trim() || null,
+      reference_url: managerQReference.trim() || null,
       alternatives: updatedAlts
     };
 
@@ -1664,6 +1684,8 @@ Garanta que:
     setEditingQuestionId(null);
     setManagerQText('');
     setManagerQTimeLimit(20);
+    setManagerQExplanation('');
+    setManagerQReference('');
     setManagerQAlts([
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -2103,6 +2125,8 @@ Garanta que:
               category_id: q.category_id,
               question_text: q.question_text,
               time_limit: q.time_limit || 20,
+              explanation: q.explanation,
+              reference_url: q.reference_url,
               alternatives: q.alternatives
             }))}
             soundEnabled={soundEnabled}
@@ -3960,6 +3984,13 @@ Garanta que:
                     </div>
                   )}
 
+                  {roundState === 'answered' && currentQuestion?.explanation && (
+                    <div className="rounded-xl border border-violet-400/20 bg-violet-500/10 p-4 text-sm text-violet-100">
+                      <strong>Explicação:</strong> {currentQuestion.explanation}
+                      {currentQuestion.reference_url?.match(/^https?:\/\//i) && <a href={currentQuestion.reference_url} target="_blank" rel="noopener noreferrer" className="block mt-2 text-sky-300 underline">Ver referência</a>}
+                    </div>
+                  )}
+
                   {/* Ações do Organizador na Pergunta */}
                   {role === 'operator' && (
                     <div className="flex justify-end gap-3 pt-3 border-t border-[rgba(255,255,255,0.05)]">
@@ -4628,6 +4659,8 @@ Garanta que:
                 setEditingQuestionId(null);
                 setManagerQText('');
                 setManagerQTimeLimit(20);
+                setManagerQExplanation('');
+                setManagerQReference('');
                 setManagerQAlts([
                   { text: '', isCorrect: true },
                   { text: '', isCorrect: false },
@@ -4735,6 +4768,12 @@ Garanta que:
                     </div>
 
                     {/* Alternativas */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Explicação após a resposta (opcional)</label>
+                      <textarea value={managerQExplanation} onChange={event => setManagerQExplanation(event.target.value)} maxLength={2000} className="input-glow p-2 text-xs min-h-20" placeholder="Explique por que a resposta está correta" />
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Referência (URL opcional)</label>
+                      <input type="url" value={managerQReference} onChange={event => setManagerQReference(event.target.value)} maxLength={500} className="input-glow p-2 text-xs" placeholder="https://..." />
+                    </div>
                     <div>
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
                         Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
@@ -4784,6 +4823,8 @@ Garanta que:
                             setEditingQuestionId(null);
                             setManagerQText('');
                             setManagerQTimeLimit(20);
+                            setManagerQExplanation('');
+                            setManagerQReference('');
                             setManagerQAlts([
                               { text: '', isCorrect: true },
                               { text: '', isCorrect: false },
@@ -5035,7 +5076,9 @@ Garanta que:
                               onClick={() => {
                                 setEditingQuestionId(q.id);
                                 setManagerQText(q.question_text);
-                                setManagerQTimeLimit(q.time_limit || 20);
+                            setManagerQTimeLimit(q.time_limit || 20);
+                            setManagerQExplanation(q.explanation || '');
+                            setManagerQReference(q.reference_url || '');
                                 setManagerQCatId(q.category_id);
                                 setManagerQAlts(q.alternatives.map(alt => ({
                                   text: alt.text,

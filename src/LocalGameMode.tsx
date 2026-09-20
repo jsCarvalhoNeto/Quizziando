@@ -1629,6 +1629,11 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
                   </>
                 )}
 
+                {currentQuestion?.explanation && <div style={{ maxWidth: 800, padding: '18px 24px', borderRadius: 16, background: 'rgba(124,58,237,0.13)', border: '1px solid rgba(167,139,250,0.3)', color: '#E9D5FF', fontSize: 20, lineHeight: 1.5 }}>
+                  <strong>Explicação:</strong> {currentQuestion.explanation}
+                  {currentQuestion.reference_url?.match(/^https?:\/\//i) && <a href={currentQuestion.reference_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: '#93C5FD', fontSize: 15, marginTop: 8 }}>Ver referência</a>}
+                </div>}
+
                 {currentRound < totalRounds && (
                   <p style={{ margin: 0, fontSize: 22, color: 'rgba(148,163,184,0.4)' }}>
                     Próxima rodada em instantes...

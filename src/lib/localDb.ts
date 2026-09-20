@@ -20,6 +20,8 @@ export interface LocalQuestion {
   category_id: string;
   question_text: string;
   time_limit: number;
+  explanation?: string | null;
+  reference_url?: string | null;
   alternatives: LocalAlternative[];
 }
 
@@ -67,6 +69,8 @@ function createSchema(database: Database) {
       category_id TEXT NOT NULL,
       question_text TEXT NOT NULL,
       time_limit INTEGER NOT NULL DEFAULT 20,
+      explanation TEXT,
+      reference_url TEXT,
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
     );
 
@@ -78,6 +82,9 @@ function createSchema(database: Database) {
       FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
     );
   `);
+  const columns = database.exec('PRAGMA table_info(questions)')[0]?.values.map(row => String(row[1])) || [];
+  if (!columns.includes('explanation')) database.run('ALTER TABLE questions ADD COLUMN explanation TEXT');
+  if (!columns.includes('reference_url')) database.run('ALTER TABLE questions ADD COLUMN reference_url TEXT');
 }
 
 function saveDb(database: Database) {
@@ -161,12 +168,12 @@ export function getLocalQuestions(categoryId?: string): LocalQuestion[] {
   let qRows;
   if (categoryId) {
     qRows = database.exec(
-      'SELECT id, category_id, question_text, time_limit FROM questions WHERE category_id = ? ORDER BY rowid',
+      'SELECT id, category_id, question_text, time_limit, explanation, reference_url FROM questions WHERE category_id = ? ORDER BY rowid',
       [categoryId]
     );
   } else {
     qRows = database.exec(
-      'SELECT id, category_id, question_text, time_limit FROM questions ORDER BY rowid'
+      'SELECT id, category_id, question_text, time_limit, explanation, reference_url FROM questions ORDER BY rowid'
     );
   }
 
@@ -190,6 +197,8 @@ export function getLocalQuestions(categoryId?: string): LocalQuestion[] {
       category_id: row[1] as string,
       question_text: row[2] as string,
       time_limit: row[3] as number,
+      explanation: row[4] as string | null,
+      reference_url: row[5] as string | null,
       alternatives,
     };
   });
@@ -201,8 +210,8 @@ export function insertLocalQuestion(
   const database = getDb();
   const id = crypto.randomUUID();
   database.run(
-    'INSERT INTO questions (id, category_id, question_text, time_limit) VALUES (?, ?, ?, ?)',
-    [id, q.category_id, q.question_text, q.time_limit]
+    'INSERT INTO questions (id, category_id, question_text, time_limit, explanation, reference_url) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, q.category_id, q.question_text, q.time_limit, q.explanation || null, q.reference_url || null]
   );
   for (const alt of q.alternatives) {
     const altId = crypto.randomUUID();
@@ -264,6 +273,7 @@ export function restoreLocalBackup(): void {
     // Confirma que o conteúdo é realmente um banco do Quizziando antes de trocar
     // a instância atualmente em uso.
     restored.exec('SELECT id, name FROM categories LIMIT 1');
+    createSchema(restored);
     db?.close();
     db = restored;
     saveDb(restored);
@@ -327,8 +337,8 @@ function writeImportedData(
       database.run('DELETE FROM alternatives WHERE question_id = ?', [question.id]);
     }
     database.run(
-      'INSERT OR REPLACE INTO questions (id, category_id, question_text, time_limit) VALUES (?, ?, ?, ?)',
-      [question.id, question.category_id, question.question_text, question.time_limit],
+      'INSERT OR REPLACE INTO questions (id, category_id, question_text, time_limit, explanation, reference_url) VALUES (?, ?, ?, ?, ?, ?)',
+      [question.id, question.category_id, question.question_text, question.time_limit, question.explanation || null, question.reference_url || null],
     );
     for (const alternative of question.alternatives) {
       database.run(

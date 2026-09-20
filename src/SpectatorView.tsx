@@ -62,6 +62,9 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
           </div>)}
         </div>
         <p style={{ color: '#cbd5e1' }}>{room.answered_count} resposta{room.answered_count === 1 ? '' : 's'} recebida{room.answered_count === 1 ? '' : 's'}</p>
+        {['answered', 'ranking'].includes(room.round_state) && room.current_question.explanation && <p style={{ color: '#e9d5ff' }}><strong>Explicação:</strong> {room.current_question.explanation}
+          {room.current_question.reference_url?.match(/^https?:\/\//i) && <a href={room.current_question.reference_url} target="_blank" rel="noopener noreferrer" style={{ color: '#93c5fd', marginLeft: 10 }}>Ver referência</a>}
+        </p>}
       </section>}
       <section style={{ maxWidth: 760 }}>
         <h2>{room.game_mode === 'team' ? 'Placar dos times' : 'Placar'}</h2>

@@ -5,6 +5,8 @@ export interface RoomQuestion {
   category_id: string;
   question_text: string;
   time_limit: number;
+  explanation?: string | null;
+  reference_url?: string | null;
   alternatives: { text: string; isCorrect?: boolean }[];
 }
 

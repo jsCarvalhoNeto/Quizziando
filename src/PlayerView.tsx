@@ -676,6 +676,10 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                 })()}
               </div>
             )}
+            {roomState?.current_question?.explanation && <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: 'rgba(124,58,237,0.12)', color: '#E9D5FF', lineHeight: 1.5 }}>
+              <strong>Por quê?</strong> {roomState.current_question.explanation}
+              {roomState.current_question.reference_url?.match(/^https?:\/\//i) && <a href={roomState.current_question.reference_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: '#93C5FD', marginTop: 8 }}>Ver referência</a>}
+            </div>}
           </div>
 
           <div style={styles.scoreCard}>
