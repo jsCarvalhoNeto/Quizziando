@@ -241,14 +241,14 @@ const sfx = new SoundFX();
 // ==========================================
 // 📊 TIPAGENS E INTERFACES DO PROJETO
 // ==========================================
-interface CategoryFolder {
+export interface CategoryFolder {
   id: string;
   name: string;
   color: string;
   created_by: string;
 }
 
-interface Category {
+export interface Category {
   id: string;
   name: string;
   color: string;
@@ -256,7 +256,7 @@ interface Category {
   folder_id?: string | null;
 }
 
-interface Question {
+export interface Question {
   id: string;
   category_id: string;
   question_text: string;
@@ -2012,6 +2012,55 @@ Garanta que:
     sfx.playClick();
   };
 
+  const handleCreateFolder = async (name: string, color: string = '#46178F') => {
+    if (!name.trim()) return;
+    const newFolderId = crypto.randomUUID();
+    const newFolder: CategoryFolder = {
+      id: newFolderId,
+      name: name.trim(),
+      color,
+      created_by: authUser?.id || 'local'
+    };
+    if (useRealSupabase && authUser?.id) {
+      try {
+        const { data, error } = await supabase
+          .from('category_folders')
+          .insert({
+            id: newFolderId,
+            name: newFolder.name,
+            color: newFolder.color,
+            created_by: authUser.id
+          })
+          .select()
+          .single();
+        if (!error && data) {
+          setFolders(prev => [...prev, data]);
+          sfx.playCorrect();
+          return;
+        }
+      } catch (e) {
+        console.error('Erro ao criar pasta no Supabase:', e);
+      }
+    }
+    setFolders(prev => [...prev, newFolder]);
+    sfx.playCorrect();
+  };
+
+  const handlePlayCategoryAsQuiz = (category: Category) => {
+    setSelectedCategoryIds([category.id]);
+    const catQuestions = questions.filter(q => q.category_id === category.id);
+    const roundsCount = Math.max(1, Math.min(catQuestions.length || 10, 20));
+    setGameRounds(roundsCount);
+    setShowQuizConfigModal(true);
+    sfx.playClick();
+  };
+
+  const handleEditCategoryQuestions = (category: Category) => {
+    setManagerQCatId(category.id);
+    setShowQuestionManagerModal(true);
+    sfx.playClick();
+  };
+
   const revealAnswer = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'answered' });
     sfx.stopGameSound();
@@ -3032,14 +3081,19 @@ Garanta que:
               teacherEmail={authUser?.email || 'professor@quizziando.com'}
               quizzes={savedQuizzes}
               folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
+              categories={categories}
+              questions={questions}
               activeRooms={hostRooms}
               onLogout={handleLogout}
               onPlayQuiz={handlePlayQuizFromDashboard}
+              onPlayCategory={handlePlayCategoryAsQuiz}
               onEditQuiz={handleEditQuizFromDashboard}
+              onEditCategory={handleEditCategoryQuestions}
               onDuplicateQuiz={handleDuplicateQuizFromDashboard}
               onToggleFavorite={handleToggleFavoriteFromDashboard}
               onDeleteQuiz={handleDeleteQuizFromDashboard}
               onCreateNewQuiz={() => { setShowQuizConfigModal(true); sfx.playClick(); }}
+              onCreateFolder={handleCreateFolder}
               onOpenQuestionManager={() => { setShowQuestionManagerModal(true); sfx.playClick(); }}
               onOpenSettings={() => { setShowSettingsModal(true); sfx.playClick(); }}
               onRecoverRoom={handleRecoverRoom}

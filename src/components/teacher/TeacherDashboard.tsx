@@ -10,15 +10,24 @@ import {
   Monitor, 
   Users,
   Search,
-  Radio
+  Radio,
+  Folder,
+  FolderPlus,
+  ChevronDown,
+  ChevronRight,
+  Layers,
+  X
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
+import { type Category, type Question } from '../../App';
 import QuizLibrary from './QuizLibrary';
 
 interface TeacherDashboardProps {
   teacherEmail: string;
   quizzes: SavedQuiz[];
-  folders?: Array<{ id: string; name: string; color?: string }>;
+  folders: Array<{ id: string; name: string; color?: string }>;
+  categories: Category[];
+  questions: Question[];
   activeRooms?: Array<{
     code: string;
     game_mode: string;
@@ -29,11 +38,14 @@ interface TeacherDashboardProps {
   }>;
   onLogout: () => void;
   onPlayQuiz: (quiz: SavedQuiz) => void;
+  onPlayCategory: (category: Category) => void;
   onEditQuiz?: (quiz: SavedQuiz) => void;
+  onEditCategory?: (category: Category) => void;
   onDuplicateQuiz: (quizId: string) => void;
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onCreateNewQuiz: () => void;
+  onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: () => void;
   onOpenSettings: () => void;
   onRecoverRoom: (roomCode: string) => void;
@@ -41,18 +53,33 @@ interface TeacherDashboardProps {
   onLaunchNewRoom: (mode: 'online' | 'hybrid' | 'local') => void;
 }
 
+const FOLDER_COLORS = [
+  '#46178F', // Roxo Kahoot
+  '#1368CE', // Azul Royal
+  '#059669', // Verde Esmeralda
+  '#D97706', // Âmbar / Laranja
+  '#DB2777', // Rosa
+  '#0D9488', // Turquesa
+  '#DC2626', // Vermelho
+];
+
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   teacherEmail,
   quizzes,
   folders = [],
+  categories = [],
+  questions = [],
   activeRooms = [],
   onLogout,
   onPlayQuiz,
+  onPlayCategory,
   onEditQuiz,
+  onEditCategory,
   onDuplicateQuiz,
   onToggleFavorite,
   onDeleteQuiz,
   onCreateNewQuiz,
+  onCreateFolder,
   onOpenQuestionManager,
   onOpenSettings,
   onRecoverRoom,
@@ -60,7 +87,36 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onLaunchNewRoom,
 }) => {
   const [activeNav, setActiveNav] = useState<'library' | 'launch' | 'active_rooms'>('library');
+  const [isLibraryExpanded, setIsLibraryExpanded] = useState(true);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState('');
+
+  // Estado do Modal de Criar Pasta
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState(FOLDER_COLORS[0]);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
+  const handleOpenCreateFolder = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setNewFolderName('');
+    setNewFolderColor(FOLDER_COLORS[0]);
+    setShowCreateFolderModal(true);
+  };
+
+  const handleConfirmCreateFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    setIsCreatingFolder(true);
+    await onCreateFolder(newFolderName.trim(), newFolderColor);
+    setIsCreatingFolder(false);
+    setShowCreateFolderModal(false);
+  };
+
+  // Nome da pasta selecionada atualmente
+  const currentFolderName = selectedFolderId === null 
+    ? 'Todos os Quizzes' 
+    : folders.find(f => f.id === selectedFolderId)?.name || 'Pasta';
 
   return (
     <div 
@@ -316,63 +372,208 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         </div>
       </header>
 
-      {/* ─── Corpo Principal (Sidebar + Área de Conteúdo) ────────────────────── */}
+      {/* ─── Corpo Principal (Sidebar com Submenu de Pastas + Conteúdo) ──────── */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
-        {/* Sidebar Lateral Esquerda Estilo Kahoot! */}
+        {/* Sidebar Lateral Estilo Kahoot! com Submenu de Pastas */}
         <aside 
           style={{
-            width: '240px',
+            width: '260px',
             backgroundColor: '#ffffff',
             borderRight: '1px solid #e5e7eb',
-            padding: '20px 14px',
+            padding: '20px 12px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             flexShrink: 0,
+            overflowY: 'auto',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
             {/* Navegação Principal */}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveNav('library')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  textAlign: 'left',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  backgroundColor: activeNav === 'library' ? '#f3e8ff' : 'transparent',
-                  color: activeNav === 'library' ? '#46178f' : '#475569',
-                }}
-                onMouseEnter={(e) => {
-                  if (activeNav !== 'library') e.currentTarget.style.backgroundColor = '#f8fafc';
-                }}
-                onMouseLeave={(e) => {
-                  if (activeNav !== 'library') e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <Library style={{ width: '18px', height: '18px', color: activeNav === 'library' ? '#46178f' : '#64748b' }} />
-                <span>Biblioteca</span>
-              </button>
+              
+              {/* Botão Biblioteca (Com Submenu Expansível estilo Kahoot) */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveNav('library');
+                    setIsLibraryExpanded(!isLibraryExpanded);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    textAlign: 'left',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    backgroundColor: activeNav === 'library' ? '#f3e8ff' : 'transparent',
+                    color: activeNav === 'library' ? '#46178f' : '#334155',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Library style={{ width: '18px', height: '18px', color: activeNav === 'library' ? '#46178f' : '#64748b' }} />
+                    <span>Biblioteca</span>
+                  </div>
+                  {isLibraryExpanded ? (
+                    <ChevronDown style={{ width: '15px', height: '15px', color: '#64748b' }} />
+                  ) : (
+                    <ChevronRight style={{ width: '15px', height: '15px', color: '#64748b' }} />
+                  )}
+                </button>
 
+                {/* Submenu da Biblioteca (Pastas e Categorias estilo Kahoot) */}
+                {isLibraryExpanded && (
+                  <div 
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                      paddingLeft: '14px',
+                      marginTop: '6px',
+                      borderLeft: '2px solid #e9d5ff',
+                      marginLeft: '12px',
+                    }}
+                  >
+                    {/* Item: Todos os Quizzes */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveNav('library');
+                        setSelectedFolderId(null);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '7px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: selectedFolderId === null && activeNav === 'library' ? 800 : 600,
+                        backgroundColor: selectedFolderId === null && activeNav === 'library' ? '#e9d5ff' : 'transparent',
+                        color: selectedFolderId === null && activeNav === 'library' ? '#46178f' : '#475569',
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Layers style={{ width: '14px', height: '14px', color: selectedFolderId === null ? '#46178f' : '#64748b' }} />
+                        <span>Todos os Quizzes</span>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
+                        {categories.length + quizzes.length}
+                      </span>
+                    </button>
+
+                    {/* Cabeçalho: Minhas Pastas + Botão (+) Criar Nova Pasta */}
+                    <div 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 10px 4px 10px',
+                        marginTop: '4px',
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Minhas Pastas
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleOpenCreateFolder}
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '6px',
+                          backgroundColor: '#f1f5f9',
+                          color: '#46178f',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid #e2e8f0',
+                          cursor: 'pointer',
+                        }}
+                        title="Criar nova pasta"
+                      >
+                        <Plus style={{ width: '13px', height: '13px', strokeWidth: 3 }} />
+                      </button>
+                    </div>
+
+                    {/* Lista das Pastas Criadas */}
+                    {folders.map(folder => {
+                      const isSelected = selectedFolderId === folder.id && activeNav === 'library';
+                      const count = categories.filter(c => c.folder_id === folder.id).length;
+                      return (
+                        <button
+                          key={folder.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveNav('library');
+                            setSelectedFolderId(folder.id);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: isSelected ? 800 : 600,
+                            backgroundColor: isSelected ? '#e9d5ff' : 'transparent',
+                            color: isSelected ? '#46178f' : '#475569',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                            <Folder style={{ width: '14px', height: '14px', color: folder.color || '#46178f', flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folder.name}>
+                              {folder.name}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginLeft: '6px' }}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {folders.length === 0 && (
+                      <div style={{ padding: '6px 10px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                        Nenhuma pasta criada. Clique no (+) para adicionar.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão Lançar Partida */}
               <button
                 type="button"
                 onClick={() => setActiveNav('launch')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
                   textAlign: 'left',
@@ -393,6 +594,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <span>Lançar Partida</span>
               </button>
 
+              {/* Botão Salas Abertas */}
               <button
                 type="button"
                 onClick={() => setActiveNav('active_rooms')}
@@ -400,8 +602,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: 700,
                   textAlign: 'left',
@@ -418,7 +620,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   if (activeNav !== 'active_rooms') e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Wifi style={{ width: '18px', height: '18px', color: activeNav === 'active_rooms' ? '#46178f' : '#64748b' }} />
                   <span>Salas Abertas</span>
                 </div>
@@ -443,7 +645,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />
 
             {/* Modos de Apresentação */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '8px' }}>
                 Modos de Apresentação
               </span>
@@ -464,7 +666,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   border: 'none',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'background-color 0.15s ease',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -489,7 +690,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   border: 'none',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'background-color 0.15s ease',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -514,7 +714,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   border: 'none',
                   cursor: 'pointer',
                   textAlign: 'left',
-                  transition: 'background-color 0.15s ease',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -528,18 +727,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           {/* Dica Pedagógica no Rodapé da Sidebar */}
           <div 
             style={{
-              padding: '14px',
-              borderRadius: '12px',
+              padding: '12px',
+              borderRadius: '10px',
               backgroundColor: '#faf5ff',
               border: '1px solid #f3e8ff',
+              marginTop: '16px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#46178f', fontSize: '12px', fontWeight: 800, marginBottom: '6px' }}>
-              <Sparkles style={{ width: '14px', height: '14px' }} />
-              <span>Dica Kahoot! Style</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#46178f', fontSize: '11px', fontWeight: 800, marginBottom: '4px' }}>
+              <Sparkles style={{ width: '13px', height: '13px' }} />
+              <span>Dica de Organização</span>
             </div>
-            <p style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.5, margin: 0 }}>
-              Projete o telão no modo <b>Presencial</b> para perguntas visuais e deixe os alunos responderem pelo smartphone com PIN da sala.
+            <p style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.4, margin: 0 }}>
+              Crie pastas por turma, disciplina ou bimestre para manter seus quizzes sempre organizados.
             </p>
           </div>
         </aside>
@@ -549,7 +749,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '28px 36px',
+            padding: '24px 32px',
             display: 'flex',
             flexDirection: 'column',
             gap: '24px',
@@ -559,8 +759,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           {activeRooms.length > 0 && activeNav !== 'active_rooms' && (
             <div 
               style={{
-                padding: '16px 20px',
-                borderRadius: '12px',
+                padding: '14px 18px',
+                borderRadius: '10px',
                 backgroundColor: '#ecfdf5',
                 border: '1px solid #a7f3d0',
                 display: 'flex',
@@ -569,10 +769,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 gap: '16px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#065f46' }}>
-                  Você possui {activeRooms.length} {activeRooms.length === 1 ? 'partida em andamento' : 'partidas em andamento'} aguardando alunos.
+                  Você possui {activeRooms.length} {activeRooms.length === 1 ? 'partida aberta' : 'partidas abertas'} aguardando alunos.
                 </span>
               </div>
               <button
@@ -594,252 +794,27 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             </div>
           )}
 
-          {/* ─── Banner Hero Estilo Kahoot! (Roxo Vibrante) ───────────────────── */}
+          {/* ─── Seção da Biblioteca de Quizzes (Pastas & Categorias em Blocos) ── */}
           {activeNav === 'library' && (
-            <div 
-              style={{
-                background: 'linear-gradient(135deg, #46178f 0%, #361070 100%)',
-                borderRadius: '16px',
-                padding: '32px 36px',
-                color: '#ffffff',
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '32px',
-                boxShadow: '0 10px 25px -5px rgba(70, 23, 143, 0.3)',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Elementos decorativos suaves no fundo */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  right: '-40px',
-                  top: '-40px',
-                  width: '240px',
-                  height: '240px',
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  pointerEvents: 'none',
-                }}
-              />
-
-              {/* Lado Esquerdo do Banner: Título e Mensagem */}
-              <div style={{ flex: 1, maxWidth: '580px', position: 'relative', zIndex: 2 }}>
-                <h1 
-                  style={{
-                    fontSize: '28px',
-                    fontWeight: 800,
-                    lineHeight: 1.2,
-                    marginBottom: '12px',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  Engaje seus alunos e dinamize o aprendizado com o Quizziando
-                </h1>
-                <p 
-                  style={{
-                    fontSize: '14px',
-                    lineHeight: 1.6,
-                    color: '#e9d5ff',
-                    marginBottom: '20px',
-                  }}
-                >
-                  Crie quizzes interativos, lance partidas eletrizantes em tempo real para a turma e acompanhe o desempenho dos estudantes com a melhor experiência de gamificação.
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button
-                    type="button"
-                    onClick={onCreateNewQuiz}
-                    style={{
-                      height: '42px',
-                      padding: '0 20px',
-                      borderRadius: '8px',
-                      backgroundColor: '#ffffff',
-                      color: '#46178f',
-                      fontWeight: 800,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      transition: 'transform 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                  >
-                    <Plus style={{ width: '16px', height: '16px', strokeWidth: 3 }} />
-                    <span>Criar Novo Quiz</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={onOpenQuestionManager}
-                    style={{
-                      height: '42px',
-                      padding: '0 18px',
-                      borderRadius: '8px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      border: '1px solid rgba(255, 255, 255, 0.25)',
-                      color: '#ffffff',
-                      fontWeight: 700,
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.25)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)')}
-                  >
-                    <Sparkles style={{ width: '16px', height: '16px' }} />
-                    <span>Gerar com Inteligência Artificial</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Lado Direito do Banner: Cards de Ação Rápida estilo Kahoot! */}
-              <div 
-                style={{
-                  display: 'flex',
-                  gap: '16px',
-                  position: 'relative',
-                  zIndex: 2,
-                }}
-              >
-                {/* Card 1: Partida Presencial */}
-                <div 
-                  style={{
-                    width: '180px',
-                    padding: '18px 16px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(20, 6, 45, 0.65)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '11px', fontWeight: 800, marginBottom: '6px' }}>
-                      <Monitor style={{ width: '14px', height: '14px' }} />
-                      <span>TELÃO / SALA</span>
-                    </div>
-                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', display: 'block', marginBottom: '4px' }}>
-                      Presencial
-                    </span>
-                    <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.4, margin: 0 }}>
-                      Projete no projetor para toda a turma responder.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onLaunchNewRoom('hybrid')}
-                    style={{
-                      marginTop: '14px',
-                      height: '32px',
-                      borderRadius: '6px',
-                      backgroundColor: '#1368ce',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
-                  >
-                    Iniciar Partida
-                  </button>
-                </div>
-
-                {/* Card 2: Partida Online */}
-                <div 
-                  style={{
-                    width: '180px',
-                    padding: '18px 16px',
-                    borderRadius: '12px',
-                    backgroundColor: 'rgba(20, 6, 45, 0.65)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '11px', fontWeight: 800, marginBottom: '6px' }}>
-                      <Radio style={{ width: '14px', height: '14px' }} />
-                      <span>REALTIME</span>
-                    </div>
-                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff', display: 'block', marginBottom: '4px' }}>
-                      Online Remoto
-                    </span>
-                    <p style={{ fontSize: '11px', color: '#cbd5e1', lineHeight: 1.4, margin: 0 }}>
-                      Partidas sincronizadas em tempo real via internet.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onLaunchNewRoom('online')}
-                    style={{
-                      marginTop: '14px',
-                      height: '32px',
-                      borderRadius: '6px',
-                      backgroundColor: '#8b5cf6',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#7c3aed')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#8b5cf6')}
-                  >
-                    Criar Sala
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── Seção da Biblioteca de Quizzes ─────────────────────────────────── */}
-          {activeNav === 'library' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#1e1b4b', margin: 0 }}>
-                  Minha Biblioteca de Quizzes
-                </h2>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
-                  {quizzes.length} {quizzes.length === 1 ? 'quiz salvo' : 'quizzes salvos'}
-                </span>
-              </div>
-
-              <QuizLibrary
-                quizzes={quizzes}
-                folders={folders}
-                onPlayQuiz={onPlayQuiz}
-                onEditQuiz={onEditQuiz}
-                onDuplicateQuiz={onDuplicateQuiz}
-                onToggleFavorite={onToggleFavorite}
-                onDeleteQuiz={onDeleteQuiz}
-                onCreateNewQuiz={onCreateNewQuiz}
-                onOpenQuestionManager={onOpenQuestionManager}
-              />
-            </div>
+            <QuizLibrary
+              quizzes={quizzes}
+              categories={categories}
+              questions={questions}
+              folders={folders}
+              selectedFolderId={selectedFolderId}
+              currentFolderName={currentFolderName}
+              onSelectFolder={setSelectedFolderId}
+              onCreateFolderClick={handleOpenCreateFolder}
+              onPlayCategory={onPlayCategory}
+              onEditCategory={onEditCategory}
+              onPlayQuiz={onPlayQuiz}
+              onEditQuiz={onEditQuiz}
+              onDuplicateQuiz={onDuplicateQuiz}
+              onToggleFavorite={onToggleFavorite}
+              onDeleteQuiz={onDeleteQuiz}
+              onCreateNewQuiz={onCreateNewQuiz}
+              onOpenQuestionManager={onOpenQuestionManager}
+            />
           )}
 
           {/* ─── Seção Lançar Partida (Atalhos) ─────────────────────────────────── */}
@@ -1113,6 +1088,147 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           )}
         </main>
       </div>
+
+      {/* ─── Modal para Criar Nova Pasta (Estilo Kahoot!) ─────────────────────── */}
+      {showCreateFolderModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+          }}
+          onClick={() => setShowCreateFolderModal(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '400px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderPlus style={{ width: '20px', height: '20px', color: '#46178f' }} />
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1e1b4b', margin: 0 }}>
+                  Criar Nova Pasta
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateFolderModal(false)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCreateFolder} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Nome da Pasta
+                </label>
+                <input 
+                  type="text"
+                  autoFocus
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Ex: 3º Ano B, Robótica, História..."
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    padding: '0 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    color: '#1e293b',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                  Cor de Identificação
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {FOLDER_COLORS.map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewFolderColor(color)}
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        backgroundColor: color,
+                        border: newFolderColor === color ? '3px solid #ffffff' : 'none',
+                        boxShadow: newFolderColor === color ? '0 0 0 2px #46178f' : 'none',
+                        cursor: 'pointer',
+                        transition: 'transform 0.1s ease',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateFolderModal(false)}
+                  style={{
+                    flex: 1,
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f1f5f9',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newFolderName.trim() || isCreatingFolder}
+                  style={{
+                    flex: 1,
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: '#1368ce',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    opacity: !newFolderName.trim() || isCreatingFolder ? 0.6 : 1,
+                  }}
+                >
+                  {isCreatingFolder ? 'Criando...' : 'Salvar Pasta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
