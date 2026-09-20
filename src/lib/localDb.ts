@@ -302,6 +302,7 @@ function createBackup(): void {
 export function mergeFromSupabaseData(categories: LocalCategory[], questions: LocalQuestion[]): void {
   const database = getDb();
   validateImport(categories, questions);
+  createBackup();
   database.run('BEGIN');
   try {
     writeImportedData(database, categories, questions, true);

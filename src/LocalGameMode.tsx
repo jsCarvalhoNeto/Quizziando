@@ -16,6 +16,7 @@ import {
 } from './lib/localDb';
 import logoCurso from './assets/logo_curso.png';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
+import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -515,6 +516,18 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
     setSelectedCatIds(cats.map(category => category.id));
   };
 
+  const handleImportLocalBank = async (file: File) => {
+    if (file.size > 5_000_000) { setDbError('O arquivo deve ter até 5 MB.'); return; }
+    try {
+      const bank = parseQuestionBank(await file.text());
+      mergeFromSupabaseData(bank.categories, bank.questions);
+      refreshLocalContent();
+      setLocalBackupAvailable(hasLocalBackup());
+      setDbError(null);
+      setSyncMessage(`${bank.questions.length} perguntas importadas.${hasLocalBackup() ? ' O acervo anterior pode ser restaurado pelo backup.' : ''}`);
+    } catch (error) { setDbError(error instanceof Error ? error.message : 'Não foi possível importar o acervo.'); }
+  };
+
   const handleSyncWithCloud = (mode: 'merge' | 'replace') => {
     if (!supabaseCategories?.length || !supabaseQuestions?.length) {
       alert('Não foi possível obter dados da nuvem no momento. Verifique sua conexão.');
@@ -939,6 +952,13 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
               <button onClick={() => handleSyncWithCloud('replace')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 700 }}>Substituir e criar backup</button>
             </div>
           )}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => downloadQuestionBank(createQuestionBank(allCategories, allQuestions))} style={{ padding: '10px 14px', borderRadius: 10, color: '#C4B5FD', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.35)', cursor: 'pointer' }}>Exportar acervo JSON</button>
+            <label style={{ padding: '10px 14px', borderRadius: 10, color: '#93C5FD', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(96,165,250,0.35)', cursor: 'pointer' }}>Importar acervo JSON
+              <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportLocalBank(file); event.target.value = ''; }} />
+            </label>
+          </div>
 
           {(localBackupAvailable || syncMessage) && (
             <div role="status" style={{ marginTop: 14, padding: '12px 16px', borderRadius: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#D1FAE5' }}>

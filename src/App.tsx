@@ -15,6 +15,7 @@ import PlayerView, { ANSWER_COLORS } from './PlayerView';
 import SpectatorView from './SpectatorView';
 import { getAvatarUrl } from './lib/avatars';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
+import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
@@ -1924,6 +1925,24 @@ Garanta que:
     // Participantes respondem exclusivamente pela URL da sala, onde a resposta
     // é validada no servidor. Esta tela pertence ao controle do organizador.
     setGameError('Abra o link ou QR Code da sala no dispositivo do participante para responder.');
+  };
+
+  const handleExportQuestionBank = () => {
+    downloadQuestionBank(createQuestionBank(categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon })),
+      questions.map(q => ({ id: q.id, category_id: q.category_id, question_text: q.question_text,
+        time_limit: q.time_limit || 20, explanation: q.explanation, reference_url: q.reference_url,
+        difficulty: q.difficulty, tags: q.tags, alternatives: q.alternatives }))));
+  };
+
+  const handleImportQuestionBank = async (file: File) => {
+    if (!useRealSupabase || !authUser?.id) { alert('Faça login como organizador para importar na nuvem.'); return; }
+    if (file.size > 5_000_000) { alert('O arquivo deve ter até 5 MB.'); return; }
+    try {
+      const bank = parseQuestionBank(await file.text());
+      const result = await gameRpc<{ categories_created: number; questions_created: number }>('quiz_import_question_bank', { p_bank: bank });
+      alert(`${result.questions_created} perguntas importadas. ${result.categories_created} categorias criadas. A página será atualizada.`);
+      window.location.reload();
+    } catch (error) { alert(error instanceof Error ? error.message : 'Não foi possível importar o acervo.'); }
   };
 
   const handleSaveQuiz = () => {
@@ -5080,6 +5099,13 @@ Garanta que:
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button type="button" onClick={handleExportQuestionBank} className="btn-secondary-glow px-3 py-2">Exportar acervo JSON</button>
+                <label className="btn-secondary-glow px-3 py-2 cursor-pointer">Importar acervo JSON
+                  <input type="file" accept=".json,application/json" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }} />
+                </label>
               </div>
 
               {/* Campo de Busca */}
