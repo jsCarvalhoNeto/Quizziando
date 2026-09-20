@@ -441,6 +441,9 @@ export default function App() {
   const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>(readSavedQuizzes);
   const [newQuizName, setNewQuizName] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
+  const availableQuestionCount = questions.filter(q =>
+    selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)
+  ).length;
   
   const handleToggleCategorySelect = (id: string) => {
     setSelectedCategoryIds(prev => {
@@ -1692,8 +1695,12 @@ Garanta que:
     
     if (role === 'operator') {
       await runHostAction(async () => {
-        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter));
-        if (available.length < gameRounds) throw new Error(`Há ${available.length} perguntas para ${gameRounds} rodadas. Reduza as rodadas para jogar sem repetição.`);
+        if (availableQuestionCount < gameRounds) {
+          if (availableQuestionCount === 0) {
+            throw new Error('Nenhuma pergunta corresponde às categorias e aos filtros selecionados. Escolha “Todas” em Dificuldade, limpe a etiqueta ou classifique perguntas no acervo.');
+          }
+          throw new Error(`Há ${availableQuestionCount} perguntas para ${gameRounds} rodadas com os filtros atuais. Reduza as rodadas ou amplie a seleção para jogar sem repetição.`);
+        }
         createRequestRef.current ??= crypto.randomUUID();
         const room = await gameRpc<OnlineRoom>('quiz_create_room', {
           p_request_id: createRequestRef.current, p_mode: gameMode, p_rounds: gameRounds,
@@ -2861,6 +2868,10 @@ Garanta que:
                     <input className="input-glow mt-1 w-full" value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" />
                   </label>
                 </div>
+
+                <p role="status" className={`text-xs ${availableQuestionCount < gameRounds ? 'text-amber-300' : 'text-emerald-300'}`}>
+                  {availableQuestionCount} pergunta{availableQuestionCount === 1 ? '' : 's'} disponível{availableQuestionCount === 1 ? '' : 'is'} para {gameRounds} rodada{gameRounds === 1 ? '' : 's'} com os filtros atuais.
+                </p>
 
                 <button 
                   onClick={handleStartGameSetup}
