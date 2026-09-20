@@ -563,6 +563,7 @@ export default function App() {
   // 🖥️ MODO DE JOGO: 'select' | 'online' | 'local'
   // ==========================================
   const [appMode, setAppMode] = useState<'select' | 'online' | 'local' | 'practice'>('select');
+  const [hybridMode, setHybridMode] = useState(false);
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
@@ -2208,7 +2209,7 @@ Garanta que:
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => { setAppMode('online'); sfx.playClick(); }}
+                  onClick={() => { setHybridMode(false); setAppMode('online'); sfx.playClick(); }}
                   style={{
                     padding: '24px', borderRadius: 20,
                     background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.08))',
@@ -2264,6 +2265,15 @@ Garanta que:
                     </div>
                   </div>
                   <ChevronRight style={{ width: 22, height: 22, color: 'rgba(16,185,129,0.7)', flexShrink: 0 }} />
+                </motion.button>
+
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setHybridMode(true); setGameMode('open'); setAppMode('online'); handleOpenManagerLogin(); }}
+                  style={{ padding: 24, borderRadius: 20, background: 'linear-gradient(135deg, rgba(236,72,153,0.14), rgba(124,58,237,0.08))', border: '1.5px solid rgba(244,114,182,0.35)', cursor: 'pointer', textAlign: 'left', width: '100%', display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <Monitor style={{ width: 36, height: 36, color: '#F9A8D4' }} />
+                  <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>📱 Presencial com celulares</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#CBD5E1' }}>Projete a tela do público e receba respostas dos celulares pela internet.</p></div>
+                  <ChevronRight style={{ width: 22, height: 22, color: '#F9A8D4' }} />
                 </motion.button>
 
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -2828,6 +2838,9 @@ Garanta que:
             ========================================== */}
         {screen === 'operator-dashboard' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto w-full">
+            {hybridMode && <div className="md:col-span-2 rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 text-sm text-pink-100">
+              <strong>Presencial com celulares:</strong> configure o quiz e abra o lobby. Compartilhe o QR com os participantes e abra a tela do público no projetor. É necessária conexão com a internet.
+            </div>}
             {/* Esquerda: Novo Quiz */}
             <div className="glass-card p-6 flex flex-col gap-5 h-fit">
               <h3 className="text-lg font-bold border-b border-[rgba(255,255,255,0.05)] pb-3 flex items-center gap-2">
@@ -3326,6 +3339,11 @@ Garanta que:
                 </div>
               </>
             )}
+
+            {hybridMode && role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
+              <span>Compartilhe o QR com os participantes e abra a projeção em outra janela.</span>
+              <button type="button" onClick={() => window.open(spectatorLink, '_blank', 'noopener,noreferrer')} className="btn-glow px-4 py-2 text-xs">Abrir tela do público</button>
+            </div>}
 
             {role === 'operator' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white/5 border border-[rgba(255,255,255,0.06)]">
@@ -4219,9 +4237,14 @@ Garanta que:
                           );
                         })}
                       </AnimatePresence>
-                    </div>
+            </div>
 
-                    {role === 'operator' && (
+            {hybridMode && role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
+              <span>Abra ou recupere a projeção em outra janela.</span>
+              <button type="button" onClick={() => window.open(spectatorLink, '_blank', 'noopener,noreferrer')} className="btn-glow px-4 py-2 text-xs">Abrir tela do público</button>
+            </div>}
+
+            {role === 'operator' && (
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 10 }}>
                         <button
                           onClick={handleNextRound}
