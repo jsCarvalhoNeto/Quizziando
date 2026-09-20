@@ -15,6 +15,7 @@ import {
   type LocalCategory, type LocalQuestion
 } from './lib/localDb';
 import logoCurso from './assets/logo_curso.png';
+import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -40,6 +41,7 @@ interface SavedLocalGame {
   totalRounds: number;
   hasObstacles: boolean;
   selectedCatIds: string[];
+  selectedQuestionIds?: string[] | null;
   currentRound: number;
   roundStarterIndex: number;
   firstFailed: boolean;
@@ -72,6 +74,7 @@ const ACTIVE_GAME_STORAGE_KEY = 'quizziando_active_local_game_v1';
 
 interface Props {
   onBack: () => void;
+  onSavedQuizzesChange?: (quizzes: SavedQuiz[]) => void;
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
   soundEnabled: boolean;
@@ -214,7 +217,7 @@ const TEAM_BG     = ['rgba(239,68,68,0.15)', 'rgba(59,130,246,0.15)'] as const;
 
 // ─── Componente Principal ────────────────────────────────────────────────────
 
-export default function LocalGameMode({ onBack, supabaseCategories, supabaseQuestions, soundEnabled, onToggleSound }: Props) {
+export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCategories, supabaseQuestions, soundEnabled, onToggleSound }: Props) {
   sfx.enabled = soundEnabled;
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
@@ -234,6 +237,9 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const [tiePolicy, setTiePolicy] = useState<'shared' | 'extra'>('shared');
   const transitionMs = (normal: number) => quickMode ? Math.max(250, Math.round(normal * 0.25)) : normal;
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[] | null>(null);
+  const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>(readSavedQuizzes);
+  const [newQuizName, setNewQuizName] = useState('');
   const [allCategories, setAllCategories]   = useState<LocalCategory[]>([]);
   const [allQuestions, setAllQuestions]     = useState<LocalQuestion[]>([]);
 
@@ -412,6 +418,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     setQuickMode(savedGame.quickMode ?? false);
     setTiePolicy(savedGame.tiePolicy ?? 'shared');
     setSelectedCatIds(savedGame.selectedCatIds);
+    setSelectedQuestionIds(savedGame.selectedQuestionIds ?? null);
     setCurrentRound(savedGame.currentRound);
     setRoundStarterIndex(savedGame.roundStarterIndex);
     setFirstFailed(savedGame.firstFailed);
@@ -468,6 +475,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
       totalRounds,
       hasObstacles,
       selectedCatIds,
+      selectedQuestionIds,
       currentRound,
       roundStarterIndex,
       firstFailed,
@@ -484,7 +492,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
       tiePolicy,
     };
     localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(snapshot));
-  }, [localScreen, players, totalRounds, hasObstacles, selectedCatIds, currentRound, roundStarterIndex, firstFailed, phase, selectedCategory, currentQuestion, usedQuestionIds, timeLeft, rouletteAngle, pointsPerCorrect, pointsOnPass, turnTimeLimit, quickMode, tiePolicy]);
+  }, [localScreen, players, totalRounds, hasObstacles, selectedCatIds, selectedQuestionIds, currentRound, roundStarterIndex, firstFailed, phase, selectedCategory, currentQuestion, usedQuestionIds, timeLeft, rouletteAngle, pointsPerCorrect, pointsOnPass, turnTimeLimit, quickMode, tiePolicy]);
 
   const refreshLocalContent = () => {
     const cats = getLocalCategories();
@@ -560,9 +568,36 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
 
   // ─── Game Logic ────────────────────────────────────────────────────────────
 
+  const handleSaveQuiz = () => {
+    const name = newQuizName.trim();
+    const questionIds = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).map(q => q.id);
+    if (!name || !selectedCatIds.length || !questionIds.length) { setDbError('Informe um nome e selecione categorias com perguntas para salvar o quiz.'); return; }
+    try {
+      const next = saveQuiz({ id: crypto.randomUUID(), name, savedAt: new Date().toISOString(), categoryIds: selectedCatIds,
+        questionIds, rounds: totalRounds, timeLimit: turnTimeLimit, onlineMode: 'team', scoringMode: 'fixed', fixedPoints: pointsPerCorrect,
+        localRules: { hasObstacles, pointsPerCorrect, pointsOnPass, quickMode, tiePolicy } });
+      setSavedQuizzes(next); onSavedQuizzesChange?.(next);
+      setNewQuizName(''); setDbError(null);
+    } catch { setDbError('Não foi possível salvar o quiz neste navegador.'); }
+  };
+
+  const handleLoadQuiz = (quiz: SavedQuiz) => {
+    const categoryIds = quiz.categoryIds.filter(id => allCategories.some(c => c.id === id));
+    const questionIds = quiz.questionIds.filter(id => allQuestions.some(q => q.id === id && categoryIds.includes(q.category_id)));
+    if (!categoryIds.length || !questionIds.length) { setDbError('Este quiz não está no acervo local. Sincronize as perguntas antes de carregá-lo.'); return; }
+    setSelectedCatIds(categoryIds); setSelectedQuestionIds(questionIds);
+    const localRounds = Math.max(2, Math.min(100, Math.ceil(quiz.rounds / 2) * 2));
+    setTotalRounds(localRounds); setIsCustomRounds(![2, 6, 10, 16].includes(localRounds));
+    setTurnTimeLimit(quiz.timeLimit); setHasObstacles(quiz.localRules.hasObstacles);
+    setPointsPerCorrect(quiz.localRules.pointsPerCorrect); setPointsOnPass(quiz.localRules.pointsOnPass);
+    setQuickMode(quiz.localRules.quickMode); setTiePolicy(quiz.localRules.tiePolicy);
+    setDbError(questionIds.length < quiz.questionIds.length ? 'Algumas perguntas salvas não estão mais disponíveis.' :
+      localRounds !== quiz.rounds ? 'O modo presencial usa um número par de rodadas; a quantidade foi ajustada.' : null);
+  };
+
   const startGame = () => {
     const cats = allCategories.filter(c => selectedCatIds.includes(c.id));
-    const qs   = allQuestions.filter(q => selectedCatIds.includes(q.category_id));
+    const qs   = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)));
 
     if (!cats.length) {
       setDbError('⚠️ Sem categorias disponíveis. Volte ao início e recarregue.');
@@ -595,14 +630,14 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
     const used = usedQuestionIdsRef.current;
     let wheelCats = allCategories.filter(category =>
       selectedCatIds.includes(category.id) &&
-      allQuestions.some(question => question.category_id === category.id && !used.includes(question.id)),
+      allQuestions.some(question => question.category_id === category.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id)) && !used.includes(question.id)),
     );
     // Todas as perguntas foram usadas: inicia um novo ciclo antes de sortear,
     // preservando a coerência entre a categoria anunciada e a pergunta exibida.
     if (!wheelCats.length) {
       resetUsedQuestions();
       wheelCats = allCategories.filter(category =>
-        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id),
+        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id))),
       );
     }
     if (hasObstacles) {
@@ -662,7 +697,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
           }
 
           const availableInCategory = allQuestions.filter(question =>
-            question.category_id === chosen.id && !usedQuestionIdsRef.current.includes(question.id),
+            question.category_id === chosen.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id)) && !usedQuestionIdsRef.current.includes(question.id),
           );
           const chosenQuestion = pickRandom(availableInCategory);
           if (chosenQuestion) markQuestionUsed(chosenQuestion.id);
@@ -677,7 +712,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
         }, transitionMs(3800));
       }, transitionMs(2000));
     }, transitionMs(8000));
-  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex, quickMode]);
+  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, selectedQuestionIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex, quickMode]);
 
   const currentResponderIndex = firstFailed
     ? (roundStarterIndex === 0 ? 1 : 0)
@@ -811,7 +846,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
   const winner    = sorted[0];
   const loser     = sorted[1];
   const isTie     = winner.score === loser.score;
-  const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id));
+  const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id) && allQuestions.some(q => q.category_id === c.id && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))));
   const wheelCats = hasObstacles
     ? [
         ...wheelCatsBase,
@@ -915,6 +950,20 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
               <button onClick={discardSavedGame} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#CBD5E1', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }}>Descartar</button>
             </div>
           )}
+
+          <section style={{ padding: 18, borderRadius: 14, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(167,139,250,0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <strong style={{ color: 'white' }}>Quizzes salvos neste navegador</strong>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input className="input-glow" value={newQuizName} onChange={event => setNewQuizName(event.target.value)} maxLength={80} placeholder="Nome do quiz" aria-label="Nome do quiz para salvar" style={{ flex: '1 1 220px' }} />
+              <button type="button" onClick={handleSaveQuiz} className="btn-glow" style={{ padding: '10px 16px' }}>Salvar seleção e regras</button>
+            </div>
+            {savedQuizzes.map(quiz => <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#e2e8f0', fontSize: 14 }}>
+              <span style={{ flex: 1 }}>{quiz.name}</span>
+              <button type="button" onClick={() => handleLoadQuiz(quiz)} style={{ color: '#c4b5fd' }}>Carregar</button>
+              <button type="button" onClick={() => { const next = deleteSavedQuiz(quiz.id); setSavedQuizzes(next); onSavedQuizzesChange?.(next); }} style={{ color: '#fca5a5' }} aria-label={`Excluir ${quiz.name}`}>Excluir</button>
+            </div>)}
+            {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} style={{ color: '#7dd3fc', alignSelf: 'flex-start' }}>Incluir todas as perguntas atuais</button>}
+          </section>
 
           {/* Grid de duas colunas responsivo */}
           <div style={{
@@ -1118,7 +1167,7 @@ export default function LocalGameMode({ onBack, supabaseCategories, supabaseQues
                   }}>
                     <span>📝 Questões disponíveis para o jogo:</span>
                     <strong style={{ color: '#FBBF24', fontSize: 17, fontWeight: 900 }}>
-                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id)).length}
+                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).length}
                     </strong>
                   </div>
                 </div>

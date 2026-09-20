@@ -14,6 +14,7 @@ import { gameRpc, type OnlineRoom } from './lib/onlineGame';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
 import SpectatorView from './SpectatorView';
 import { getAvatarUrl } from './lib/avatars';
+import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import LocalGameMode from './LocalGameMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
@@ -422,6 +423,9 @@ export default function App() {
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[] | null>(null);
+  const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>(readSavedQuizzes);
+  const [newQuizName, setNewQuizName] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
   
   const handleToggleCategorySelect = (id: string) => {
@@ -1031,7 +1035,7 @@ Garanta que:
       };
       return `#${f(m[1])}${f(m[2])}${f(m[3])}`;
     };
-    const cats = eligibleCategories(categories, questions, selectedCategoryIds, usedQuestionIds)
+    const cats = eligibleCategories(categories, questions.filter(q => !selectedQuestionIds || selectedQuestionIds.includes(q.id)), selectedCategoryIds, usedQuestionIds)
       .map(c => ({ ...c, displayColor: c.color }));
     for (let i = 1; i < cats.length; i++) {
       if (cats[i].displayColor.toLowerCase() === cats[i - 1].displayColor.toLowerCase()) {
@@ -1043,7 +1047,7 @@ Garanta que:
       cats[cats.length - 1].displayColor = shade(cats[cats.length - 1].displayColor, -25);
     }
     return cats;
-  }, [categories, questions, selectedCategoryIds, usedQuestionIds]);
+  }, [categories, questions, selectedCategoryIds, selectedQuestionIds, usedQuestionIds]);
 
 
   // Efeito para som global
@@ -1736,7 +1740,7 @@ Garanta que:
     
     if (role === 'operator') {
       await runHostAction(async () => {
-        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id));
+        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)));
         if (available.length < gameRounds) throw new Error(`Há ${available.length} perguntas para ${gameRounds} rodadas. Reduza as rodadas para jogar sem repetição.`);
         createRequestRef.current ??= crypto.randomUUID();
         const room = await gameRpc<OnlineRoom>('quiz_create_room', {
@@ -1838,13 +1842,13 @@ Garanta que:
   // boostTurns: voltas extras vindas do "arremesso" do mouse; startAngle: ângulo atual após arraste manual
   const handleSpinRoulette = async (boostTurns: number = 0, startAngle?: number) => {
     if (hostBusyRef.current || isSpinning || roundState !== 'idle') return;
-    const eligible = eligibleCategories(categories, questions, selectedCategoryIds, usedQuestionIdsRef.current);
+    const eligible = eligibleCategories(categories, questions.filter(q => !selectedQuestionIds || selectedQuestionIds.includes(q.id)), selectedCategoryIds, usedQuestionIdsRef.current);
     if (!eligible.length) { setGameError('As categorias selecionadas não têm mais perguntas disponíveis.'); return; }
     const numSpins = 4 + Math.random() * 4 + boostTurns;
     const finalAngle = (startAngle ?? rouletteAngle) + numSpins * 360 + Math.random() * 360;
     const index = Math.floor(((90 - (finalAngle % 360) + 360) % 360) / 360 * eligible.length);
     const cat = eligible[index];
-    const pool = questions.filter(q => q.category_id === cat.id && !usedQuestionIdsRef.current.includes(q.id));
+    const pool = questions.filter(q => q.category_id === cat.id && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)) && !usedQuestionIdsRef.current.includes(q.id));
     const selectedQ = pool[Math.floor(Math.random() * pool.length)];
     const sequence = ++spinSequenceRef.current;
     const later = (delay: number, action: () => Promise<void>) => {
@@ -1874,6 +1878,31 @@ Garanta que:
     // Participantes respondem exclusivamente pela URL da sala, onde a resposta
     // é validada no servidor. Esta tela pertence ao controle do organizador.
     setGameError('Abra o link ou QR Code da sala no dispositivo do participante para responder.');
+  };
+
+  const handleSaveQuiz = () => {
+    const name = newQuizName.trim();
+    if (!name || selectedCategoryIds.length === 0) { setGameError('Informe um nome e selecione categorias para salvar o quiz.'); return; }
+    const questionIds = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).map(q => q.id);
+    if (!questionIds.length) { setGameError('As categorias selecionadas não têm perguntas disponíveis.'); return; }
+    try {
+      setSavedQuizzes(saveQuiz({ id: crypto.randomUUID(), name, savedAt: new Date().toISOString(), categoryIds: selectedCategoryIds,
+        questionIds, rounds: gameRounds, timeLimit: gameTimeLimit, onlineMode: gameMode, scoringMode, fixedPoints,
+        localRules: { hasObstacles: false, pointsPerCorrect: 100, pointsOnPass: 100, quickMode: false, tiePolicy: 'shared' } }));
+      setNewQuizName(''); setGameError('');
+    } catch { setGameError('Não foi possível salvar o quiz neste navegador.'); }
+  };
+
+  const handleLoadQuiz = (quiz: SavedQuiz) => {
+    const categoryIds = quiz.categoryIds.filter(id => categories.some(c => c.id === id));
+    const questionIds = quiz.questionIds.filter(id => questions.some(q => q.id === id && categoryIds.includes(q.category_id)));
+    if (!categoryIds.length || !questionIds.length) { setGameError('Este quiz não tem mais categorias ou perguntas disponíveis neste acervo.'); return; }
+    setSelectedCategoryIds(categoryIds); setSelectedQuestionIds(questionIds);
+    const onlineRounds = Math.max(1, Math.min(20, quiz.rounds));
+    setGameRounds(onlineRounds); setGameTimeLimit(Math.max(5, Math.min(120, quiz.timeLimit))); setGameMode(quiz.onlineMode);
+    setScoringMode(quiz.scoringMode); setFixedPoints(quiz.fixedPoints);
+    setGameError(questionIds.length < quiz.questionIds.length ? 'Algumas perguntas salvas não estão mais disponíveis.' :
+      onlineRounds !== quiz.rounds ? 'O modo online permite até 20 rodadas; a quantidade foi ajustada.' : '');
   };
 
   const revealAnswer = async () => runHostAction(async () => {
@@ -2067,6 +2096,7 @@ Garanta que:
         <main className="flex-grow flex flex-col justify-center">
           <LocalGameMode
             onBack={() => setAppMode('select')}
+            onSavedQuizzesChange={setSavedQuizzes}
             supabaseCategories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
             supabaseQuestions={questions.map(q => ({
               id: q.id,
@@ -2199,7 +2229,7 @@ Garanta que:
         <p>{gameError}</p>
         {screen === 'game-play' && ['spinning', 'category-reveal', 'question-reveal'].includes(roundState) && <button disabled={hostBusy} onClick={() => void runHostAction(async () => {
           if (roundState === 'spinning') {
-            const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && !usedQuestionIdsRef.current.includes(q.id));
+            const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)) && !usedQuestionIdsRef.current.includes(q.id));
             if (!available.length) throw new Error('Não há perguntas disponíveis.');
             setIsSpinning(false);
             await publishRoomState({ round_state: 'category-reveal', current_question: { id: available[0].id } });
@@ -2794,6 +2824,20 @@ Garanta que:
                   {scoringMode === 'fixed' && <label className="text-xs text-[hsl(var(--text-secondary))]">Pontos por acerto
                     <input type="number" min="0" max="1000" value={fixedPoints} onChange={event => setFixedPoints(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))} className="input-glow mt-1 w-full" />
                   </label>}
+                </div>
+
+                <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase">Quizzes salvos neste navegador</label>
+                  <div className="flex gap-2">
+                    <input className="input-glow min-w-0 flex-1 text-sm" value={newQuizName} onChange={event => setNewQuizName(event.target.value)} maxLength={80} placeholder="Nome do quiz" aria-label="Nome do quiz para salvar" />
+                    <button type="button" onClick={handleSaveQuiz} className="btn-secondary-glow px-3 text-xs">Salvar</button>
+                  </div>
+                  {savedQuizzes.map(quiz => <div key={quiz.id} className="flex items-center gap-2 text-xs">
+                    <span className="min-w-0 flex-1 truncate text-white" title={quiz.name}>{quiz.name}</span>
+                    <button type="button" onClick={() => handleLoadQuiz(quiz)} className="text-violet-300 hover:text-white">Carregar</button>
+                    <button type="button" onClick={() => setSavedQuizzes(deleteSavedQuiz(quiz.id))} className="text-red-300 hover:text-white" aria-label={`Excluir ${quiz.name}`}>Excluir</button>
+                  </div>)}
+                  {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} className="self-start text-xs text-sky-300">Incluir todas as perguntas atuais</button>}
                 </div>
 
                 <button 
