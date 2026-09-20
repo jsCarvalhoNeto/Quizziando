@@ -704,6 +704,8 @@ export default function App() {
   const [aiError, setAiError] = useState('');
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [aiTestingKey, setAiTestingKey] = useState(false);
+  const [aiSavingDraftIds, setAiSavingDraftIds] = useState<string[]>([]);
+  const [aiSavingAllDrafts, setAiSavingAllDrafts] = useState(false);
 
   // Função para testar conexão com o Gemini
   const testGeminiConnection = async (keyToTest: string) => {
@@ -1591,6 +1593,67 @@ Garanta que:
   };
 
 
+
+  const persistAiDraft = async (draft: Question): Promise<Question> => {
+    let savedQuestionId = draft.id || crypto.randomUUID();
+    const alternatives = draft.alternatives.map((alternative) => ({ ...alternative, text: alternative.text.trim() }));
+
+    if (useRealSupabase) {
+      const { data, error } = await supabase.rpc('quiz_save_question', {
+        p_question_id: null,
+        p_category_id: draft.category_id,
+        p_question_text: draft.question_text.trim(),
+        p_time_limit: draft.time_limit || 20,
+        p_explanation: draft.explanation?.trim() || '',
+        p_reference_url: draft.reference_url?.trim() || '',
+        p_difficulty: draft.difficulty || 'medium',
+        p_tags: draft.tags || [],
+        p_alternatives: alternatives
+      });
+      if (error || !data) throw new Error(error?.message || 'Sem dados ao salvar a questão');
+      savedQuestionId = String(data);
+    }
+
+    return { ...draft, id: savedQuestionId, alternatives, difficulty: draft.difficulty || 'medium', tags: draft.tags || [] };
+  };
+
+  const handleAddAiDraftToBank = async (draft: Question) => {
+    setAiSavingDraftIds((ids) => [...ids, draft.id]);
+    try {
+      const savedDraft = await persistAiDraft(draft);
+      setQuestions((current) => [...current, savedDraft]);
+      setAiDrafts((drafts) => drafts.filter((item) => item.id !== draft.id));
+      sfx.playCorrect();
+    } catch (error: any) {
+      alert('Não foi possível adicionar a questão ao banco: ' + (error?.message || 'erro desconhecido'));
+    } finally {
+      setAiSavingDraftIds((ids) => ids.filter((id) => id !== draft.id));
+    }
+  };
+
+  const handleAddAllAiDraftsToBank = async () => {
+    const draftsToSave = [...aiDrafts];
+    if (draftsToSave.length === 0) return;
+    setAiSavingAllDrafts(true);
+    const failedDraftIds: string[] = [];
+
+    for (const draft of draftsToSave) {
+      try {
+        const savedDraft = await persistAiDraft(draft);
+        setQuestions((current) => [...current, savedDraft]);
+        setAiDrafts((drafts) => drafts.filter((item) => item.id !== draft.id));
+      } catch {
+        failedDraftIds.push(draft.id);
+      }
+    }
+
+    setAiSavingAllDrafts(false);
+    if (failedDraftIds.length > 0) {
+      alert(`${draftsToSave.length - failedDraftIds.length} questão(ões) adicionada(s). ${failedDraftIds.length} não puderam ser salvas e continuam como rascunho.`);
+    } else {
+      sfx.playCorrect();
+    }
+  };
 
   const handleManagerSaveQuestion = async () => {
     if (!managerQText.trim() || !managerQCatId) {
@@ -5038,7 +5101,7 @@ Garanta que:
                 )}
 
                 {managerTab === 'manual' ? (
-                  <>
+                  <div key="manual-composer" className="question-composer__workspace">
                     {/* Texto da Pergunta */}
                     <section className="question-form-section question-form-section--prompt">
                       <div className="question-section-heading"><span>01</span><div><h4>Enunciado</h4><p>A pergunta que os participantes vão responder.</p></div></div>
@@ -5151,9 +5214,9 @@ Garanta que:
                         {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
                       </button>
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <div className="flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in">
+                  <div key="ai-composer" className="flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in">
                     <div className="absolute -top-10 -right-10 w-24 h-24 bg-[hsl(var(--secondary))]/10 rounded-full blur-2xl pointer-events-none" />
                     
                     <div>
@@ -5162,7 +5225,7 @@ Garanta que:
                         Assistente de IA Gemini
                       </h4>
                       <p className="text-[11px] text-[hsl(var(--text-muted))] mt-1 leading-relaxed">
-                        Selecione a categoria acima e digite um tema ou anexe um PDF para que a inteligência artificial formule uma pergunta premium completa com alternativas.
+                        Selecione a categoria acima e anexe um PDF ou informe um tema. Com o PDF anexado, você pode gerar as questões sem escrever um prompt.
                       </p>
                     </div>
 
@@ -5176,10 +5239,10 @@ Garanta que:
                     {/* Prompt de Contexto/Tema */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
-                        Tema ou Prompt de Contexto (Opcional)
+                        Tema ou instrução adicional (Opcional)
                       </label>
                       <textarea
-                        placeholder="Ex: Teorema de Pitágoras com aplicação prática do dia a dia, ou Revolução Francesa focado na Tomada da Bastilha..."
+                        placeholder="Deixe em branco para usar somente o PDF anexado. Ex.: foco em exercícios práticos."
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
                         className="input-glow py-2 px-3 text-xs h-20 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none text-white font-medium"
@@ -5295,12 +5358,20 @@ Garanta que:
                       )}
                     </button>
                     {aiDrafts.length > 0 && <div className="flex flex-col gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3">
-                      <strong className="text-xs text-amber-200">Rascunhos pendentes de revisão ({aiDrafts.length})</strong>
+                      <div className="ai-drafts-header">
+                        <strong className="text-xs text-amber-200">Rascunhos pendentes de revisão ({aiDrafts.length})</strong>
+                        <button type="button" className="ai-drafts-add-all" onClick={() => void handleAddAllAiDraftsToBank()} disabled={aiSavingAllDrafts || aiSavingDraftIds.length > 0}>
+                          {aiSavingAllDrafts ? 'Adicionando...' : <><Check className="w-3.5 h-3.5" /> Adicionar todas ao banco</>}
+                        </button>
+                      </div>
                       {aiDrafts.map(draft => <div key={draft.id} className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-white">
                         <p className="font-semibold mb-2">{draft.question_text}</p>
                         {draft.alternatives.map((alternative, index) => <p key={index} className={alternative.isCorrect ? 'text-emerald-300' : 'text-slate-300'}>{'ABCD'[index]}. {alternative.text}{alternative.isCorrect ? ' ✓' : ''}</p>)}
                         {draft.explanation && <p className="mt-2 text-violet-200">Explicação: {draft.explanation}</p>}
                         <div className="flex gap-3 mt-3">
+                          <button type="button" className="text-emerald-300" disabled={aiSavingAllDrafts || aiSavingDraftIds.includes(draft.id)} onClick={() => void handleAddAiDraftToBank(draft)}>
+                            {aiSavingDraftIds.includes(draft.id) ? 'Adicionando...' : 'Adicionar ao banco'}
+                          </button>
                           <button type="button" className="text-violet-300" onClick={() => {
                             setEditingAiDraftId(draft.id); setEditingQuestionId(null); setManagerTab('manual');
                             setManagerQCatId(draft.category_id); setManagerQText(draft.question_text);

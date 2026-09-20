@@ -235,6 +235,7 @@ select.input-glow option {
 }
 
 .question-composer__heading { padding-right: 40px; }
+.question-composer__workspace { display: flex; flex-direction: column; gap: 12px; }
 .question-composer__intro {
   color: hsl(var(--text-muted));
   font-size: 12px;
@@ -423,6 +424,24 @@ select.input-glow option {
   font-size: 10px;
 }
 .ai-model-manager__chips button { color: #e9d5ff; font-size: 15px; line-height: 10px; }
+
+.ai-drafts-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ai-drafts-add-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: #d1fae5;
+  background: rgba(16,185,129,.15);
+  border: 1px solid rgba(52,211,153,.3);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.ai-drafts-add-all:hover:not(:disabled) { background: rgba(16,185,129,.24); }
+.ai-drafts-add-all:disabled { cursor: not-allowed; opacity: .55; }
 
 @media (max-width: 560px) {
   .question-composer, .question-library { padding: 20px 16px; }
