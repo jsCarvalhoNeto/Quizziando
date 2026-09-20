@@ -252,6 +252,32 @@ select.input-glow option {
   border-radius: 14px;
   background: rgba(255,255,255,.018);
 }
+.question-category-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.question-category-add { display: inline-flex; align-items: center; gap: 3px; color: hsl(var(--primary)); font-size: 10px; font-weight: 800; white-space: nowrap; }
+.question-category-add:hover { color: #c4b5fd; }
+.quick-category-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(130px, .8fr) minmax(160px, 1.4fr) 32px auto;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+.quick-category-form > div { display: grid; gap: 2px; }
+.quick-category-form strong { color: hsl(var(--text-primary)); font-size: 11px; }
+.quick-category-form span { color: hsl(var(--text-muted)); font-size: 9px; line-height: 1.25; }
+.quick-category-form input[type="color"] { width: 32px; height: 32px; padding: 2px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.quick-category-form__save { padding: 9px 11px; border-radius: 9px; background: hsl(var(--primary)); color: white; font-size: 10px; font-weight: 800; }
+
+.folder-expand-button { display: inline-flex; align-items: center; justify-content: center; padding: 4px; color: #94a3b8; transition: transform .2s ease, color .2s ease; }
+.folder-expand-button:hover { color: white; }
+.folder-expand-button--open { transform: rotate(90deg); color: hsl(var(--primary)); }
+.folder-subcategories { display: grid; gap: 5px; margin: 4px 0 0 28px; padding: 9px 0 2px 12px; border-left: 1px solid rgba(124,58,237,.35); }
+.folder-subcategory { display: flex; align-items: center; gap: 8px; min-height: 25px; color: hsl(var(--text-secondary)); font-size: 12px; cursor: pointer; }
+.folder-subcategory:hover { color: white; }
+.folder-subcategories__empty { color: hsl(var(--text-muted)); font-size: 11px; }
+.folder-subcategories__open { display: inline-flex; align-items: center; gap: 3px; width: fit-content; margin-top: 3px; color: hsl(var(--primary)); font-size: 10px; font-weight: 800; }
 
 .question-form-section {
   padding: 16px;
@@ -402,6 +428,8 @@ select.input-glow option {
   .question-composer, .question-library { padding: 20px 16px; }
   .question-basics, .question-details__grid { grid-template-columns: 1fr; }
   .question-manager-modal { border-radius: 18px !important; }
+  .quick-category-form { grid-template-columns: 1fr 32px auto; }
+  .quick-category-form > div { grid-column: 1 / -1; }
 }
 
 

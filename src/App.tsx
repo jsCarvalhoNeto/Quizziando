@@ -441,6 +441,7 @@ export default function App() {
   // Estados de Pastas
   const [folders, setFolders] = useState<CategoryFolder[]>([]);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
 
   // Estados de Categorias (declarados aqui para o useEffect)
   const [categories, setCategories] = useState<Category[]>([]);
@@ -639,6 +640,7 @@ export default function App() {
   // Estados de Configuração do Painel do Operador
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#EC4899');
+  const [showQuickCategoryForm, setShowQuickCategoryForm] = useState(false);
   
   // Estados para Edição de Categorias
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
@@ -1389,8 +1391,8 @@ Garanta que:
   
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
-    if (newCatName.trim().length > 20) {
-      alert('O nome da categoria pode ter no máximo 20 caracteres!');
+    if (newCatName.trim().length > 80) {
+      alert('O nome da categoria pode ter no máximo 80 caracteres!');
       return;
     }
     if (categories.length >= 20) {
@@ -1551,8 +1553,8 @@ Garanta que:
       alert('O nome da categoria não pode ser vazio!');
       return;
     }
-    if (editingCatName.trim().length > 20) {
-      alert('O nome da categoria pode ter no máximo 20 caracteres!');
+    if (editingCatName.trim().length > 80) {
+      alert('O nome da categoria pode ter no máximo 80 caracteres!');
       return;
     }
 
@@ -3097,6 +3099,8 @@ Garanta que:
                   <div className="flex flex-col gap-2.5 max-h-60 overflow-y-auto pr-1">
                     {folders.map(folder => {
                       const isEditing = editingFolderId === folder.id;
+                      const isExpanded = expandedFolderIds.includes(folder.id);
+                      const folderCategories = categories.filter(c => c.folder_id === folder.id);
                       return (
                         <div key={folder.id} className="flex flex-col gap-2 p-3 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl group transition hover:bg-[rgba(255,255,255,0.08)]">
                           <div className="flex items-center justify-between gap-3">
@@ -3141,11 +3145,44 @@ Garanta que:
                                 <div className="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button onClick={(e) => { e.stopPropagation(); startEditFolder(folder); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-blue-400 transition" title="Editar"><Pencil className="w-4 h-4" /></button>
                                   <button onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.id); }} className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition" title="Excluir"><Trash className="w-4 h-4" /></button>
-                                  <ChevronRight className="w-4 h-4 text-gray-400 ml-1 cursor-pointer" onClick={() => setActiveFolderId(folder.id)} />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setExpandedFolderIds((ids) => ids.includes(folder.id) ? ids.filter((id) => id !== folder.id) : [...ids, folder.id]);
+                                    }}
+                                    className={`folder-expand-button ${isExpanded ? 'folder-expand-button--open' : ''}`}
+                                    title={isExpanded ? 'Recolher subcategorias' : 'Mostrar subcategorias'}
+                                    aria-label={isExpanded ? `Recolher subcategorias de ${folder.name}` : `Mostrar subcategorias de ${folder.name}`}
+                                    aria-expanded={isExpanded}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </>
                             )}
                           </div>
+                          {!isEditing && isExpanded && (
+                            <div className="folder-subcategories">
+                              {folderCategories.length > 0 ? folderCategories.map((category) => (
+                                <label key={category.id} className="folder-subcategory">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCategoryIds.includes(category.id)}
+                                    onChange={() => handleToggleCategorySelect(category.id)}
+                                    className="w-4 h-4 rounded accent-[hsl(var(--primary))] cursor-pointer flex-shrink-0"
+                                  />
+                                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: category.color }} />
+                                  <span className="truncate">{category.name}</span>
+                                </label>
+                              )) : (
+                                <span className="folder-subcategories__empty">Nenhuma subcategoria nesta pasta.</span>
+                              )}
+                              <button type="button" className="folder-subcategories__open" onClick={() => setActiveFolderId(folder.id)}>
+                                Gerenciar pasta <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -3159,7 +3196,7 @@ Garanta que:
                               <>
                                 <div className="flex items-center gap-2 flex-grow">
                                   <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" maxLength={20} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                  <input type="text" maxLength={80} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
@@ -3204,7 +3241,7 @@ Garanta que:
 
                     {!isCreatingFolder ? (
                       <>
-                        <input type="text" placeholder="Nova categoria..." maxLength={20} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                        <input type="text" placeholder="Nova categoria..." maxLength={80} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
                         <div className="flex justify-between items-center gap-4">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
@@ -3249,7 +3286,7 @@ Garanta que:
                               <>
                                 <div className="flex items-center gap-2 flex-grow">
                                   <input type="color" value={editingCatColor} onChange={e => setEditingCatColor(e.target.value)} className="w-6 h-6 rounded border-0 cursor-pointer bg-transparent flex-shrink-0" />
-                                  <input type="text" maxLength={20} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
+                                  <input type="text" maxLength={80} value={editingCatName} onChange={e => setEditingCatName(e.target.value)} className="input-glow py-1 px-2 text-xs flex-grow font-semibold" placeholder="Nome..." />
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                   <button onClick={() => handleSaveCategoryEdit(cat.id)} className="p-1 text-emerald-400 hover:text-emerald-300 transition" title="Salvar"><Check className="w-4 h-4" /></button>
@@ -3289,7 +3326,7 @@ Garanta que:
                   </div>
 
                   <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-[rgba(255,255,255,0.05)]">
-                    <input type="text" placeholder="Nova categoria nesta pasta..." maxLength={20} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
+                    <input type="text" placeholder="Nova categoria nesta pasta..." maxLength={80} value={newCatName} onChange={e => setNewCatName(e.target.value)} className="input-glow py-2 text-sm" />
                     <div className="flex justify-between items-center gap-4">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-[hsl(var(--text-secondary))]">Cor:</span>
@@ -4934,9 +4971,14 @@ Garanta que:
                 {/* Selecionar Categoria (Comum a ambos) */}
                 <div className="question-basics">
                 <div>
-                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
-                    Categoria da Questão <span className="text-red-400">*</span>
-                  </label>
+                  <div className="question-category-label">
+                    <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
+                      Categoria da Questão <span className="text-red-400">*</span>
+                    </label>
+                    <button type="button" onClick={() => setShowQuickCategoryForm((visible) => !visible)} className="question-category-add">
+                      <Plus className="w-3 h-3" /> Nova categoria
+                    </button>
+                  </div>
                   <select
                     value={managerQCatId}
                     onChange={(e) => setManagerQCatId(e.target.value)}
@@ -4965,6 +5007,35 @@ Garanta que:
                   />
                 </div>
                 </div>
+                {showQuickCategoryForm && (
+                  <div className="quick-category-form">
+                    <div>
+                      <strong>Nova categoria</strong>
+                      <span>Ela ficará disponível imediatamente nesta lista.</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={newCatName}
+                      onChange={(event) => setNewCatName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        if (!newCatName.trim()) return;
+                        void handleAddCategory();
+                        setShowQuickCategoryForm(false);
+                      }}
+                      maxLength={80}
+                      placeholder="Ex.: História"
+                      className="input-glow py-2 px-3 text-xs"
+                    />
+                    <input type="color" value={newCatColor} onChange={(event) => setNewCatColor(event.target.value)} title="Cor da categoria" />
+                    <button type="button" className="quick-category-form__save" onClick={() => {
+                      if (!newCatName.trim()) return;
+                      void handleAddCategory();
+                      setShowQuickCategoryForm(false);
+                    }}>Adicionar</button>
+                  </div>
+                )}
 
                 {managerTab === 'manual' ? (
                   <>
