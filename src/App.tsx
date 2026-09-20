@@ -5,7 +5,8 @@ import {
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, List, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
-  Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette
+  Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
+  ArrowLeft
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -579,6 +580,17 @@ export default function App() {
   const [appMode, setAppMode] = useState<'select' | 'online' | 'local' | 'practice'>('select');
   const [hybridMode, setHybridMode] = useState(false);
 
+  const handleReturnToSelectMode = () => {
+    if (screen === 'game-play' || screen === 'game-lobby') {
+      const confirmLeave = window.confirm('Deseja realmente sair da sala atual e retornar à escolha do tipo de quiz?');
+      if (!confirmLeave) return;
+      setScreen(authUser ? 'operator-dashboard' : 'welcome');
+    }
+    sfx.stopLobby();
+    sfx.playClick();
+    setAppMode('select');
+  };
+
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
   const [hostRooms, setHostRooms] = useState<HostRoomSummary[]>([]);
@@ -704,6 +716,7 @@ export default function App() {
   const [aiError, setAiError] = useState('');
   const [aiTestStatus, setAiTestStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [aiTestingKey, setAiTestingKey] = useState(false);
+  const [aiTestErrorMsg, setAiTestErrorMsg] = useState('');
   const [aiSavingDraftIds, setAiSavingDraftIds] = useState<string[]>([]);
   const [aiSavingAllDrafts, setAiSavingAllDrafts] = useState(false);
 
@@ -711,10 +724,12 @@ export default function App() {
   const testGeminiConnection = async (keyToTest: string) => {
     if (!keyToTest.trim()) {
       setAiTestStatus('error');
+      setAiTestErrorMsg('Informe uma chave válida.');
       return;
     }
     setAiTestingKey(true);
     setAiTestStatus('idle');
+    setAiTestErrorMsg('');
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${keyToTest}`, {
         method: 'POST',
@@ -725,12 +740,28 @@ export default function App() {
       });
       if (response.ok) {
         setAiTestStatus('success');
+        setAiTestErrorMsg('');
         localStorage.setItem('geminiApiKey', keyToTest);
       } else {
         setAiTestStatus('error');
+        let details = '';
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) details = errData.error.message;
+        } catch {
+          // ignore
+        }
+        if (response.status === 429) {
+          setAiTestErrorMsg('Cota excedida (Erro 429). Aguarde alguns instantes.');
+        } else if (response.status === 400 || response.status === 403) {
+          setAiTestErrorMsg('Chave inválida ou não autorizada.');
+        } else {
+          setAiTestErrorMsg(details || `Erro HTTP ${response.status}`);
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       setAiTestStatus('error');
+      setAiTestErrorMsg(e?.message || 'Falha de rede ao conectar.');
     } finally {
       setAiTestingKey(false);
     }
@@ -840,7 +871,39 @@ Garanta que:
       });
 
       if (!response.ok) {
-        throw new Error(`Falha na API do Gemini: ${response.statusText} (${response.status})`);
+        let details = '';
+        try {
+          const errData = await response.json();
+          if (errData?.error?.message) {
+            details = errData.error.message;
+          }
+        } catch {
+          // ignore
+        }
+
+        if (response.status === 429) {
+          throw new Error(
+            `Cota ou limite de requisições excedido na API do Gemini (Erro 429). ` +
+            `Aguarde de 1 a 2 minutos antes de tentar novamente, reduza o número de questões ou escolha o modelo "gemini-1.5-flash" nas configurações.` +
+            (details ? ` [Detalhes: ${details}]` : '')
+          );
+        } else if (response.status === 400 || response.status === 403) {
+          throw new Error(
+            `Chave de API do Gemini inválida ou sem permissão (Erro ${response.status}). ` +
+            `Verifique sua chave nas configurações.` +
+            (details ? ` [Detalhes: ${details}]` : '')
+          );
+        } else if (response.status === 404) {
+          throw new Error(
+            `Modelo "${geminiModel}" não encontrado (Erro 404). ` +
+            `Selecione outro modelo suportado (ex: gemini-1.5-flash) nas configurações.` +
+            (details ? ` [Detalhes: ${details}]` : '')
+          );
+        } else {
+          throw new Error(
+            `Falha na API do Gemini (${response.status}): ${details || response.statusText || 'Erro na comunicação'}`
+          );
+        }
       }
 
       const data = await response.json();
@@ -2239,24 +2302,40 @@ Garanta que:
         {/* Header */}
         <div className="max-w-[1200px] w-full mx-auto px-6">
           <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
+            <button
+              type="button"
+              onClick={() => { setAppMode('select'); sfx.playClick(); }}
+              className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition group cursor-pointer border border-transparent hover:border-white/10"
+              title="Voltar à tela de escolha do tipo de quiz"
+            >
+              <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle group-hover:scale-105 transition-transform" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent group-hover:opacity-90">
                   Quizziando
                 </h1>
-                <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold flex items-center gap-1">
+                <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold flex items-center gap-1 group-hover:text-emerald-300 transition-colors">
                   <Monitor style={{ width: 12, height: 12 }} /> Modo Local
                 </span>
               </div>
-            </div>
-            <button
-              onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
-              className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.05)] text-[hsl(var(--text-secondary))]"
-              title={soundEnabled ? 'Silenciar' : 'Ativar som'}
-            >
-              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
             </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => { setAppMode('select'); sfx.playClick(); }}
+                className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 group cursor-pointer"
+                title="Voltar à tela de escolha do tipo de quiz"
+              >
+                <ArrowLeft className="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
+                <span className="hidden sm:inline">Trocar Modo</span>
+              </button>
+              <button
+                onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
+                className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.05)] text-[hsl(var(--text-secondary))]"
+                title={soundEnabled ? 'Silenciar' : 'Ativar som'}
+              >
+                {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+              </button>
+            </div>
           </header>
         </div>
         <main className="flex-grow flex flex-col justify-center">
@@ -2429,19 +2508,42 @@ Garanta que:
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6"
         style={isGamePlayFullscreen ? { display: 'none' } : undefined}
       >
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
+        <button
+          type="button"
+          onClick={handleReturnToSelectMode}
+          className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition group cursor-pointer border border-transparent hover:border-white/10"
+          title="Clique para voltar à tela de escolha do tipo de quiz"
+        >
+          <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle group-hover:scale-105 transition-transform" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent">
-              Quizziando
-            </h1>
-            <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent group-hover:opacity-90">
+                Quizziando
+              </h1>
+            </div>
+            <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold flex items-center gap-1.5 group-hover:text-purple-300 transition-colors">
               Live Realtime Arena
             </span>
           </div>
-        </div>
+        </button>
         
-        <div className="flex items-center gap-3 relative">
+        <div className="flex items-center gap-2 sm:gap-3 relative">
+          {/* BADGE DO MODO ATUAL */}
+          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20">
+            {hybridMode ? '📱 Presencial com Celulares' : '🌐 Modo Online'}
+          </div>
+
+          {/* BOTÃO VOLTAR / TROCAR MODO */}
+          <button
+            type="button"
+            onClick={handleReturnToSelectMode}
+            className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-purple-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 group cursor-pointer"
+            title="Voltar à tela de escolha do tipo de quiz"
+          >
+            <ArrowLeft className="w-4 h-4 text-purple-400 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="hidden sm:inline">Trocar Modo</span>
+          </button>
+
           {/* BOTÃO DE CONFIGURAÇÕES */}
           <button 
             onClick={() => { setShowSettingsModal(true); sfx.playClick(); }}
@@ -2831,8 +2933,8 @@ Garanta que:
                               </span>
                             )}
                             {aiTestStatus === 'error' && (
-                              <span className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20">
-                                ✗ Chave Inválida
+                              <span className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20" title={aiTestErrorMsg}>
+                                ✗ {aiTestErrorMsg ? `Falha: ${aiTestErrorMsg}` : 'Chave Inválida'}
                               </span>
                             )}
                           </div>
