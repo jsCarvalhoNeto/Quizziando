@@ -19,7 +19,7 @@ import {
 interface LoginPortalProps {
   onJoinAsStudent: (pin: string) => void;
   onGoToPractice: () => void;
-  onTeacherLogin: (email: string, pass: string, isSignUp: boolean) => Promise<{ success: boolean; error?: string }>;
+  onTeacherLogin: (email: string, pass: string, isSignUp: boolean) => Promise<{ success: boolean; error?: string; info?: string; needsConfirmation?: boolean }>;
   onDemoLogin: () => void;
   initialPin?: string;
 }
@@ -42,6 +42,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [teacherError, setTeacherError] = useState('');
+  const [teacherInfo, setTeacherInfo] = useState('');
 
   const handleStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,13 +59,18 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
       setTeacherError('Preencha o e-mail e a senha para continuar.');
+      setTeacherInfo('');
       return;
     }
     setIsLoading(true);
     setTeacherError('');
+    setTeacherInfo('');
     const result = await onTeacherLogin(email.trim(), password, isSignUp);
     setIsLoading(false);
-    if (!result.success && result.error) {
+    if (result.needsConfirmation && result.info) {
+      setTeacherInfo(result.info);
+      setIsSignUp(false);
+    } else if (!result.success && result.error) {
       setTeacherError(result.error);
     }
   };
@@ -416,8 +422,14 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   </div>
 
                   {teacherError && (
-                    <p className="text-red-400 text-xs font-semibold text-center p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                    <p className="text-red-400 text-xs font-semibold text-center p-2 rounded-lg bg-red-500/10 border border-red-500/20 leading-relaxed">
                       {teacherError}
+                    </p>
+                  )}
+
+                  {teacherInfo && (
+                    <p className="text-emerald-300 text-xs font-semibold text-center p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 leading-relaxed">
+                      {teacherInfo}
                     </p>
                   )}
 
@@ -465,7 +477,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs text-slate-400">
                   <button
                     type="button"
-                    onClick={() => { setIsSignUp(!isSignUp); setTeacherError(''); }}
+                    onClick={() => { setIsSignUp(!isSignUp); setTeacherError(''); setTeacherInfo(''); }}
                     className="text-purple-300 hover:text-purple-200 underline font-medium cursor-pointer"
                   >
                     {isSignUp ? 'Já possui conta? Entrar' : 'Criar nova conta'}

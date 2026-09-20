@@ -1381,7 +1381,22 @@ Garanta que:
           email,
           password: pass,
         });
-        if (error) return { success: false, error: 'E-mail ou senha incorretos. Tente novamente.' };
+        if (error) {
+          console.warn('[Supabase Auth Login Error]', error);
+          if (error.message?.toLowerCase().includes('email not confirmed')) {
+            return {
+              success: false,
+              error: 'E-mail cadastrado, mas ainda não confirmado. Verifique o link de confirmação na sua caixa de entrada ou spam.'
+            };
+          }
+          if (error.message?.toLowerCase().includes('invalid login credentials')) {
+            return {
+              success: false,
+              error: 'E-mail ou senha incorretos. Se acabou de criar a conta, certifique-se de ter clicado no link de confirmação enviado para seu e-mail.'
+            };
+          }
+          return { success: false, error: error.message || 'E-mail ou senha incorretos. Tente novamente.' };
+        }
         if (data.user) {
           setAuthUser({ id: data.user.id, email: data.user.email || email });
           setAppMode('online');
@@ -1394,16 +1409,38 @@ Garanta que:
           email,
           password: pass,
         });
-        if (error) return { success: false, error: error.message || 'Erro ao criar conta. Tente novamente.' };
-        if (data.user) {
+        if (error) {
+          console.warn('[Supabase Auth SignUp Error]', error);
+          return { success: false, error: error.message || 'Erro ao criar conta. Tente novamente.' };
+        }
+
+        // Se o e-mail já existia, o Supabase retorna identities vazio por segurança
+        if (data.user && data.user.identities && data.user.identities.length === 0) {
+          return {
+            success: false,
+            error: 'Este e-mail já está cadastrado. Faça login com sua senha ou confirme o e-mail recebido.'
+          };
+        }
+
+        // Se o Supabase retornou sessão ativa imediatamente (confirmação de email desligada)
+        if (data.session && data.user) {
           setAuthUser({ id: data.user.id, email: data.user.email || email });
           setAppMode('online');
           setScreen('operator-dashboard');
           sfx.playCorrect();
           return { success: true };
         }
+
+        // Se o usuário foi criado mas requer confirmação por e-mail (comportamento padrão do Supabase)
+        if (data.user && !data.session) {
+          return {
+            success: false,
+            needsConfirmation: true,
+            info: 'Conta criada com sucesso! Enviamos um link de confirmação para o seu e-mail. Por favor, confirme-o na sua caixa de entrada (ou spam) para poder fazer login.'
+          };
+        }
       }
-      return { success: false, error: 'Não foi possível concluir o login.' };
+      return { success: false, error: 'Não foi possível concluir a operação.' };
     } catch {
       return { success: false, error: 'Erro inesperado. Verifique sua conexão.' };
     }
