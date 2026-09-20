@@ -42,6 +42,8 @@ interface SavedLocalGame {
   hasObstacles: boolean;
   selectedCatIds: string[];
   selectedQuestionIds?: string[] | null;
+  difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
+  tagFilter?: string;
   currentRound: number;
   roundStarterIndex: number;
   firstFailed: boolean;
@@ -71,6 +73,11 @@ type RoundPhase =
 type LocalScreen = 'loading' | 'setup' | 'game' | 'podium';
 
 const ACTIVE_GAME_STORAGE_KEY = 'quizziando_active_local_game_v1';
+
+function matchesLocalQuestion(question: LocalQuestion, ids: string[] | null, difficulty: string, tag: string): boolean {
+  return (!ids || ids.includes(question.id)) && (difficulty === 'all' || (question.difficulty || 'medium') === difficulty) &&
+    (!tag.trim() || (question.tags || []).some(value => value.toLocaleLowerCase('pt-BR').includes(tag.trim().toLocaleLowerCase('pt-BR'))));
+}
 
 interface Props {
   onBack: () => void;
@@ -238,6 +245,8 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   const transitionMs = (normal: number) => quickMode ? Math.max(250, Math.round(normal * 0.25)) : normal;
   const [selectedCatIds, setSelectedCatIds] = useState<string[]>([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[] | null>(null);
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [tagFilter, setTagFilter] = useState('');
   const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>(readSavedQuizzes);
   const [newQuizName, setNewQuizName] = useState('');
   const [allCategories, setAllCategories]   = useState<LocalCategory[]>([]);
@@ -419,6 +428,8 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
     setTiePolicy(savedGame.tiePolicy ?? 'shared');
     setSelectedCatIds(savedGame.selectedCatIds);
     setSelectedQuestionIds(savedGame.selectedQuestionIds ?? null);
+    setDifficultyFilter(savedGame.difficultyFilter ?? 'all');
+    setTagFilter(savedGame.tagFilter ?? '');
     setCurrentRound(savedGame.currentRound);
     setRoundStarterIndex(savedGame.roundStarterIndex);
     setFirstFailed(savedGame.firstFailed);
@@ -476,6 +487,8 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
       hasObstacles,
       selectedCatIds,
       selectedQuestionIds,
+      difficultyFilter,
+      tagFilter,
       currentRound,
       roundStarterIndex,
       firstFailed,
@@ -492,7 +505,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
       tiePolicy,
     };
     localStorage.setItem(ACTIVE_GAME_STORAGE_KEY, JSON.stringify(snapshot));
-  }, [localScreen, players, totalRounds, hasObstacles, selectedCatIds, selectedQuestionIds, currentRound, roundStarterIndex, firstFailed, phase, selectedCategory, currentQuestion, usedQuestionIds, timeLeft, rouletteAngle, pointsPerCorrect, pointsOnPass, turnTimeLimit, quickMode, tiePolicy]);
+  }, [localScreen, players, totalRounds, hasObstacles, selectedCatIds, selectedQuestionIds, difficultyFilter, tagFilter, currentRound, roundStarterIndex, firstFailed, phase, selectedCategory, currentQuestion, usedQuestionIds, timeLeft, rouletteAngle, pointsPerCorrect, pointsOnPass, turnTimeLimit, quickMode, tiePolicy]);
 
   const refreshLocalContent = () => {
     const cats = getLocalCategories();
@@ -570,11 +583,11 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
 
   const handleSaveQuiz = () => {
     const name = newQuizName.trim();
-    const questionIds = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).map(q => q.id);
+    const questionIds = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).map(q => q.id);
     if (!name || !selectedCatIds.length || !questionIds.length) { setDbError('Informe um nome e selecione categorias com perguntas para salvar o quiz.'); return; }
     try {
       const next = saveQuiz({ id: crypto.randomUUID(), name, savedAt: new Date().toISOString(), categoryIds: selectedCatIds,
-        questionIds, rounds: totalRounds, timeLimit: turnTimeLimit, onlineMode: 'team', scoringMode: 'fixed', fixedPoints: pointsPerCorrect,
+        questionIds, rounds: totalRounds, timeLimit: turnTimeLimit, onlineMode: 'team', scoringMode: 'fixed', fixedPoints: pointsPerCorrect, difficultyFilter, tagFilter,
         localRules: { hasObstacles, pointsPerCorrect, pointsOnPass, quickMode, tiePolicy } });
       setSavedQuizzes(next); onSavedQuizzesChange?.(next);
       setNewQuizName(''); setDbError(null);
@@ -586,6 +599,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
     const questionIds = quiz.questionIds.filter(id => allQuestions.some(q => q.id === id && categoryIds.includes(q.category_id)));
     if (!categoryIds.length || !questionIds.length) { setDbError('Este quiz não está no acervo local. Sincronize as perguntas antes de carregá-lo.'); return; }
     setSelectedCatIds(categoryIds); setSelectedQuestionIds(questionIds);
+    setDifficultyFilter(quiz.difficultyFilter || 'all'); setTagFilter(quiz.tagFilter || '');
     const localRounds = Math.max(2, Math.min(100, Math.ceil(quiz.rounds / 2) * 2));
     setTotalRounds(localRounds); setIsCustomRounds(![2, 6, 10, 16].includes(localRounds));
     setTurnTimeLimit(quiz.timeLimit); setHasObstacles(quiz.localRules.hasObstacles);
@@ -597,7 +611,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
 
   const startGame = () => {
     const cats = allCategories.filter(c => selectedCatIds.includes(c.id));
-    const qs   = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)));
+    const qs   = allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter));
 
     if (!cats.length) {
       setDbError('⚠️ Sem categorias disponíveis. Volte ao início e recarregue.');
@@ -630,14 +644,14 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
     const used = usedQuestionIdsRef.current;
     let wheelCats = allCategories.filter(category =>
       selectedCatIds.includes(category.id) &&
-      allQuestions.some(question => question.category_id === category.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id)) && !used.includes(question.id)),
+      allQuestions.some(question => question.category_id === category.id && matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter) && !used.includes(question.id)),
     );
     // Todas as perguntas foram usadas: inicia um novo ciclo antes de sortear,
     // preservando a coerência entre a categoria anunciada e a pergunta exibida.
     if (!wheelCats.length) {
       resetUsedQuestions();
       wheelCats = allCategories.filter(category =>
-        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id))),
+        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id && matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter)),
       );
     }
     if (hasObstacles) {
@@ -697,7 +711,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
           }
 
           const availableInCategory = allQuestions.filter(question =>
-            question.category_id === chosen.id && (!selectedQuestionIds || selectedQuestionIds.includes(question.id)) && !usedQuestionIdsRef.current.includes(question.id),
+            question.category_id === chosen.id && matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter) && !usedQuestionIdsRef.current.includes(question.id),
           );
           const chosenQuestion = pickRandom(availableInCategory);
           if (chosenQuestion) markQuestionUsed(chosenQuestion.id);
@@ -712,7 +726,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
         }, transitionMs(3800));
       }, transitionMs(2000));
     }, transitionMs(8000));
-  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, selectedQuestionIds, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex, quickMode]);
+  }, [isSpinning, phase, allCategories, allQuestions, selectedCatIds, selectedQuestionIds, difficultyFilter, tagFilter, usedQuestionIds, rouletteAngle, hasObstacles, roundStarterIndex, quickMode]);
 
   const currentResponderIndex = firstFailed
     ? (roundStarterIndex === 0 ? 1 : 0)
@@ -846,7 +860,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   const winner    = sorted[0];
   const loser     = sorted[1];
   const isTie     = winner.score === loser.score;
-  const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id) && allQuestions.some(q => q.category_id === c.id && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))));
+  const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id) && allQuestions.some(q => q.category_id === c.id && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)));
   const wheelCats = hasObstacles
     ? [
         ...wheelCatsBase,
@@ -963,6 +977,17 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
               <button type="button" onClick={() => { const next = deleteSavedQuiz(quiz.id); setSavedQuizzes(next); onSavedQuizzesChange?.(next); }} style={{ color: '#fca5a5' }} aria-label={`Excluir ${quiz.name}`}>Excluir</button>
             </div>)}
             {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} style={{ color: '#7dd3fc', alignSelf: 'flex-start' }}>Incluir todas as perguntas atuais</button>}
+          </section>
+
+          <section style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+            <label style={{ color: '#CBD5E1', fontSize: 14, flex: '1 1 180px' }}>Dificuldade
+              <select className="input-glow" value={difficultyFilter} onChange={event => setDifficultyFilter(event.target.value as typeof difficultyFilter)} style={{ display: 'block', width: '100%', marginTop: 6 }}>
+                <option value="all">Todas</option><option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
+              </select>
+            </label>
+            <label style={{ color: '#CBD5E1', fontSize: 14, flex: '1 1 220px' }}>Etiqueta
+              <input className="input-glow" value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" style={{ display: 'block', width: '100%', marginTop: 6 }} />
+            </label>
           </section>
 
           {/* Grid de duas colunas responsivo */}
@@ -1167,7 +1192,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
                   }}>
                     <span>📝 Questões disponíveis para o jogo:</span>
                     <strong style={{ color: '#FBBF24', fontSize: 17, fontWeight: 900 }}>
-                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).length}
+                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
                     </strong>
                   </div>
                 </div>

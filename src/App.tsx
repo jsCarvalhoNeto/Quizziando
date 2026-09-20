@@ -258,6 +258,14 @@ interface Question {
   time_limit?: number;
   explanation?: string | null;
   reference_url?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
+}
+
+function matchesQuestionFilters(question: Question, selectedIds: string[] | null, difficulty: string, tag: string): boolean {
+  return (!selectedIds || selectedIds.includes(question.id)) &&
+    (difficulty === 'all' || (question.difficulty || 'medium') === difficulty) &&
+    (!tag.trim() || (question.tags || []).some(value => value.toLocaleLowerCase('pt-BR').includes(tag.trim().toLocaleLowerCase('pt-BR'))));
 }
 
 interface Alternative {
@@ -426,6 +434,8 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[] | null>(null);
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'easy' | 'medium' | 'hard'>('all');
+  const [tagFilter, setTagFilter] = useState('');
   const [savedQuizzes, setSavedQuizzes] = useState<SavedQuiz[]>(readSavedQuizzes);
   const [newQuizName, setNewQuizName] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -506,6 +516,8 @@ export default function App() {
               time_limit,
               explanation,
               reference_url,
+              difficulty,
+              tags,
               alternatives (
                 alternative_text,
                 is_correct
@@ -519,6 +531,8 @@ export default function App() {
               time_limit: q.time_limit,
               explanation: q.explanation,
               reference_url: q.reference_url,
+              difficulty: q.difficulty,
+              tags: q.tags,
               alternatives: q.alternatives.map((alt: any) => ({
                 text: alt.alternative_text,
                 isCorrect: alt.is_correct
@@ -876,6 +890,8 @@ Garanta que:
   const [managerQTimeLimit, setManagerQTimeLimit] = useState(20);
   const [managerQExplanation, setManagerQExplanation] = useState('');
   const [managerQReference, setManagerQReference] = useState('');
+  const [managerQDifficulty, setManagerQDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [managerQTags, setManagerQTags] = useState('');
   const [managerQAlts, setManagerQAlts] = useState<Alternative[]>([
     { text: '', isCorrect: true },
     { text: '', isCorrect: false },
@@ -1043,7 +1059,7 @@ Garanta que:
       };
       return `#${f(m[1])}${f(m[2])}${f(m[3])}`;
     };
-    const cats = eligibleCategories(categories, questions.filter(q => !selectedQuestionIds || selectedQuestionIds.includes(q.id)), selectedCategoryIds, usedQuestionIds)
+    const cats = eligibleCategories(categories, questions.filter(q => matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)), selectedCategoryIds, usedQuestionIds)
       .map(c => ({ ...c, displayColor: c.color }));
     for (let i = 1; i < cats.length; i++) {
       if (cats[i].displayColor.toLowerCase() === cats[i - 1].displayColor.toLowerCase()) {
@@ -1055,7 +1071,7 @@ Garanta que:
       cats[cats.length - 1].displayColor = shade(cats[cats.length - 1].displayColor, -25);
     }
     return cats;
-  }, [categories, questions, selectedCategoryIds, selectedQuestionIds, usedQuestionIds]);
+  }, [categories, questions, selectedCategoryIds, selectedQuestionIds, difficultyFilter, tagFilter, usedQuestionIds]);
 
 
   // Efeito para som global
@@ -1584,7 +1600,9 @@ Garanta que:
               question_text: managerQText.trim(),
               time_limit: managerQTimeLimit,
               explanation: managerQExplanation.trim() || null,
-              reference_url: managerQReference.trim() || null
+              reference_url: managerQReference.trim() || null,
+              difficulty: managerQDifficulty,
+              tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean)
             })
             .eq('id', editingQuestionId);
 
@@ -1628,7 +1646,9 @@ Garanta que:
               question_text: managerQText.trim(),
               time_limit: managerQTimeLimit,
               explanation: managerQExplanation.trim() || null,
-              reference_url: managerQReference.trim() || null
+              reference_url: managerQReference.trim() || null,
+              difficulty: managerQDifficulty,
+              tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean)
             })
             .select()
             .single();
@@ -1671,6 +1691,8 @@ Garanta que:
       time_limit: managerQTimeLimit,
       explanation: managerQExplanation.trim() || null,
       reference_url: managerQReference.trim() || null,
+      difficulty: managerQDifficulty,
+      tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean),
       alternatives: updatedAlts
     };
 
@@ -1686,6 +1708,8 @@ Garanta que:
     setManagerQTimeLimit(20);
     setManagerQExplanation('');
     setManagerQReference('');
+    setManagerQDifficulty('medium');
+    setManagerQTags('');
     setManagerQAlts([
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -1762,7 +1786,7 @@ Garanta que:
     
     if (role === 'operator') {
       await runHostAction(async () => {
-        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)));
+        const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter));
         if (available.length < gameRounds) throw new Error(`Há ${available.length} perguntas para ${gameRounds} rodadas. Reduza as rodadas para jogar sem repetição.`);
         createRequestRef.current ??= crypto.randomUUID();
         const room = await gameRpc<OnlineRoom>('quiz_create_room', {
@@ -1864,13 +1888,13 @@ Garanta que:
   // boostTurns: voltas extras vindas do "arremesso" do mouse; startAngle: ângulo atual após arraste manual
   const handleSpinRoulette = async (boostTurns: number = 0, startAngle?: number) => {
     if (hostBusyRef.current || isSpinning || roundState !== 'idle') return;
-    const eligible = eligibleCategories(categories, questions.filter(q => !selectedQuestionIds || selectedQuestionIds.includes(q.id)), selectedCategoryIds, usedQuestionIdsRef.current);
+    const eligible = eligibleCategories(categories, questions.filter(q => matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)), selectedCategoryIds, usedQuestionIdsRef.current);
     if (!eligible.length) { setGameError('As categorias selecionadas não têm mais perguntas disponíveis.'); return; }
     const numSpins = 4 + Math.random() * 4 + boostTurns;
     const finalAngle = (startAngle ?? rouletteAngle) + numSpins * 360 + Math.random() * 360;
     const index = Math.floor(((90 - (finalAngle % 360) + 360) % 360) / 360 * eligible.length);
     const cat = eligible[index];
-    const pool = questions.filter(q => q.category_id === cat.id && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)) && !usedQuestionIdsRef.current.includes(q.id));
+    const pool = questions.filter(q => q.category_id === cat.id && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter) && !usedQuestionIdsRef.current.includes(q.id));
     const selectedQ = pool[Math.floor(Math.random() * pool.length)];
     const sequence = ++spinSequenceRef.current;
     const later = (delay: number, action: () => Promise<void>) => {
@@ -1905,11 +1929,11 @@ Garanta que:
   const handleSaveQuiz = () => {
     const name = newQuizName.trim();
     if (!name || selectedCategoryIds.length === 0) { setGameError('Informe um nome e selecione categorias para salvar o quiz.'); return; }
-    const questionIds = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id))).map(q => q.id);
+    const questionIds = questions.filter(q => selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)).map(q => q.id);
     if (!questionIds.length) { setGameError('As categorias selecionadas não têm perguntas disponíveis.'); return; }
     try {
       setSavedQuizzes(saveQuiz({ id: crypto.randomUUID(), name, savedAt: new Date().toISOString(), categoryIds: selectedCategoryIds,
-        questionIds, rounds: gameRounds, timeLimit: gameTimeLimit, onlineMode: gameMode, scoringMode, fixedPoints,
+        questionIds, rounds: gameRounds, timeLimit: gameTimeLimit, onlineMode: gameMode, scoringMode, fixedPoints, difficultyFilter, tagFilter,
         localRules: { hasObstacles: false, pointsPerCorrect: 100, pointsOnPass: 100, quickMode: false, tiePolicy: 'shared' } }));
       setNewQuizName(''); setGameError('');
     } catch { setGameError('Não foi possível salvar o quiz neste navegador.'); }
@@ -1920,6 +1944,7 @@ Garanta que:
     const questionIds = quiz.questionIds.filter(id => questions.some(q => q.id === id && categoryIds.includes(q.category_id)));
     if (!categoryIds.length || !questionIds.length) { setGameError('Este quiz não tem mais categorias ou perguntas disponíveis neste acervo.'); return; }
     setSelectedCategoryIds(categoryIds); setSelectedQuestionIds(questionIds);
+    setDifficultyFilter(quiz.difficultyFilter || 'all'); setTagFilter(quiz.tagFilter || '');
     const onlineRounds = Math.max(1, Math.min(20, quiz.rounds));
     setGameRounds(onlineRounds); setGameTimeLimit(Math.max(5, Math.min(120, quiz.timeLimit))); setGameMode(quiz.onlineMode);
     setScoringMode(quiz.scoringMode); setFixedPoints(quiz.fixedPoints);
@@ -2127,6 +2152,8 @@ Garanta que:
               time_limit: q.time_limit || 20,
               explanation: q.explanation,
               reference_url: q.reference_url,
+              difficulty: q.difficulty,
+              tags: q.tags,
               alternatives: q.alternatives
             }))}
             soundEnabled={soundEnabled}
@@ -2253,7 +2280,7 @@ Garanta que:
         <p>{gameError}</p>
         {screen === 'game-play' && ['spinning', 'category-reveal', 'question-reveal'].includes(roundState) && <button disabled={hostBusy} onClick={() => void runHostAction(async () => {
           if (roundState === 'spinning') {
-            const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && (!selectedQuestionIds || selectedQuestionIds.includes(q.id)) && !usedQuestionIdsRef.current.includes(q.id));
+            const available = questions.filter(q => selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter) && !usedQuestionIdsRef.current.includes(q.id));
             if (!available.length) throw new Error('Não há perguntas disponíveis.');
             setIsSpinning(false);
             await publishRoomState({ round_state: 'category-reveal', current_question: { id: available[0].id } });
@@ -2862,6 +2889,17 @@ Garanta que:
                     <button type="button" onClick={() => setSavedQuizzes(deleteSavedQuiz(quiz.id))} className="text-red-300 hover:text-white" aria-label={`Excluir ${quiz.name}`}>Excluir</button>
                   </div>)}
                   {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} className="self-start text-xs text-sky-300">Incluir todas as perguntas atuais</button>}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs text-[hsl(var(--text-secondary))]">Dificuldade
+                    <select className="input-glow mt-1 w-full" value={difficultyFilter} onChange={event => setDifficultyFilter(event.target.value as typeof difficultyFilter)}>
+                      <option value="all">Todas</option><option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
+                    </select>
+                  </label>
+                  <label className="text-xs text-[hsl(var(--text-secondary))]">Etiqueta
+                    <input className="input-glow mt-1 w-full" value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" />
+                  </label>
                 </div>
 
                 <button 
@@ -4661,6 +4699,8 @@ Garanta que:
                 setManagerQTimeLimit(20);
                 setManagerQExplanation('');
                 setManagerQReference('');
+                setManagerQDifficulty('medium');
+                setManagerQTags('');
                 setManagerQAlts([
                   { text: '', isCorrect: true },
                   { text: '', isCorrect: false },
@@ -4774,6 +4814,16 @@ Garanta que:
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Referência (URL opcional)</label>
                       <input type="url" value={managerQReference} onChange={event => setManagerQReference(event.target.value)} maxLength={500} className="input-glow p-2 text-xs" placeholder="https://..." />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Dificuldade
+                        <select className="input-glow mt-1 w-full text-xs" value={managerQDifficulty} onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}>
+                          <option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
+                        </select>
+                      </label>
+                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Etiquetas (separe por vírgula)
+                        <input className="input-glow mt-1 w-full text-xs" value={managerQTags} onChange={event => setManagerQTags(event.target.value)} maxLength={300} placeholder="8º ano, ciência" />
+                      </label>
+                    </div>
                     <div>
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
                         Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
@@ -4825,6 +4875,8 @@ Garanta que:
                             setManagerQTimeLimit(20);
                             setManagerQExplanation('');
                             setManagerQReference('');
+                            setManagerQDifficulty('medium');
+                            setManagerQTags('');
                             setManagerQAlts([
                               { text: '', isCorrect: true },
                               { text: '', isCorrect: false },
@@ -5064,7 +5116,9 @@ Garanta que:
                               <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--text-secondary))]">
                                 {cat?.name || 'Sem Categoria'}
                               </span>
+                              <span className="text-[10px] text-violet-300">{q.difficulty === 'easy' ? 'Fácil' : q.difficulty === 'hard' ? 'Difícil' : 'Média'}</span>
                             </div>
+                            {!!q.tags?.length && <span className="text-[10px] text-sky-300">{q.tags.join(' · ')}</span>}
                             <p className="text-sm font-semibold text-white leading-relaxed">
                               {q.question_text}
                             </p>
@@ -5079,6 +5133,8 @@ Garanta que:
                             setManagerQTimeLimit(q.time_limit || 20);
                             setManagerQExplanation(q.explanation || '');
                             setManagerQReference(q.reference_url || '');
+                            setManagerQDifficulty(q.difficulty || 'medium');
+                            setManagerQTags((q.tags || []).join(', '));
                                 setManagerQCatId(q.category_id);
                                 setManagerQAlts(q.alternatives.map(alt => ({
                                   text: alt.text,

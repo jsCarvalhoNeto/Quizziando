@@ -22,6 +22,8 @@ export interface LocalQuestion {
   time_limit: number;
   explanation?: string | null;
   reference_url?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
   alternatives: LocalAlternative[];
 }
 
@@ -71,6 +73,8 @@ function createSchema(database: Database) {
       time_limit INTEGER NOT NULL DEFAULT 20,
       explanation TEXT,
       reference_url TEXT,
+      difficulty TEXT NOT NULL DEFAULT 'medium',
+      tags TEXT NOT NULL DEFAULT '[]',
       FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
     );
 
@@ -85,6 +89,8 @@ function createSchema(database: Database) {
   const columns = database.exec('PRAGMA table_info(questions)')[0]?.values.map(row => String(row[1])) || [];
   if (!columns.includes('explanation')) database.run('ALTER TABLE questions ADD COLUMN explanation TEXT');
   if (!columns.includes('reference_url')) database.run('ALTER TABLE questions ADD COLUMN reference_url TEXT');
+  if (!columns.includes('difficulty')) database.run("ALTER TABLE questions ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'medium'");
+  if (!columns.includes('tags')) database.run("ALTER TABLE questions ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
 }
 
 function saveDb(database: Database) {
@@ -168,12 +174,12 @@ export function getLocalQuestions(categoryId?: string): LocalQuestion[] {
   let qRows;
   if (categoryId) {
     qRows = database.exec(
-      'SELECT id, category_id, question_text, time_limit, explanation, reference_url FROM questions WHERE category_id = ? ORDER BY rowid',
+      'SELECT id, category_id, question_text, time_limit, explanation, reference_url, difficulty, tags FROM questions WHERE category_id = ? ORDER BY rowid',
       [categoryId]
     );
   } else {
     qRows = database.exec(
-      'SELECT id, category_id, question_text, time_limit, explanation, reference_url FROM questions ORDER BY rowid'
+      'SELECT id, category_id, question_text, time_limit, explanation, reference_url, difficulty, tags FROM questions ORDER BY rowid'
     );
   }
 
@@ -199,6 +205,8 @@ export function getLocalQuestions(categoryId?: string): LocalQuestion[] {
       time_limit: row[3] as number,
       explanation: row[4] as string | null,
       reference_url: row[5] as string | null,
+      difficulty: row[6] as LocalQuestion['difficulty'],
+      tags: JSON.parse(String(row[7] || '[]')) as string[],
       alternatives,
     };
   });
@@ -210,8 +218,8 @@ export function insertLocalQuestion(
   const database = getDb();
   const id = crypto.randomUUID();
   database.run(
-    'INSERT INTO questions (id, category_id, question_text, time_limit, explanation, reference_url) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, q.category_id, q.question_text, q.time_limit, q.explanation || null, q.reference_url || null]
+    'INSERT INTO questions (id, category_id, question_text, time_limit, explanation, reference_url, difficulty, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, q.category_id, q.question_text, q.time_limit, q.explanation || null, q.reference_url || null, q.difficulty || 'medium', JSON.stringify(q.tags || [])]
   );
   for (const alt of q.alternatives) {
     const altId = crypto.randomUUID();
@@ -337,8 +345,8 @@ function writeImportedData(
       database.run('DELETE FROM alternatives WHERE question_id = ?', [question.id]);
     }
     database.run(
-      'INSERT OR REPLACE INTO questions (id, category_id, question_text, time_limit, explanation, reference_url) VALUES (?, ?, ?, ?, ?, ?)',
-      [question.id, question.category_id, question.question_text, question.time_limit, question.explanation || null, question.reference_url || null],
+      'INSERT OR REPLACE INTO questions (id, category_id, question_text, time_limit, explanation, reference_url, difficulty, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [question.id, question.category_id, question.question_text, question.time_limit, question.explanation || null, question.reference_url || null, question.difficulty || 'medium', JSON.stringify(question.tags || [])],
     );
     for (const alternative of question.alternatives) {
       database.run(

@@ -9,6 +9,8 @@ export interface SavedQuiz {
   onlineMode: 'open' | 'duel' | 'team';
   scoringMode: 'speed' | 'fixed';
   fixedPoints: number;
+  difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
+  tagFilter?: string;
   localRules: {
     hasObstacles: boolean;
     pointsPerCorrect: number;
