@@ -10,7 +10,12 @@ import {
   MoreVertical,
   Edit3,
   Folder,
-  FolderPlus
+  FolderPlus,
+  Check,
+  RotateCw,
+  Save,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -39,6 +44,8 @@ interface QuizLibraryProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onCreateNewQuiz: () => void;
+  onStartRouletteGame: (categoryIds: string[]) => void;
+  onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: () => void;
 }
 
@@ -71,12 +78,22 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   onToggleFavorite,
   onDeleteQuiz,
   onCreateNewQuiz,
+  onStartRouletteGame,
+  onSaveRouletteQuiz,
   onOpenQuestionManager,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'saved'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'popular'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [openMenuCatId, setOpenMenuCatId] = useState<string | null>(null);
+
+  // 🎡 Estado de Seleção para o Modo Roleta (Mínimo 2, Máximo 12)
+  const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
+  const [selectionWarning, setSelectionWarning] = useState('');
+
+  // Estado do Modal para Salvar Quiz com Roleta
+  const [showSaveRouletteModal, setShowSaveRouletteModal] = useState(false);
+  const [rouletteQuizName, setRouletteQuizName] = useState('');
 
   // Mapeamento de contagem de perguntas por categoria
   const questionCountByCategory = useMemo(() => {
@@ -123,11 +140,71 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     });
   }, [categories, selectedFolderId, searchQuery, activeTab, questionCountByCategory, folderMap]);
 
+  // Alternar seleção de um quiz para a Roleta
+  const handleToggleSelectQuiz = (catId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectionWarning('');
+
+    if (selectedQuizIds.includes(catId)) {
+      setSelectedQuizIds(prev => prev.filter(id => id !== catId));
+    } else {
+      if (selectedQuizIds.length >= 12) {
+        setSelectionWarning('Limite atingido: a Roleta comporta no máximo 12 quizzes para sorteio.');
+        return;
+      }
+      setSelectedQuizIds(prev => [...prev, catId]);
+    }
+  };
+
+  // Selecionar todos os visíveis (até 12)
+  const handleSelectAllVisible = () => {
+    setSelectionWarning('');
+    const visibleIds = filteredCategories.map(c => c.id);
+    if (selectedQuizIds.length === visibleIds.length) {
+      setSelectedQuizIds([]);
+    } else {
+      if (visibleIds.length > 12) {
+        setSelectionWarning('Selecionados os primeiros 12 quizzes (limite da Roleta).');
+        setSelectedQuizIds(visibleIds.slice(0, 12));
+      } else {
+        setSelectedQuizIds(visibleIds);
+      }
+    }
+  };
+
+  // Confirmar início do jogo com Roleta
+  const handleConfirmPlayWithRoulette = () => {
+    if (selectedQuizIds.length < 2) {
+      setSelectionWarning('Selecione pelo menos 2 quizzes para poder girar a Roleta.');
+      return;
+    }
+    onStartRouletteGame(selectedQuizIds);
+  };
+
+  // Abrir modal de salvar quiz com roleta
+  const handleOpenSaveRouletteModal = () => {
+    if (selectedQuizIds.length < 2) {
+      setSelectionWarning('Selecione pelo menos 2 quizzes para salvar um Quiz com Roleta.');
+      return;
+    }
+    const defaultName = `Quiz Roleta (${selectedQuizIds.length} temas)`;
+    setRouletteQuizName(defaultName);
+    setShowSaveRouletteModal(true);
+  };
+
+  const handleSaveRouletteSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rouletteQuizName.trim()) return;
+    onSaveRouletteQuiz(rouletteQuizName.trim(), selectedQuizIds);
+    setShowSaveRouletteModal(false);
+    setSelectedQuizIds([]);
+  };
+
   // Total de itens exibidos
   const totalItemsCount = filteredCategories.length + (selectedFolderId === null ? quizzes.length : 0);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}>
       
       {/* ─── Cabeçalho da Pasta Selecionada e Ações Rápidas ─────────────────── */}
       <div 
@@ -263,6 +340,147 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         </div>
       </div>
 
+      {/* ─── BARRA DE AÇÃO DE SELEÇÃO ESTILO KAHOOT! (Modo Roleta) ───────────── */}
+      {selectedQuizIds.length > 0 && (
+        <div 
+          style={{
+            backgroundColor: '#1368ce',
+            color: '#ffffff',
+            borderRadius: '10px',
+            padding: '12px 18px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(19, 104, 206, 0.3)',
+          }}
+        >
+          {/* Lado Esquerdo: Contador e Instrução da Roleta */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div 
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                backgroundColor: '#ffffff',
+                color: '#1368ce',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 900,
+              }}
+            >
+              <Check style={{ width: '16px', height: '16px', strokeWidth: 3 }} />
+            </div>
+
+            <div>
+              <span style={{ fontSize: '13px', fontWeight: 800 }}>
+                {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'} para a Roleta
+              </span>
+              <span style={{ fontSize: '11px', color: '#bfdbfe', display: 'block', fontWeight: 600 }}>
+                {selectedQuizIds.length < 2 
+                  ? `Selecione mais ${2 - selectedQuizIds.length} para liberar o sorteio na Roleta (Mínimo 2, Máximo 12)`
+                  : `Pronto! A Roleta sorteará entre estes ${selectedQuizIds.length} quizzes durante a partida.`}
+              </span>
+            </div>
+          </div>
+
+          {/* Lado Direito: Ações da Roleta */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Botão Jogar com Roleta */}
+            <button
+              type="button"
+              onClick={handleConfirmPlayWithRoulette}
+              disabled={selectedQuizIds.length < 2}
+              style={{
+                height: '36px',
+                padding: '0 16px',
+                borderRadius: '8px',
+                backgroundColor: selectedQuizIds.length >= 2 ? '#ffffff' : 'rgba(255, 255, 255, 0.3)',
+                color: selectedQuizIds.length >= 2 ? '#1368ce' : '#ffffff',
+                fontWeight: 800,
+                fontSize: '13px',
+                border: 'none',
+                cursor: selectedQuizIds.length >= 2 ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: selectedQuizIds.length >= 2 ? '0 2px 6px rgba(0, 0, 0, 0.15)' : 'none',
+              }}
+            >
+              <RotateCw style={{ width: '15px', height: '15px' }} />
+              <span>Jogar com Roleta ({selectedQuizIds.length})</span>
+            </button>
+
+            {/* Botão Salvar Quiz da Roleta */}
+            <button
+              type="button"
+              onClick={handleOpenSaveRouletteModal}
+              disabled={selectedQuizIds.length < 2}
+              style={{
+                height: '36px',
+                padding: '0 14px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: selectedQuizIds.length >= 2 ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title="Salvar esta seleção como um quiz pré-configurado"
+            >
+              <Save style={{ width: '14px', height: '14px' }} />
+              <span>Salvar Quiz</span>
+            </button>
+
+            {/* Botão Desmarcar */}
+            <button
+              type="button"
+              onClick={() => setSelectedQuizIds([])}
+              style={{
+                height: '36px',
+                padding: '0 10px',
+                color: '#ffffff',
+                backgroundColor: 'transparent',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Limpar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Aviso de Validação de Seleção */}
+      {selectionWarning && (
+        <div 
+          style={{
+            padding: '8px 14px',
+            borderRadius: '8px',
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fde68a',
+            color: '#92400e',
+            fontSize: '12px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+          <span>{selectionWarning}</span>
+        </div>
+      )}
+
       {/* ─── Barra de Filtros & Busca Estilo Kahoot! ─────────────────────────── */}
       <div 
         style={{
@@ -275,8 +493,8 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
           borderBottom: '1px solid #e2e8f0',
         }}
       >
-        {/* Abas Pílula estilo Kahoot */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto' }}>
+        {/* Abas Pílula estilo Kahoot + Selecionar Tudo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto' }}>
           {[
             { id: 'all', label: `Todos (${totalItemsCount})` },
             { id: 'popular', label: 'Mais Perguntas' },
@@ -305,6 +523,27 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={handleSelectAllVisible}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f8fafc',
+              color: '#334155',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Check style={{ width: '13px', height: '13px' }} />
+            <span>{selectedQuizIds.length === filteredCategories.length && filteredCategories.length > 0 ? 'Desmarcar Todos' : 'Selecionar para Roleta'}</span>
+          </button>
         </div>
 
         {/* Busca e Alternância Grade / Lista */}
@@ -393,7 +632,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         </div>
       </div>
 
-      {/* ─── Grid de Blocos / Quizzes (Estilo Kahoot!) ───────────────────────── */}
+      {/* ─── Grid de Blocos / Quizzes com Checkbox de Seleção ────────────────── */}
       {filteredCategories.length > 0 || (selectedFolderId === null && quizzes.length > 0) ? (
         <div
           style={{
@@ -410,6 +649,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             const folder = cat.folder_id ? folderMap.get(cat.folder_id) : null;
             const gradient = BLOCK_GRADIENTS[index % BLOCK_GRADIENTS.length];
             const isMenuOpen = openMenuCatId === cat.id;
+            const isSelectedForRoulette = selectedQuizIds.includes(cat.id);
 
             return (
               <div
@@ -419,22 +659,28 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                   flexDirection: 'column',
                   borderRadius: '14px',
                   backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  border: isSelectedForRoulette ? '2px solid #1368ce' : '1px solid #e2e8f0',
                   overflow: 'hidden',
-                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
+                  boxShadow: isSelectedForRoulette 
+                    ? '0 6px 20px rgba(19, 104, 206, 0.18)' 
+                    : '0 2px 6px rgba(0, 0, 0, 0.03)',
                   transition: 'all 0.15s ease',
                   position: 'relative',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 18px rgba(0, 0, 0, 0.08)';
+                  if (!isSelectedForRoulette) {
+                    e.currentTarget.style.boxShadow = '0 8px 18px rgba(0, 0, 0, 0.08)';
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.03)';
+                  if (!isSelectedForRoulette) {
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.03)';
+                  }
                 }}
               >
-                {/* Capa com Gradiente e Badge de Perguntas estilo Kahoot */}
+                {/* Capa com Gradiente, Badge de Perguntas e CHECKBOX estilo Kahoot */}
                 <div 
                   style={{
                     position: 'relative',
@@ -447,6 +693,33 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     overflow: 'hidden',
                   }}
                 >
+                  {/* Checkbox de Seleção para Roleta no Canto Superior Esquerdo */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleSelectQuiz(cat.id, e)}
+                    style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '10px',
+                      width: '26px',
+                      height: '26px',
+                      borderRadius: '6px',
+                      backgroundColor: isSelectedForRoulette ? '#1368ce' : 'rgba(0, 0, 0, 0.45)',
+                      border: isSelectedForRoulette ? '2px solid #ffffff' : '1.5px solid rgba(255, 255, 255, 0.7)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title={isSelectedForRoulette ? 'Remover da Roleta' : 'Selecionar para a Roleta (2 a 12)'}
+                  >
+                    {isSelectedForRoulette && <Check style={{ width: '16px', height: '16px', strokeWidth: 3 }} />}
+                  </button>
+
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.9 }}>
                     <FileQuestion style={{ width: '36px', height: '36px', color: '#ffffff' }} />
                     <span style={{ fontSize: '11px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -552,7 +825,35 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
                               <Play style={{ width: '14px', height: '14px', fill: 'currentColor' }} />
-                              <span>Jogar Agora</span>
+                              <span>Jogar Convencional</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuCatId(null);
+                                handleToggleSelectQuiz(cat.id);
+                              }}
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: '#46178f',
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              <RotateCw style={{ width: '14px', height: '14px' }} />
+                              <span>{isSelectedForRoulette ? 'Remover da Roleta' : 'Adicionar à Roleta'}</span>
                             </button>
 
                             {onEditCategory && (
@@ -605,12 +906,28 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </div>
                   </div>
 
-                  {/* Rodapé do Bloco com Botão Jogar estilo Kahoot */}
+                  {/* Rodapé do Bloco: Jogar Convencional Individual */}
                   <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8' }}>
-                      Quiz
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectQuiz(cat.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: isSelectedForRoulette ? '#1368ce' : '#94a3b8',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <RotateCw style={{ width: '12px', height: '12px' }} />
+                      <span>{isSelectedForRoulette ? 'Na Roleta' : '+ Roleta'}</span>
+                    </button>
 
+                    {/* Botão Jogar Convencional (Estilo Kahoot Direto) */}
                     <button
                       type="button"
                       onClick={() => onPlayCategory(cat)}
@@ -631,6 +948,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
                       onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
+                      title="Jogar este quiz de forma direta e convencional"
                     >
                       <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
                       <span>Jogar</span>
@@ -743,6 +1061,126 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
           </div>
         </div>
       )}
+
+      {/* ─── Modal para Salvar Quiz com Roleta ────────────────────────────────── */}
+      {showSaveRouletteModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            padding: '16px',
+          }}
+          onClick={() => setShowSaveRouletteModal(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '420px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RotateCw style={{ width: '20px', height: '20px', color: '#46178f' }} />
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1e1b4b', margin: 0 }}>
+                  Salvar Quiz com Roleta
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSaveRouletteModal(false)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+              >
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, margin: '0 0 16px 0' }}>
+              Você selecionou <b>{selectedQuizIds.length} quizzes/categorias</b> para girar na Roleta. Dê um nome para salvar esse quiz personalizado na sua biblioteca.
+            </p>
+
+            <form onSubmit={handleSaveRouletteSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  Nome do Quiz
+                </label>
+                <input 
+                  type="text"
+                  autoFocus
+                  value={rouletteQuizName}
+                  onChange={(e) => setRouletteQuizName(e.target.value)}
+                  placeholder="Ex: Torneio Interclasses de Tecnologia..."
+                  style={{
+                    width: '100%',
+                    height: '42px',
+                    padding: '0 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    color: '#1e293b',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveRouletteModal(false)}
+                  style={{
+                    flex: 1,
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: '#f1f5f9',
+                    color: '#475569',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!rouletteQuizName.trim()}
+                  style={{
+                    flex: 1,
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: '#1368ce',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    opacity: !rouletteQuizName.trim() ? 0.6 : 1,
+                  }}
+                >
+                  Salvar Quiz
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

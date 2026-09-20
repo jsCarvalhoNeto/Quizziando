@@ -45,6 +45,8 @@ interface TeacherDashboardProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onCreateNewQuiz: () => void;
+  onStartRouletteGame: (categoryIds: string[]) => void;
+  onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: () => void;
   onOpenSettings: () => void;
@@ -79,6 +81,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onToggleFavorite,
   onDeleteQuiz,
   onCreateNewQuiz,
+  onStartRouletteGame,
+  onSaveRouletteQuiz,
   onCreateFolder,
   onOpenQuestionManager,
   onOpenSettings,
@@ -813,6 +817,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               onToggleFavorite={onToggleFavorite}
               onDeleteQuiz={onDeleteQuiz}
               onCreateNewQuiz={onCreateNewQuiz}
+              onStartRouletteGame={onStartRouletteGame}
+              onSaveRouletteQuiz={onSaveRouletteQuiz}
               onOpenQuestionManager={onOpenQuestionManager}
             />
           )}

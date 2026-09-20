@@ -2061,6 +2061,45 @@ Garanta que:
     sfx.playClick();
   };
 
+  const handleStartRouletteGame = (categoryIds: string[]) => {
+    if (categoryIds.length < 2 || categoryIds.length > 12) {
+      alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
+      return;
+    }
+    setSelectedCategoryIds(categoryIds);
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+    const roundsCount = Math.max(1, Math.min(catQuestions.length || 10, 20));
+    setGameRounds(roundsCount);
+    setShowQuizConfigModal(true);
+    sfx.playClick();
+  };
+
+  const handleSaveRouletteQuiz = (name: string, categoryIds: string[]) => {
+    if (!name.trim()) return;
+    if (categoryIds.length < 2 || categoryIds.length > 12) {
+      alert('Para salvar um Quiz com Roleta, selecione entre 2 e no máximo 12 quizzes.');
+      return;
+    }
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+    const questionIds = catQuestions.map(q => q.id);
+    const newQuiz: SavedQuiz = {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      savedAt: new Date().toISOString(),
+      categoryIds,
+      questionIds,
+      rounds: Math.min(catQuestions.length || 10, 20),
+      timeLimit: gameTimeLimit || 20,
+      onlineMode: gameMode || 'open',
+      scoringMode: scoringMode || 'fixed',
+      fixedPoints: fixedPoints || 100,
+      questionCount: catQuestions.length,
+      localRules: { hasObstacles: false, pointsPerCorrect: 100, pointsOnPass: 100, quickMode: false, tiePolicy: 'shared' }
+    };
+    setSavedQuizzes(saveQuiz(newQuiz));
+    sfx.playCorrect();
+  };
+
   const revealAnswer = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'answered' });
     sfx.stopGameSound();
@@ -3093,6 +3132,8 @@ Garanta que:
               onToggleFavorite={handleToggleFavoriteFromDashboard}
               onDeleteQuiz={handleDeleteQuizFromDashboard}
               onCreateNewQuiz={() => { setShowQuizConfigModal(true); sfx.playClick(); }}
+              onStartRouletteGame={handleStartRouletteGame}
+              onSaveRouletteQuiz={handleSaveRouletteQuiz}
               onCreateFolder={handleCreateFolder}
               onOpenQuestionManager={() => { setShowQuestionManagerModal(true); sfx.playClick(); }}
               onOpenSettings={() => { setShowSettingsModal(true); sfx.playClick(); }}
