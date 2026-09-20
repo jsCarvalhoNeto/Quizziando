@@ -201,6 +201,170 @@ select.input-glow option {
   color: #f8fafc;
 }
 
+/* Question manager: a focused composition workspace instead of one long form. */
+.question-manager-modal {
+  width: min(1440px, 100%) !important;
+  max-width: 1440px !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.question-composer,
+.question-library {
+  min-width: 0;
+  padding: 28px;
+}
+
+.question-composer {
+  width: 46%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(180deg, rgba(124,58,237,.055), transparent 260px);
+}
+
+.question-library {
+  width: 54%;
+  background: rgba(255,255,255,.012);
+}
+
+.question-composer__heading { padding-right: 40px; }
+.question-composer__intro {
+  color: hsl(var(--text-muted));
+  font-size: 12px;
+  line-height: 1.55;
+  margin-top: 6px;
+}
+
+.question-basics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 14px;
+  background: rgba(255,255,255,.018);
+}
+
+.question-form-section {
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: rgba(5,9,22,.3);
+}
+
+.question-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+.question-section-heading > span {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  font: 800 10px var(--font-display);
+  color: hsl(var(--primary));
+  background: hsla(var(--primary), .13);
+}
+.question-section-heading h4 {
+  color: hsl(var(--text-primary));
+  font: 800 13px var(--font-display);
+}
+.question-section-heading p { color: hsl(var(--text-muted)); font-size: 10px; margin-top: 2px; }
+.question-section-heading em {
+  font: 700 9px var(--font-sans);
+  color: hsl(var(--primary));
+  padding-left: 5px;
+}
+
+.question-details {
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  background: rgba(255,255,255,.012);
+  overflow: hidden;
+}
+.question-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 12px 14px;
+  color: hsl(var(--text-secondary));
+  font: 700 11px var(--font-sans);
+  list-style: none;
+}
+.question-details summary::-webkit-details-marker { display: none; }
+.question-details summary::before { content: '+'; color: hsl(var(--primary)); font-size: 16px; margin-right: 8px; }
+.question-details[open] summary::before { content: '−'; }
+.question-details summary span {
+  color: hsl(var(--text-muted));
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.question-details__content {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+.question-details__content label { display: grid; gap: 5px; }
+.question-details__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.answer-option {
+  position: relative;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  transition: .2s ease;
+}
+.answer-option:hover { background: rgba(255,255,255,.025); }
+.answer-option--correct { border-color: rgba(52,211,153,.3); background: rgba(16,185,129,.055); }
+.answer-option input[type="radio"] { flex: 0 0 auto; }
+.answer-option__letter {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+  color: hsl(var(--text-muted));
+  background: rgba(255,255,255,.06);
+  font: 800 10px var(--font-display);
+}
+.answer-option--correct .answer-option__letter { color: #6ee7b7; background: rgba(16,185,129,.15); }
+.answer-option .input-glow { min-width: 0; }
+
+.question-save-bar {
+  position: sticky;
+  bottom: -28px;
+  z-index: 2;
+  padding: 14px 0 28px;
+  background: linear-gradient(0deg, #090d1e 72%, transparent);
+}
+.question-library > div:last-child { max-height: calc(90vh - 230px) !important; }
+
+@media (min-width: 1024px) {
+  .question-manager-modal { flex-direction: row; }
+}
+
+@media (max-width: 1023px) {
+  .question-manager-modal { flex-direction: column; overflow-y: auto !important; }
+  .question-composer, .question-library { width: 100%; max-height: none; padding: 24px; }
+  .question-composer { overflow: visible; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .question-save-bar { bottom: -24px; }
+}
+
+@media (max-width: 560px) {
+  .question-composer, .question-library { padding: 20px 16px; }
+  .question-basics, .question-details__grid { grid-template-columns: 1fr; }
+  .question-manager-modal { border-radius: 18px !important; }
+}
+
 
 /* ==========================================
    📦 CUSTOM VANILLA UTILITY CSS (MINI-TAILWIND MAPPER)

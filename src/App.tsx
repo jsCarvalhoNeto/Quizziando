@@ -4779,7 +4779,7 @@ Garanta que:
           onClick={(e) => { if (e.target === e.currentTarget) setShowQuestionManagerModal(false); }}
         >
           <div
-            className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl"
+            className="question-manager-modal flex flex-col lg:flex-row gap-6 w-full max-w-6xl"
             style={{
               background: 'rgba(8,12,28,0.95)',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -4826,14 +4826,15 @@ Garanta que:
             </button>
 
             {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO / GERADOR IA) */}
-            <div className="w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-[rgba(255,255,255,0.06)]">
-              <div>
+            <div className="question-composer w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-[rgba(255,255,255,0.06)]">
+              <div className="question-composer__heading">
                 <span className="text-xs font-bold text-[hsl(var(--primary))] tracking-widest uppercase">
                   {editingQuestionId ? 'Modo de Edição' : 'Painel de Criação'}
                 </span>
                 <h3 className="text-xl font-extrabold text-white mt-1">
                   {editingQuestionId ? 'Editar Pergunta' : 'Criar Pergunta'}
                 </h3>
+                <p className="question-composer__intro">Preencha os dados essenciais e escolha a alternativa correta.</p>
               </div>
 
               {/* TABS DE SELEÇÃO */}
@@ -4863,6 +4864,7 @@ Garanta que:
 
               <div className="flex flex-col gap-3">
                 {/* Selecionar Categoria (Comum a ambos) */}
+                <div className="question-basics">
                 <div>
                   <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
                     Categoria da Questão <span className="text-red-400">*</span>
@@ -4891,14 +4893,16 @@ Garanta que:
                     max="120"
                     value={managerQTimeLimit}
                     onChange={(e) => setManagerQTimeLimit(parseInt(e.target.value) || 20)}
-                    className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-semibold text-white mb-4"
+                    className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-semibold text-white"
                   />
+                </div>
                 </div>
 
                 {managerTab === 'manual' ? (
                   <>
                     {/* Texto da Pergunta */}
-                    <div>
+                    <section className="question-form-section question-form-section--prompt">
+                      <div className="question-section-heading"><span>01</span><div><h4>Enunciado</h4><p>A pergunta que os participantes vão responder.</p></div></div>
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
                         Enunciado da Pergunta <span className="text-red-400">*</span>
                       </label>
@@ -4908,32 +4912,37 @@ Garanta que:
                         onChange={(e) => setManagerQText(e.target.value)}
                         className="input-glow py-2 px-3 text-xs h-24 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none font-semibold text-white"
                       />
-                    </div>
+                    </section>
 
-                    {/* Alternativas */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Explicação após a resposta (opcional)</label>
-                      <textarea value={managerQExplanation} onChange={event => setManagerQExplanation(event.target.value)} maxLength={2000} className="input-glow p-2 text-xs min-h-20" placeholder="Explique por que a resposta está correta" />
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Referência (URL opcional)</label>
-                      <input type="url" value={managerQReference} onChange={event => setManagerQReference(event.target.value)} maxLength={500} className="input-glow p-2 text-xs" placeholder="https://..." />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Dificuldade
-                        <select className="input-glow mt-1 w-full text-xs" value={managerQDifficulty} onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}>
-                          <option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
-                        </select>
-                      </label>
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Etiquetas (separe por vírgula)
-                        <input className="input-glow mt-1 w-full text-xs" value={managerQTags} onChange={event => setManagerQTags(event.target.value)} maxLength={300} placeholder="8º ano, ciência" />
-                      </label>
-                    </div>
-                    <div>
+                    <details className="question-details">
+                      <summary>Adicionar explicação, referência e etiquetas <span>Opcional</span></summary>
+                      <div className="question-details__content">
+                        <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Explicação após a resposta
+                          <textarea value={managerQExplanation} onChange={event => setManagerQExplanation(event.target.value)} maxLength={2000} className="input-glow p-2 text-xs min-h-20" placeholder="Explique por que a resposta está correta" />
+                        </label>
+                        <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Referência (URL)
+                          <input type="url" value={managerQReference} onChange={event => setManagerQReference(event.target.value)} maxLength={500} className="input-glow p-2 text-xs" placeholder="https://..." />
+                        </label>
+                        <div className="question-details__grid">
+                          <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Dificuldade
+                            <select className="input-glow mt-1 w-full text-xs" value={managerQDifficulty} onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}>
+                              <option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
+                            </select>
+                          </label>
+                          <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Etiquetas
+                            <input className="input-glow mt-1 w-full text-xs" value={managerQTags} onChange={event => setManagerQTags(event.target.value)} maxLength={300} placeholder="8º ano, ciência" />
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+                    <section className="question-form-section question-form-section--answers">
+                      <div className="question-section-heading"><span>02</span><div><h4>Alternativas <em>Selecione a correta</em></h4><p>Inclua uma resposta certa e três distratores.</p></div></div>
                       <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
                         Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
                       </label>
                       <div className="flex flex-col gap-2.5">
                         {managerQAlts.map((alt, index) => (
-                          <div key={index} className="flex gap-3 items-center">
+                          <div key={index} className={`answer-option flex gap-3 items-center ${alt.isCorrect ? 'answer-option--correct' : ''}`}>
                             <input
                               type="radio"
                               name="manager-correct-alt"
@@ -4947,6 +4956,7 @@ Garanta que:
                               className="w-4 h-4 accent-[hsl(var(--primary))] cursor-pointer"
                               title="Marcar como correta"
                             />
+                            <span className="answer-option__letter">{'ABCD'[index]}</span>
                             <input
                               type="text"
                               placeholder={
@@ -4966,10 +4976,10 @@ Garanta que:
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </section>
 
                     {/* Botões do Form */}
-                    <div className="flex gap-2 mt-2">
+                    <div className="question-save-bar flex gap-2 mt-2">
                       {editingQuestionId && (
                         <button
                           onClick={() => {
@@ -5168,7 +5178,7 @@ Garanta que:
             </div>
 
             {/* LADO DIREITO: LISTAGEM E PESQUISA */}
-            <div className="w-full lg:w-7/12 flex flex-col gap-4 pl-0 lg:pl-4 overflow-hidden">
+            <div className="question-library w-full lg:w-7/12 flex flex-col gap-4 pl-0 lg:pl-4 overflow-hidden">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
                   <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
