@@ -643,6 +643,8 @@ export default function App() {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiQuantity, setAiQuantity] = useState<number>(1);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiDrafts, setAiDrafts] = useState<Question[]>([]);
+  const [editingAiDraftId, setEditingAiDraftId] = useState<string | null>(null);
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiUrl, setAiUrl] = useState('');
   const [aiError, setAiError] = useState('');
@@ -755,6 +757,7 @@ Estrutura JSON:
   {
     "question_text": "Escreva aqui o enunciado da questão...",
     "time_limit": 20,
+    "explanation": "Explique brevemente por que a alternativa correta está certa.",
     "alternatives": [
       { "text": "Alternativa correta...", "isCorrect": true },
       { "text": "Alternativa incorreta 1...", "isCorrect": false },
@@ -769,7 +772,8 @@ Garanta que:
 2. Haja exatamente 4 alternativas por questão.
 3. Exatamente uma alternativa por questão tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
 4. Inclua o campo "time_limit" com o valor numérico em segundos de tempo de espera. O padrão é 20.
-5. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.`;
+5. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.
+6. Inclua uma explicação curta para revisão humana; não invente referências.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
@@ -805,56 +809,19 @@ Garanta que:
         }
 
         const correctCount = parsed.alternatives.filter((a: any) => a.isCorrect).length;
-        if (correctCount !== 1) {
-          parsed.alternatives.forEach((a: any, idx: number) => {
-            a.isCorrect = idx === 0;
-          });
-        }
+        if (correctCount !== 1 || parsed.alternatives.some((a: any) => typeof a.text !== 'string' || !a.text.trim())) continue;
 
-        let savedQuestionId = Math.random().toString();
         const updatedAlts = parsed.alternatives.map((alt: any) => ({
           text: alt.text,
           isCorrect: alt.isCorrect
         }));
 
-        if (useRealSupabase) {
-          const { data: qData, error: qError } = await supabase
-            .from('questions')
-            .insert({
-              category_id: managerQCatId,
-              question_text: parsed.question_text.trim(),
-              time_limit: parsed.time_limit || 20
-            })
-            .select()
-            .single();
-
-          if (qError || !qData) {
-            throw new Error('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
-          }
-
-          savedQuestionId = qData.id.toString();
-
-          const { error: insError } = await supabase
-            .from('alternatives')
-            .insert(
-              updatedAlts.map((alt: any) => ({
-                question_id: savedQuestionId,
-                alternative_text: alt.text.trim(),
-                is_correct: alt.isCorrect
-              }))
-            );
-
-          if (insError) {
-            await supabase.from('questions').delete().eq('id', savedQuestionId);
-            throw new Error('Erro ao cadastrar alternativas no banco: ' + insError.message);
-          }
-        }
-
         newQuestions.push({
-          id: savedQuestionId,
+          id: crypto.randomUUID(),
           category_id: managerQCatId,
           question_text: parsed.question_text.trim(),
           time_limit: parsed.time_limit || 20,
+          explanation: typeof parsed.explanation === 'string' ? parsed.explanation.trim() : '',
           alternatives: updatedAlts
         });
       }
@@ -863,15 +830,14 @@ Garanta que:
         throw new Error('Nenhuma questão válida foi gerada.');
       }
 
-      // Adicionar as novas questões ao estado
-      setQuestions(prev => [...newQuestions, ...prev]);
+      setAiDrafts(prev => [...prev, ...newQuestions]);
 
       sfx.playCorrect();
       setAiPrompt('');
       setAiUrl('');
       setAiFile(null);
       setAiQuantity(1);
-      alert(`${newQuestions.length} questão(ões) gerada(s) e salva(s) com sucesso!`);
+      setAiError('');
       
     } catch (e: any) {
       console.error(e);
@@ -1711,6 +1677,10 @@ Garanta que:
     setManagerQReference('');
     setManagerQDifficulty('medium');
     setManagerQTags('');
+    if (editingAiDraftId) {
+      setAiDrafts(prev => prev.filter(draft => draft.id !== editingAiDraftId));
+      setEditingAiDraftId(null);
+    }
     setManagerQAlts([
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -4723,6 +4693,7 @@ Garanta que:
               onClick={() => {
                 setShowQuestionManagerModal(false);
                 setEditingQuestionId(null);
+                setEditingAiDraftId(null);
                 setManagerQText('');
                 setManagerQTimeLimit(20);
                 setManagerQExplanation('');
@@ -4899,6 +4870,7 @@ Garanta que:
                         <button
                           onClick={() => {
                             setEditingQuestionId(null);
+                            setEditingAiDraftId(null);
                             setManagerQText('');
                             setManagerQTimeLimit(20);
                             setManagerQExplanation('');
@@ -5069,6 +5041,23 @@ Garanta que:
                         </>
                       )}
                     </button>
+                    {aiDrafts.length > 0 && <div className="flex flex-col gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3">
+                      <strong className="text-xs text-amber-200">Rascunhos pendentes de revisão ({aiDrafts.length})</strong>
+                      {aiDrafts.map(draft => <div key={draft.id} className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-white">
+                        <p className="font-semibold mb-2">{draft.question_text}</p>
+                        {draft.alternatives.map((alternative, index) => <p key={index} className={alternative.isCorrect ? 'text-emerald-300' : 'text-slate-300'}>{'ABCD'[index]}. {alternative.text}{alternative.isCorrect ? ' ✓' : ''}</p>)}
+                        {draft.explanation && <p className="mt-2 text-violet-200">Explicação: {draft.explanation}</p>}
+                        <div className="flex gap-3 mt-3">
+                          <button type="button" className="text-violet-300" onClick={() => {
+                            setEditingAiDraftId(draft.id); setEditingQuestionId(null); setManagerTab('manual');
+                            setManagerQCatId(draft.category_id); setManagerQText(draft.question_text);
+                            setManagerQTimeLimit(draft.time_limit || 20); setManagerQAlts(draft.alternatives);
+                            setManagerQExplanation(draft.explanation || ''); setManagerQReference(''); setManagerQDifficulty('medium'); setManagerQTags('');
+                          }}>Revisar no formulário</button>
+                          <button type="button" className="text-red-300" onClick={() => setAiDrafts(prev => prev.filter(item => item.id !== draft.id))}>Descartar</button>
+                        </div>
+                      </div>)}
+                    </div>}
                   </div>
                 )}
               </div>
@@ -5164,6 +5153,7 @@ Garanta que:
                             <button
                               onClick={() => {
                                 setEditingQuestionId(q.id);
+                                setEditingAiDraftId(null);
                                 setManagerQText(q.question_text);
                             setManagerQTimeLimit(q.time_limit || 20);
                             setManagerQExplanation(q.explanation || '');
