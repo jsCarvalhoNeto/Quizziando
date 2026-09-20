@@ -17,6 +17,8 @@ import {
 import logoCurso from './assets/logo_curso.png';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
+import { localCategoryPool } from './lib/gameRules';
+import { parseLocalGameSnapshot, type LocalPlayer, type RoundPhase, type SavedLocalGame } from './lib/localGameSnapshot';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -28,48 +30,6 @@ const ANSWER_COLORS = [
 ];
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-
-interface LocalPlayer {
-  name: string;
-  score: number;
-  roundResults: Array<{ answered: boolean; correct: boolean | null }>;
-}
-
-interface SavedLocalGame {
-  version: 1;
-  savedAt: string;
-  players: [LocalPlayer, LocalPlayer];
-  totalRounds: number;
-  hasObstacles: boolean;
-  selectedCatIds: string[];
-  selectedQuestionIds?: string[] | null;
-  difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
-  tagFilter?: string;
-  currentRound: number;
-  roundStarterIndex: number;
-  firstFailed: boolean;
-  phase: RoundPhase;
-  selectedCategory: LocalCategory | null;
-  currentQuestion: LocalQuestion | null;
-  usedQuestionIds: string[];
-  timeLeft: number;
-  rouletteAngle: number;
-  pointsPerCorrect: number;
-  pointsOnPass: number;
-  turnTimeLimit: number;
-  quickMode: boolean;
-  tiePolicy: 'shared' | 'extra';
-}
-
-type RoundPhase =
-  | 'idle'
-  | 'spinning'
-  | 'category-reveal'
-  | 'question-reveal'
-  | 'question-first'
-  | 'question-second'
-  | 'round-result'
-  | 'finished';
 
 type LocalScreen = 'loading' | 'setup' | 'game' | 'podium';
 
@@ -403,13 +363,7 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   };
 
   const loadSavedGame = (): SavedLocalGame | null => {
-    try {
-      const value = JSON.parse(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY) || 'null') as SavedLocalGame | null;
-      if (!value || value.version !== 1 || !Array.isArray(value.players) || value.players.length !== 2 || !Array.isArray(value.usedQuestionIds)) return null;
-      return value;
-    } catch {
-      return null;
-    }
+    return parseLocalGameSnapshot(localStorage.getItem(ACTIVE_GAME_STORAGE_KEY));
   };
 
   const discardSavedGame = () => {
@@ -655,18 +609,15 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   const handleSpin = useCallback(() => {
     if (isSpinning || phase !== 'idle') return;
     const used = usedQuestionIdsRef.current;
-    let wheelCats = allCategories.filter(category =>
-      selectedCatIds.includes(category.id) &&
-      allQuestions.some(question => question.category_id === category.id && matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter) && !used.includes(question.id)),
-    );
-    // Todas as perguntas foram usadas: inicia um novo ciclo antes de sortear,
-    // preservando a coerência entre a categoria anunciada e a pergunta exibida.
+    const matchingQuestions = allQuestions.filter(question => matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter));
+    const pool = localCategoryPool(allCategories, matchingQuestions, selectedCatIds, used);
+    if (pool.resetUsed) resetUsedQuestions();
+    let wheelCats = pool.categories;
     if (!wheelCats.length) {
-      resetUsedQuestions();
-      wheelCats = allCategories.filter(category =>
-        selectedCatIds.includes(category.id) && allQuestions.some(question => question.category_id === category.id && matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter)),
-      );
+      setDbError('As categorias selecionadas não têm perguntas disponíveis.');
+      return;
     }
+    setDbError(null);
     if (hasObstacles) {
       wheelCats = [
         ...wheelCats,
@@ -674,8 +625,6 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
         { id: 'obs-passa', name: 'Passa a Vez', color: '#FFFFFF', created_at: '', isObstacle: true, type: 'passa-vez' } as any,
       ];
     }
-    if (!wheelCats.length) return;
-
     setIsSpinning(true);
     setPhase('spinning');
     sfx.playSpin();
@@ -1331,6 +1280,8 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
           {/* ── Área principal ── */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', overflow: 'hidden', backgroundImage: (bgImage && (phase === 'idle' || phase === 'spinning')) ? `url(${bgImage})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
 
+          {dbError && <p role="alert" style={{ color: '#FCA5A5', fontWeight: 700, textAlign: 'center' }}>{dbError}</p>}
+
           <AnimatePresence mode="wait">
 
             {/* IDLE + SPINNING — Roleta estilo online */}
@@ -1900,6 +1851,14 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
           </div>
 
           <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, color: '#CBD5E1' }}>
+            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
+              <h3 style={{ color: 'white' }}>Desempenho dos times</h3>
+              {players.map(player => {
+                const answered = player.roundResults.filter(result => result.answered).length;
+                const correct = player.roundResults.filter(result => result.correct).length;
+                return <p key={player.name}>{player.name}: {correct}/{answered} acertos ({answered ? Math.round(correct / answered * 100) : 0}%) · {player.score} pontos</p>;
+              })}
+            </div>
             <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
               <h3 style={{ color: 'white' }}>Acertos por categoria</h3>
               {categoryReport.map(row => <p key={row.category.id}>{row.category.name}: {row.correct}/{row.answered} ({Math.round(row.correct / row.answered * 100)}%)</p>)}

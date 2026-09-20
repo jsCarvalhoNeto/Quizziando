@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+export { readPlayerSession, savePlayerSession, newPlayerToken } from './playerSession';
+export type { PlayerSession } from './playerSession';
 
 export interface RoomQuestion {
   id: string;
@@ -37,24 +39,6 @@ export interface PlayerSnapshot {
   answer: { answer_index: number; is_correct: boolean | null; points_earned: number | null } | null;
   players: { id: string; nickname: string; score: number; team_name?: string | null }[];
   server_now: string;
-}
-
-export interface PlayerSession { token: string; nickname: string }
-const sessionKey = (code: string) => `quizziando:player:${code.toUpperCase()}`;
-
-export function readPlayerSession(code: string): PlayerSession | null {
-  try {
-    const value = JSON.parse(localStorage.getItem(sessionKey(code)) || 'null');
-    return value && /^[a-f0-9]{64}$/.test(value.token) && typeof value.nickname === 'string' ? value : null;
-  } catch { return null; }
-}
-
-export function savePlayerSession(code: string, session: PlayerSession): void {
-  localStorage.setItem(sessionKey(code), JSON.stringify(session));
-}
-
-export function newPlayerToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)), n => n.toString(16).padStart(2, '0')).join('');
 }
 
 export async function gameRpc<T>(name: string, args: Record<string, unknown>): Promise<T> {

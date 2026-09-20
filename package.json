@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "node --experimental-strip-types --test tests/gameRules.test.ts tests/recovery.test.ts",
+    "test:db": "node tests/run-server-gameplay.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
