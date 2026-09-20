@@ -13,6 +13,7 @@ import { eligibleCategories, remainingSeconds } from './lib/gameRules';
 import { gameRpc, type OnlineRoom } from './lib/onlineGame';
 import PlayerView, { ANSWER_COLORS } from './PlayerView';
 import SpectatorView from './SpectatorView';
+import PracticeView from './PracticeView';
 import { getAvatarUrl } from './lib/avatars';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
@@ -561,7 +562,7 @@ export default function App() {
   // ==========================================
   // 🖥️ MODO DE JOGO: 'select' | 'online' | 'local'
   // ==========================================
-  const [appMode, setAppMode] = useState<'select' | 'online' | 'local'>('select');
+  const [appMode, setAppMode] = useState<'select' | 'online' | 'local' | 'practice'>('select');
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
   const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
@@ -2111,6 +2112,12 @@ Garanta que:
     return <PlayerView roomCode={URL_ROOM_CODE} />;
   }
 
+  if (appMode === 'practice') return <PracticeView onBack={() => setAppMode('select')}
+    seedCategories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
+    seedQuestions={questions.map(q => ({ id: q.id, category_id: q.category_id, question_text: q.question_text,
+      time_limit: q.time_limit || 20, explanation: q.explanation, reference_url: q.reference_url,
+      difficulty: q.difficulty, tags: q.tags, alternatives: q.alternatives }))} />;
+
   // ─── Modo Local: renderizar componente dedicado ──────────────────────────
   if (appMode === 'local') {
     return (
@@ -2257,6 +2264,15 @@ Garanta que:
                     </div>
                   </div>
                   <ChevronRight style={{ width: 22, height: 22, color: 'rgba(16,185,129,0.7)', flexShrink: 0 }} />
+                </motion.button>
+
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setAppMode('practice'); sfx.playClick(); }}
+                  style={{ padding: 24, borderRadius: 20, background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(124,58,237,0.08))', border: '1.5px solid rgba(96,165,250,0.35)', cursor: 'pointer', textAlign: 'left', width: '100%', display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <BookOpen style={{ width: 36, height: 36, color: '#93C5FD' }} />
+                  <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>📘 Treino individual</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: '#CBD5E1' }}>Pratique com o acervo local e revise seus erros, sem organizador conectado.</p></div>
+                  <ChevronRight style={{ width: 22, height: 22, color: '#93C5FD' }} />
                 </motion.button>
               </div>
 
