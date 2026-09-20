@@ -2095,6 +2095,15 @@ Garanta que:
   }, [roundState]);
 
   const sortedPlayers = [...activePlayers].sort((a, b) => b.score - a.score);
+  const questionReport = usedQuestionIds.map((id, index) => {
+    const question = questions.find(item => item.id === id);
+    const results = activePlayers.map(player => player.stats?.answers?.[index + 1]).filter(value => value !== undefined);
+    return { id, question, answered: results.length, correct: results.filter(Boolean).length };
+  }).filter(item => item.question);
+  const categoryReport = categories.map(category => {
+    const rows = questionReport.filter(row => row.question?.category_id === category.id);
+    return { category, answered: rows.reduce((sum, row) => sum + row.answered, 0), correct: rows.reduce((sum, row) => sum + row.correct, 0) };
+  }).filter(item => item.answered > 0);
   const onlineCount = activePlayers.filter(player => onlinePlayerIds.includes(player.id)).length;
   const spectatorLink = roomLink ? `${roomLink}&view=spectator` : '';
   const sortedTeams = Object.entries(teamScores).sort(([, left], [, right]) => right - left);
@@ -5221,6 +5230,15 @@ Garanta que:
             </div>
             
             <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-6">
+              <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <h3 className="font-bold text-white mb-3">Acertos por categoria</h3>
+                {categoryReport.map(row => <p key={row.category.id} className="text-sm text-slate-300">{row.category.name}: {row.correct}/{row.answered} ({Math.round(row.correct / row.answered * 100)}%)</p>)}
+                {!categoryReport.length && <p className="text-sm text-slate-400">Ainda não há respostas para analisar.</p>}
+              </section>
+              <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <h3 className="font-bold text-white mb-3">Questões mais difíceis</h3>
+                {questionReport.filter(row => row.answered > 0).sort((a, b) => a.correct / a.answered - b.correct / b.answered).map(row => <p key={row.id} className="text-sm text-slate-300 mb-2">{row.question?.question_text}: {row.correct}/{row.answered} acertos ({Math.round(row.correct / row.answered * 100)}%)</p>)}
+              </section>
               {activePlayers.map(p => {
                 const answers = p.stats?.answers || {};
                 const answeredRounds = Object.keys(answers).map(Number);

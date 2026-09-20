@@ -1812,6 +1812,15 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
   // ─── PÓDIO ────────────────────────────────────────────────────────────────
 
   if (localScreen === 'podium') {
+    const questionReport = usedQuestionIds.map((id, index) => {
+      const question = allQuestions.find(item => item.id === id);
+      const results = players.map(player => player.roundResults[index]).filter(result => result?.answered);
+      return { id, question, answered: results.length, correct: results.filter(result => result.correct).length };
+    }).filter(item => item.question);
+    const categoryReport = allCategories.map(category => {
+      const rows = questionReport.filter(row => row.question?.category_id === category.id);
+      return { category, answered: rows.reduce((sum, row) => sum + row.answered, 0), correct: rows.reduce((sum, row) => sum + row.correct, 0) };
+    }).filter(item => item.answered > 0);
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
@@ -1869,6 +1878,17 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
               );
             })}
           </div>
+
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, color: '#CBD5E1' }}>
+            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
+              <h3 style={{ color: 'white' }}>Acertos por categoria</h3>
+              {categoryReport.map(row => <p key={row.category.id}>{row.category.name}: {row.correct}/{row.answered} ({Math.round(row.correct / row.answered * 100)}%)</p>)}
+            </div>
+            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
+              <h3 style={{ color: 'white' }}>Questões mais difíceis</h3>
+              {questionReport.filter(row => row.answered > 0).sort((a, b) => a.correct / a.answered - b.correct / b.answered).map(row => <p key={row.id}>{row.question?.question_text}: {row.correct}/{row.answered} acertos</p>)}
+            </div>
+          </section>
 
           <div style={{ display: 'flex', gap: 24 }}>
             <button onClick={resetGame}
