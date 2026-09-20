@@ -1548,6 +1548,10 @@ Garanta que:
       alert('Preencha todas as 4 alternativas!');
       return;
     }
+    if (managerQAlts.filter(a => a.isCorrect).length !== 1) {
+      alert('Selecione exatamente uma alternativa correta.');
+      return;
+    }
     if (managerQReference.trim()) {
       try {
         const url = new URL(managerQReference.trim());
@@ -1560,93 +1564,22 @@ Garanta que:
 
     if (useRealSupabase) {
       try {
-        if (editingQuestionId) {
-          // Atualizar pergunta existente
-          const { error: qError } = await supabase
-            .from('questions')
-            .update({
-              category_id: managerQCatId,
-              question_text: managerQText.trim(),
-              time_limit: managerQTimeLimit,
-              explanation: managerQExplanation.trim() || null,
-              reference_url: managerQReference.trim() || null,
-              difficulty: managerQDifficulty,
-              tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean)
-            })
-            .eq('id', editingQuestionId);
-
-          if (qError) {
-            alert('Erro ao atualizar pergunta no banco: ' + qError.message);
-            return;
-          }
-
-          // Deletar alternativas anteriores
-          const { error: delError } = await supabase
-            .from('alternatives')
-            .delete()
-            .eq('question_id', editingQuestionId);
-
-          if (delError) {
-            alert('Erro ao atualizar alternativas no banco (limpeza): ' + delError.message);
-            return;
-          }
-
-          // Inserir novas alternativas
-          const { error: insError } = await supabase
-            .from('alternatives')
-            .insert(
-              updatedAlts.map(alt => ({
-                question_id: editingQuestionId,
-                alternative_text: alt.text.trim(),
-                is_correct: alt.isCorrect
-              }))
-            );
-
-          if (insError) {
-            alert('Erro ao atualizar alternativas no banco (inserção): ' + insError.message);
-            return;
-          }
-        } else {
-          // Inserir nova pergunta
-          const { data: qData, error: qError } = await supabase
-            .from('questions')
-            .insert({
-              category_id: managerQCatId,
-              question_text: managerQText.trim(),
-              time_limit: managerQTimeLimit,
-              explanation: managerQExplanation.trim() || null,
-              reference_url: managerQReference.trim() || null,
-              difficulty: managerQDifficulty,
-              tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean)
-            })
-            .select()
-            .single();
-
-          if (qError || !qData) {
-            alert('Erro ao cadastrar pergunta no banco: ' + (qError?.message || 'Sem dados'));
-            return;
-          }
-
-          savedQuestionId = qData.id.toString();
-
-          // Inserir alternativas
-          const { error: insError } = await supabase
-            .from('alternatives')
-            .insert(
-              updatedAlts.map(alt => ({
-                question_id: savedQuestionId,
-                alternative_text: alt.text.trim(),
-                is_correct: alt.isCorrect
-              }))
-            );
-
-          if (insError) {
-            alert('Erro ao cadastrar alternativas no banco: ' + insError.message);
-            // Rollback da pergunta criada para evitar órfãs
-            await supabase.from('questions').delete().eq('id', savedQuestionId);
-            return;
-          }
+        const { data, error } = await supabase.rpc('quiz_save_question', {
+          p_question_id: editingQuestionId || null,
+          p_category_id: managerQCatId,
+          p_question_text: managerQText.trim(),
+          p_time_limit: managerQTimeLimit,
+          p_explanation: managerQExplanation.trim(),
+          p_reference_url: managerQReference.trim(),
+          p_difficulty: managerQDifficulty,
+          p_tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean),
+          p_alternatives: updatedAlts.map(alt => ({ text: alt.text.trim(), isCorrect: alt.isCorrect }))
+        });
+        if (error || !data) {
+          alert('Erro ao salvar pergunta no banco: ' + (error?.message || 'Sem dados'));
+          return;
         }
+        savedQuestionId = String(data);
       } catch (err: any) {
         alert('Erro de conexão ao salvar pergunta: ' + err.message);
         return;
