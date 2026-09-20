@@ -236,6 +236,7 @@ select.input-glow option {
 
 .question-composer__heading { padding-right: 40px; }
 .question-composer__workspace { display: flex; flex-direction: column; gap: 12px; }
+.question-composer__workspace--hidden { display: none !important; }
 .question-composer__intro {
   color: hsl(var(--text-muted));
   font-size: 12px;

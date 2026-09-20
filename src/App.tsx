@@ -5100,8 +5100,7 @@ Garanta que:
                   </div>
                 )}
 
-                {managerTab === 'manual' ? (
-                  <div key="manual-composer" className="question-composer__workspace">
+                <div className={`question-composer__workspace ${managerTab === 'manual' ? '' : 'question-composer__workspace--hidden'}`} aria-hidden={managerTab !== 'manual'}>
                     {/* Texto da Pergunta */}
                     <section className="question-form-section question-form-section--prompt">
                       <div className="question-section-heading"><span>01</span><div><h4>Enunciado</h4><p>A pergunta que os participantes vão responder.</p></div></div>
@@ -5215,8 +5214,7 @@ Garanta que:
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div key="ai-composer" className="flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in">
+                  <div className={`flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in ${managerTab === 'ai' ? '' : 'question-composer__workspace--hidden'}`} aria-hidden={managerTab !== 'ai'}>
                     <div className="absolute -top-10 -right-10 w-24 h-24 bg-[hsl(var(--secondary))]/10 rounded-full blur-2xl pointer-events-none" />
                     
                     <div>
@@ -5383,7 +5381,6 @@ Garanta que:
                       </div>)}
                     </div>}
                   </div>
-                )}
               </div>
             </div>
 
