@@ -24,7 +24,8 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
-  Database
+  Database,
+  Star
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -94,9 +95,32 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   onOpenQuestionManager,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'popular'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'favorites'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [openMenuCatId, setOpenMenuCatId] = useState<string | null>(null);
+
+  // ⭐ Estado de Quizzes/Categorias Favoritas persistido em localStorage
+  const [favoriteCategoryIds, setFavoriteCategoryIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('quizziando_favorite_categories_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleToggleFavoriteCategory = (catId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavoriteCategoryIds(prev => {
+      const next = prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId];
+      try {
+        localStorage.setItem('quizziando_favorite_categories_v1', JSON.stringify(next));
+      } catch (err) {
+        console.error('Erro ao salvar categorias favoritas:', err);
+      }
+      return next;
+    });
+  };
 
   // 🎡 Estado de Seleção para o Modo Roleta (Mínimo 2, Máximo 12)
   const [selectedQuizIds, setSelectedQuizIds] = useState<string[]>([]);
@@ -138,6 +162,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         if (cat.folder_id !== selectedFolderId) return false;
       }
 
+      // Filtro de Favoritos
+      if (activeTab === 'favorites') {
+        if (!favoriteCategoryIds.includes(cat.id)) return false;
+      }
+
       // Filtro de Busca
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -156,7 +185,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       }
       return a.name.localeCompare(b.name);
     });
-  }, [categories, selectedFolderId, searchQuery, activeTab, questionCountByCategory, folderMap]);
+  }, [categories, selectedFolderId, searchQuery, activeTab, favoriteCategoryIds, questionCountByCategory, folderMap]);
 
   // Alternar seleção de um quiz para a Roleta
   const handleToggleSelectQuiz = (catId: string, e?: React.MouseEvent) => {
@@ -218,8 +247,15 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     setSelectedQuizIds([]);
   };
 
+  // Contagem total de favoritos
+  const totalFavoritesCount = useMemo(() => {
+    const favCatCount = categories.filter(c => favoriteCategoryIds.includes(c.id)).length;
+    const favQuizCount = quizzes.filter(q => q.isFavorite).length;
+    return favCatCount + (selectedFolderId === null ? favQuizCount : 0);
+  }, [categories, favoriteCategoryIds, quizzes, selectedFolderId]);
+
   // Total de itens exibidos
-  const totalItemsCount = filteredCategories.length + (selectedFolderId === null ? quizzes.length : 0);
+  const totalItemsCount = categories.length + (selectedFolderId === null ? quizzes.length : 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}>
@@ -524,10 +560,12 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         {/* Abas Pílula estilo Kahoot + Selecionar Tudo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto' }}>
           {[
-            { id: 'all', label: `Todos (${totalItemsCount})` },
-            { id: 'popular', label: 'Mais Perguntas' },
+            { id: 'all', label: `Todos (${totalItemsCount})`, icon: null },
+            { id: 'popular', label: 'Mais Perguntas', icon: null },
+            { id: 'favorites', label: `Favoritos (${totalFavoritesCount})`, icon: Star },
           ].map(tab => {
             const isActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
             return (
               <button
                 key={tab.id}
@@ -545,9 +583,22 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                   boxShadow: isActive ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.03)',
                   transition: 'all 0.15s ease',
                   whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                {tab.label}
+                {TabIcon && (
+                  <TabIcon 
+                    style={{ 
+                      width: '13px', 
+                      height: '13px', 
+                      fill: isActive || (tab.id === 'favorites' && totalFavoritesCount > 0) ? '#eab308' : 'none',
+                      color: isActive || (tab.id === 'favorites' && totalFavoritesCount > 0) ? '#eab308' : '#64748b' 
+                    }} 
+                  />
+                )}
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -661,7 +712,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       </div>
 
       {/* ─── Grid de Blocos / Quizzes com Checkbox de Seleção ────────────────── */}
-      {filteredCategories.length > 0 || (selectedFolderId === null && quizzes.length > 0) ? (
+      {filteredCategories.length > 0 || (selectedFolderId === null && (activeTab === 'favorites' ? quizzes.filter(q => q.isFavorite) : quizzes).length > 0) ? (
         <div
           style={{
             display: 'grid',
@@ -678,6 +729,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             const gradient = BLOCK_GRADIENTS[index % BLOCK_GRADIENTS.length];
             const isMenuOpen = openMenuCatId === cat.id;
             const isSelectedForRoulette = selectedQuizIds.includes(cat.id);
+            const isCatFavorite = favoriteCategoryIds.includes(cat.id);
 
             return (
               <div
@@ -746,6 +798,33 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     title={isSelectedForRoulette ? 'Remover da Roleta' : 'Selecionar para a Roleta (2 a 12)'}
                   >
                     {isSelectedForRoulette && <Check style={{ width: '16px', height: '16px', strokeWidth: 3 }} />}
+                  </button>
+
+                  {/* Botão de Favorito no Canto Superior Direito */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleFavoriteCategory(cat.id, e)}
+                    style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      backgroundColor: isCatFavorite ? 'rgba(234, 179, 8, 0.95)' : 'rgba(0, 0, 0, 0.45)',
+                      border: isCatFavorite ? '1.5px solid #fef08a' : '1.5px solid rgba(255, 255, 255, 0.7)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      transition: 'all 0.15s ease',
+                    }}
+                    title={isCatFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                  >
+                    <Star style={{ width: '15px', height: '15px', fill: isCatFavorite ? '#ffffff' : 'none' }} />
                   </button>
 
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', opacity: 0.9 }}>
@@ -854,6 +933,34 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             >
                               <Play style={{ width: '14px', height: '14px', fill: 'currentColor' }} />
                               <span>Jogar Convencional</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuCatId(null);
+                                handleToggleFavoriteCategory(cat.id);
+                              }}
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: isCatFavorite ? '#b45309' : '#334155',
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isCatFavorite ? '#fefce8' : '#f1f5f9')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              <Star style={{ width: '14px', height: '14px', color: isCatFavorite ? '#eab308' : '#94a3b8', fill: isCatFavorite ? '#eab308' : 'none' }} />
+                              <span>{isCatFavorite ? 'Remover Favorito' : 'Favoritar Quiz'}</span>
                             </button>
 
                             <button
@@ -1076,19 +1183,88 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             );
           })}
 
-          {/* 2. Quizzes Salvos Customizados (Se exibindo todos) */}
-          {selectedFolderId === null && quizzes.map(quiz => (
-            <QuizCard
-              key={quiz.id}
-              quiz={quiz}
-              onPlay={onPlayQuiz}
-              onEdit={onEditQuiz}
-              onDuplicate={onDuplicateQuiz}
-              onToggleFavorite={onToggleFavorite}
-              onDelete={onDeleteQuiz}
-              isCompactList={viewMode === 'list'}
-            />
-          ))}
+          {/* 2. Quizzes Salvos Customizados */}
+          {selectedFolderId === null && (
+            (activeTab === 'favorites' ? quizzes.filter(q => q.isFavorite) : quizzes)
+              .filter(quiz => {
+                if (!searchQuery.trim()) return true;
+                return quiz.name.toLowerCase().includes(searchQuery.toLowerCase());
+              })
+              .map(quiz => (
+                <QuizCard
+                  key={quiz.id}
+                  quiz={quiz}
+                  onPlay={onPlayQuiz}
+                  onEdit={onEditQuiz}
+                  onDuplicate={onDuplicateQuiz}
+                  onToggleFavorite={onToggleFavorite}
+                  onDelete={onDeleteQuiz}
+                  isCompactList={viewMode === 'list'}
+                />
+              ))
+          )}
+        </div>
+      ) : activeTab === 'favorites' ? (
+        /* Estado Vazio Amigável para a Aba de Favoritos */
+        <div 
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '56px 24px',
+            textAlign: 'center',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.03)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div 
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              backgroundColor: '#fef9c3',
+              color: '#ca8a04',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+            }}
+          >
+            <Star style={{ width: '32px', height: '32px', fill: '#eab308' }} />
+          </div>
+
+          <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#1e1b4b', marginBottom: '8px' }}>
+            Nenhum quiz favorito ainda
+          </h3>
+
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '440px', lineHeight: 1.6, marginBottom: '24px' }}>
+            Você ainda não favoritou nenhum quiz. Clique na estrela no canto superior direito de qualquer card para favoritá-lo e acessá-lo rapidamente por aqui!
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('all')}
+            style={{
+              height: '42px',
+              padding: '0 22px',
+              borderRadius: '8px',
+              backgroundColor: '#46178f',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: '13px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 8px rgba(70, 23, 143, 0.3)',
+            }}
+          >
+            <span>Ver Todos os Quizzes</span>
+          </button>
         </div>
       ) : (
         /* Estado Vazio Amigável para a Pasta */

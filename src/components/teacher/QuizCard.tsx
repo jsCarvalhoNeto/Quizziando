@@ -384,27 +384,31 @@ export const QuizCard: React.FC<QuizCardProps> = ({
           <span>{totalQuestions} {totalQuestions === 1 ? 'questão' : 'questões'}</span>
         </div>
 
-        {/* Botão de Favorito Rápido */}
+        {/* Botão de Favorito Rápido no Canto Superior Direito */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(quiz.id); }}
           style={{
             position: 'absolute',
             top: '10px',
-            left: '10px',
-            padding: '6px',
+            right: '10px',
+            width: '28px',
+            height: '28px',
             borderRadius: '6px',
-            backgroundColor: quiz.isFavorite ? 'rgba(234, 179, 8, 0.9)' : 'rgba(0, 0, 0, 0.4)',
+            backgroundColor: quiz.isFavorite ? 'rgba(234, 179, 8, 0.95)' : 'rgba(0, 0, 0, 0.45)',
+            border: quiz.isFavorite ? '1.5px solid #fef08a' : '1.5px solid rgba(255, 255, 255, 0.6)',
             color: '#ffffff',
-            border: 'none',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            zIndex: 10,
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.15s ease',
           }}
           title={quiz.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
         >
-          <Star style={{ width: '14px', height: '14px', fill: quiz.isFavorite ? '#ffffff' : 'none' }} />
+          <Star style={{ width: '15px', height: '15px', fill: quiz.isFavorite ? '#ffffff' : 'none' }} />
         </button>
       </div>
 
