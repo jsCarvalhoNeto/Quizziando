@@ -63,7 +63,7 @@ interface TeacherDashboardProps {
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
-  onOpenQuestionManager: () => void;
+  onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
   onOpenSettings: () => void;
   onRecoverRoom: (roomCode: string) => void;
   onCloseRoom: (roomCode: string) => void;
@@ -329,7 +329,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
           {/* Botão Criar Questões & IA */}
           <button
             type="button"
-            onClick={onOpenQuestionManager}
+            onClick={() => onOpenQuestionManager('create')}
             style={{
               height: '40px',
               padding: '0 14px',
@@ -933,7 +933,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           type="button"
                           onClick={() => {
                             setShowSettingsMenu(false);
-                            onOpenQuestionManager();
+                            onOpenQuestionManager('create');
                           }}
                           style={{
                             padding: '10px 14px',
@@ -1068,7 +1068,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                           type="button"
                           onClick={() => {
                             setShowSettingsMenu(false);
-                            onOpenQuestionManager();
+                            onOpenQuestionManager('bank');
                           }}
                           style={{
                             padding: '6px 12px',

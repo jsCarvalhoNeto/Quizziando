@@ -1010,6 +1010,8 @@ Garanta que:
 
   // Estados para Modal de Gerenciamento de Questões
   const [showQuestionManagerModal, setShowQuestionManagerModal] = useState(false);
+  const [questionManagerMode, setQuestionManagerMode] = useState<'bank' | 'create'>('bank');
+  const [isAddingInBankMode, setIsAddingInBankMode] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [managerQText, setManagerQText] = useState('');
   const [managerQCatId, setManagerQCatId] = useState('');
@@ -1026,6 +1028,15 @@ Garanta que:
   ]);
   const [managerSearchTerm, setManagerSearchTerm] = useState('');
   const [managerSelectedCatFilter, setManagerSelectedCatFilter] = useState('');
+
+  const handleOpenQuestionManager = (mode: 'bank' | 'create' = 'bank') => {
+    setQuestionManagerMode(mode);
+    setIsAddingInBankMode(false);
+    setEditingQuestionId(null);
+    setEditingAiDraftId(null);
+    setShowQuestionManagerModal(true);
+    sfx.playClick();
+  };
 
   // Estados de Partida Ativa
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
@@ -1729,6 +1740,7 @@ Garanta que:
 
     // Resetar campos
     setEditingQuestionId(null);
+    setIsAddingInBankMode(false);
     setManagerQText('');
     setManagerQTimeLimit(20);
     setManagerQExplanation('');
@@ -2078,8 +2090,7 @@ Garanta que:
     const effectiveCatId = quiz.categoryIds?.[0] || quiz.id;
     setManagerQCatId(effectiveCatId);
     setManagerSelectedCatFilter(effectiveCatId);
-    setShowQuestionManagerModal(true);
-    sfx.playClick();
+    handleOpenQuestionManager('bank');
   };
 
   const handleDuplicateQuizFromDashboard = (quizId: string) => {
@@ -2349,7 +2360,7 @@ Garanta que:
     // 5. Configurar o modal de perguntas com o novo quiz selecionado como categoria
     setManagerQCatId(newCategory.id);
     setManagerSelectedCatFilter(newCategory.id);
-    setShowQuestionManagerModal(true);
+    handleOpenQuestionManager('create');
   };
 
   const handleCreateFolder = async (name: string, color: string = '#46178F') => {
@@ -2398,8 +2409,7 @@ Garanta que:
   const handleEditCategoryQuestions = (category: Category) => {
     setManagerQCatId(category.id);
     setManagerSelectedCatFilter(category.id);
-    setShowQuestionManagerModal(true);
-    sfx.playClick();
+    handleOpenQuestionManager('bank');
   };
 
   const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
@@ -3071,7 +3081,7 @@ Garanta que:
               onStartRouletteGame={handleStartRouletteGame}
               onSaveRouletteQuiz={handleSaveRouletteQuiz}
               onCreateFolder={handleCreateFolder}
-              onOpenQuestionManager={() => { setShowQuestionManagerModal(true); sfx.playClick(); }}
+              onOpenQuestionManager={handleOpenQuestionManager}
               onOpenSettings={() => { setShowSettingsModal(true); sfx.playClick(); }}
               onRecoverRoom={handleRecoverRoom}
               onCloseRoom={handleCloseRoom}
@@ -4798,9 +4808,8 @@ Garanta que:
 
                         <button
                           onClick={() => {
-                            setShowQuestionManagerModal(true);
+                            handleOpenQuestionManager('bank');
                             setShowSettingsModal(false);
-                            sfx.playClick();
                           }}
                           className="group mt-1 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all duration-300 active:scale-[0.98]"
                         >
@@ -4990,67 +4999,92 @@ Garanta que:
       {/* ==========================================
           📚 MODAL DE GERENCIAMENTO DE QUESTÕES (PREMIUM)
           ========================================== */}
-      {showQuestionManagerModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9998,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '20px',
-            animation: 'fadeInModal 0.25s ease'
-          }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowQuestionManagerModal(false); }}
-        >
-          <div
-            className="question-manager-modal flex flex-col lg:flex-row gap-6 w-full max-w-6xl"
-            style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '28px',
-              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
-              padding: '32px',
-              position: 'relative',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-            }}
-          >
-            {/* Fechar */}
-            <button
-              onClick={() => {
-                setShowQuestionManagerModal(false);
-                setEditingQuestionId(null);
-                setEditingAiDraftId(null);
-                setManagerQText('');
-                setManagerQTimeLimit(20);
-                setManagerQExplanation('');
-                setManagerQReference('');
-                setManagerQDifficulty('medium');
-                setManagerQTags('');
-                setManagerQAlts([
-                  { text: '', isCorrect: true },
-                  { text: '', isCorrect: false },
-                  { text: '', isCorrect: false },
-                  { text: '', isCorrect: false }
-                ]);
-              }}
-              style={{
-                position: 'absolute', top: '20px', right: '20px',
-                background: '#f1f5f9', border: '1px solid #e2e8f0',
-                borderRadius: '12px', width: '36px', height: '36px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#64748b', fontSize: '20px',
-                transition: 'all 0.2s', zIndex: 10
-              }}
-              className="hover:bg-red-50 hover:text-red-500 hover:border-red-200"
-              title="Fechar"
-            >
-              ×
-            </button>
+      {showQuestionManagerModal && (() => {
+        const isBankMode = questionManagerMode === 'bank';
+        const showComposer = !isBankMode || editingQuestionId !== null || isAddingInBankMode;
+        const showLibrary = !isBankMode || (editingQuestionId === null && !isAddingInBankMode);
 
-            {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO / GERADOR IA) */}
-            <div className="question-composer w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-slate-200">
+        const handleCloseManager = () => {
+          setShowQuestionManagerModal(false);
+          setIsAddingInBankMode(false);
+          setEditingQuestionId(null);
+          setEditingAiDraftId(null);
+          setManagerQText('');
+          setManagerQTimeLimit(20);
+          setManagerQExplanation('');
+          setManagerQReference('');
+          setManagerQDifficulty('medium');
+          setManagerQTags('');
+          setManagerQAlts([
+            { text: '', isCorrect: true },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false }
+          ]);
+        };
+
+        return (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9998,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '20px',
+              animation: 'fadeInModal 0.25s ease'
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) handleCloseManager(); }}
+          >
+            <div
+              className={`question-manager-modal flex flex-col ${showComposer && showLibrary ? 'lg:flex-row' : ''} gap-6 w-full ${!showComposer ? 'max-w-5xl' : 'max-w-6xl'}`}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '28px',
+                boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
+                padding: !showComposer ? '28px 32px' : '32px',
+                position: 'relative',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+            >
+              {/* Fechar */}
+              <button
+                onClick={handleCloseManager}
+                style={{
+                  position: 'absolute', top: '20px', right: '20px',
+                  background: '#f1f5f9', border: '1px solid #e2e8f0',
+                  borderRadius: '12px', width: '36px', height: '36px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: '#64748b', fontSize: '20px',
+                  transition: 'all 0.2s', zIndex: 10
+                }}
+                className="hover:bg-red-50 hover:text-red-500 hover:border-red-200"
+                title="Fechar"
+              >
+                ×
+              </button>
+
+              {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO / GERADOR IA) */}
+              {showComposer && (
+                <div className={`question-composer flex flex-col gap-4 ${
+                  !showLibrary ? 'w-full max-w-3xl mx-auto !border-r-0 !p-2 sm:!p-4' : 'w-full lg:w-5/12 pr-0 lg:pr-4 border-r-0 lg:border-r border-slate-200'
+                }`}>
+                  {isBankMode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingQuestionId(null);
+                        setIsAddingInBankMode(false);
+                        setEditingAiDraftId(null);
+                        sfx.playClick();
+                      }}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-xl w-fit transition mb-1"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Voltar ao Banco de Questões
+                    </button>
+                  )}
               <div className="question-composer__heading">
                 <span className="text-xs font-black text-purple-600 tracking-wider uppercase">
                   {editingQuestionId ? 'Modo de Edição' : 'Painel de Criação'}
@@ -5303,10 +5337,11 @@ Garanta que:
 
                   {/* Botões do Form */}
                   <div className="question-save-bar flex gap-2 mt-2">
-                    {editingQuestionId && (
+                    {(editingQuestionId || isAddingInBankMode) && (
                       <button
                         onClick={() => {
                           setEditingQuestionId(null);
+                          setIsAddingInBankMode(false);
                           setEditingAiDraftId(null);
                           setManagerQText('');
                           setManagerQTimeLimit(20);
@@ -5536,69 +5571,90 @@ Garanta que:
                 </div>
               </div>
             </div>
+            )}
 
-            {/* LADO DIREITO: LISTAGEM E PESQUISA */}
-            <div className="question-library w-full lg:w-7/12 flex flex-col gap-4 pl-0 lg:pl-4 overflow-hidden">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                <div>
-                  <span className="text-xs font-black text-purple-600 tracking-wider uppercase">
-                    Banco de Dados
-                  </span>
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
-                    Questões Cadastradas ({questions.length})
-                  </h3>
+            {/* LADO DIREITO (OU TELA INTEIRA): LISTAGEM E PESQUISA */}
+            {showLibrary && (
+              <div className={`question-library flex flex-col gap-4 overflow-hidden ${
+                !showComposer ? 'w-full !border-0 !p-0 sm:!p-2' : 'w-full lg:w-7/12 pl-0 lg:pl-4'
+              }`}>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                  <div>
+                    <span className="text-xs font-black text-purple-600 tracking-wider uppercase">
+                      Banco de Dados
+                    </span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+                      Questões Cadastradas ({questions.length})
+                    </h3>
+                  </div>
+
+                  {/* Filtro por Categoria */}
+                  <select
+                    value={managerSelectedCatFilter}
+                    onChange={(e) => setManagerSelectedCatFilter(e.target.value)}
+                    className="qm-select w-auto min-w-[190px]"
+                  >
+                    <option value="">Todas Categorias</option>
+                    {allCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Filtro por Categoria */}
-                <select
-                  value={managerSelectedCatFilter}
-                  onChange={(e) => setManagerSelectedCatFilter(e.target.value)}
-                  className="qm-select w-auto min-w-[190px]"
-                >
-                  <option value="">Todas Categorias</option>
-                  {allCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingInBankMode(true);
+                      setEditingQuestionId(null);
+                      setManagerTab('manual');
+                      sfx.playClick();
+                    }}
+                    className="qm-action-btn font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200"
+                    title="Cadastrar nova pergunta no acervo"
+                  >
+                    <Plus className="w-4 h-4 text-purple-600" />
+                    Nova Pergunta
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportQuestionBank}
+                    className="qm-action-btn"
+                  >
+                    <Download className="w-4 h-4 text-purple-600" />
+                    Exportar acervo JSON
+                  </button>
+                  <label className="qm-action-btn cursor-pointer">
+                    <Upload className="w-4 h-4 text-purple-600" />
+                    Importar acervo JSON
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: 'none' }}
+                      onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }}
+                    />
+                  </label>
+                </div>
 
-              <div className="flex flex-wrap gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={handleExportQuestionBank}
-                  className="qm-action-btn"
-                >
-                  <Download className="w-4 h-4 text-purple-600" />
-                  Exportar acervo JSON
-                </button>
-                <label className="qm-action-btn cursor-pointer">
-                  <Upload className="w-4 h-4 text-purple-600" />
-                  Importar acervo JSON
+                {/* Campo de Busca Espaçoso com Ícone */}
+                <div className="relative w-full">
+                  <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
-                    type="file"
-                    accept=".json,application/json"
-                    style={{ display: 'none' }}
-                    onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }}
+                    type="text"
+                    placeholder="Pesquisar pergunta pelo enunciado..."
+                    value={managerSearchTerm}
+                    onChange={(e) => setManagerSearchTerm(e.target.value)}
+                    className="qm-input qm-search-input pl-11 pr-4"
                   />
-                </label>
-              </div>
+                </div>
 
-              {/* Campo de Busca Espaçoso com Ícone */}
-              <div className="relative w-full">
-                <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Pesquisar pergunta pelo enunciado..."
-                  value={managerSearchTerm}
-                  onChange={(e) => setManagerSearchTerm(e.target.value)}
-                  className="qm-input qm-search-input pl-11 pr-4"
-                />
-              </div>
-
-              {/* Lista Scrollable */}
-              <div className="question-library__list flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
+                {/* Lista Scrollable */}
+                <div 
+                  className="question-library__list flex flex-col gap-3 overflow-y-auto pr-2"
+                  style={{ maxHeight: !showComposer ? '65vh' : '50vh' }}
+                >
                 {questions
                   .filter((q) => {
                     const matchesSearch = q.question_text
@@ -5724,9 +5780,11 @@ Garanta que:
                 )}
               </div>
             </div>
+          )}
           </div>
         </div>
-      )}
+      );
+    })()}
 
       {/* MODAL DE RELATÓRIO ESTATÍSTICO */}
       {showStatsModal && (

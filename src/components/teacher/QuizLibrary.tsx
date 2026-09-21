@@ -23,7 +23,8 @@ import {
   PlusCircle,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Database
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -41,7 +42,7 @@ interface QuizLibraryProps {
   questions: Question[];
   folders: FolderItem[];
   selectedFolderId: string | null;
-  currentFolderName: string;
+  currentFolderName?: string;
   onSelectFolder: (folderId: string | null) => void;
   onCreateFolderClick: (e: React.MouseEvent) => void;
   onPlayCategory: (category: Category) => void;
@@ -55,7 +56,7 @@ interface QuizLibraryProps {
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
-  onOpenQuestionManager: () => void;
+  onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }
 
 // Gradientes coloridos e vibrantes para as capas dos blocos estilo Kahoot
@@ -335,7 +336,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
 
           <button
             type="button"
-            onClick={onOpenQuestionManager}
+            onClick={() => onOpenQuestionManager('bank')}
             style={{
               height: '38px',
               padding: '0 14px',
@@ -349,10 +350,20 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              transition: 'all 0.15s ease',
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8fafc';
+              e.currentTarget.style.borderColor = '#94a3b8';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
+            title="Acessar Banco de Questões Cadastradas"
           >
-            <Sparkles style={{ width: '15px', height: '15px', color: '#8b5cf6' }} />
-            <span>Banco & IA</span>
+            <Database style={{ width: '15px', height: '15px', color: '#1368ce' }} />
+            <span>Banco de Questões</span>
           </button>
         </div>
       </div>
@@ -1145,7 +1156,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
 
             <button
               type="button"
-              onClick={onOpenQuestionManager}
+              onClick={() => onOpenQuestionManager('create')}
               style={{
                 height: '42px',
                 padding: '0 18px',
