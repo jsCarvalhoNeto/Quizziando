@@ -324,7 +324,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <span>Criar Quiz</span>
           </button>
 
-          {/* Botão Banco de Questões & IA */}
+          {/* Botão Criar Questões & IA */}
           <button
             type="button"
             onClick={onOpenQuestionManager}
@@ -351,10 +351,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               e.currentTarget.style.backgroundColor = '#f8fafc';
               e.currentTarget.style.color = '#334155';
             }}
-            title="Acessar o Banco de Perguntas e IA"
+            title="Criar Questões e Gerar com IA"
           >
             <Sparkles style={{ width: '15px', height: '15px', color: '#8b5cf6' }} />
-            <span>Banco de Questões</span>
+            <span>Criar Questões</span>
           </button>
 
           {/* Botão e Menu Popover de Configurações */}
