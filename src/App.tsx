@@ -2094,12 +2094,147 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleDeleteQuizFromDashboard = (quizId: string) => {
-    const confirmDelete = window.confirm('Tem certeza de que deseja excluir este quiz da sua biblioteca?');
-    if (!confirmDelete) return;
-    const updated = deleteSavedQuiz(quizId);
-    setSavedQuizzes(updated);
+  const handleDeleteCategoryQuiz = async (categoryId: string) => {
+    const categoryToDelete = categories.find(c => c.id === categoryId);
+    if (!categoryToDelete) return;
+
+    // 1. Localizar ou criar a categoria "Sem Categoria"
+    let uncategorizedCat = categories.find(
+      c => c.id !== categoryId && c.name.trim().toLowerCase() === 'sem categoria'
+    );
+
+    let uncategorizedId = uncategorizedCat?.id;
+
+    if (!uncategorizedCat) {
+      const newUncatId = crypto.randomUUID();
+      let createdCat: Category = {
+        id: newUncatId,
+        name: 'Sem Categoria',
+        color: '#64748b',
+        icon: 'HelpCircle',
+        folder_id: null,
+      };
+
+      if (useRealSupabase) {
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const userId = authUser?.id || sessionData?.session?.user?.id;
+          if (userId) {
+            const { data, error } = await supabase
+              .from('categories')
+              .insert({
+                id: newUncatId,
+                name: 'Sem Categoria',
+                color: '#64748b',
+                icon: 'HelpCircle',
+                folder_id: null,
+                created_by: userId
+              })
+              .select()
+              .single();
+
+            if (!error && data) {
+              createdCat = {
+                id: data.id.toString(),
+                name: data.name,
+                color: data.color,
+                icon: data.icon,
+                folder_id: data.folder_id
+              };
+            } else if (error) {
+              console.error('Erro ao criar categoria "Sem Categoria" no Supabase:', error);
+            }
+          }
+        } catch (e) {
+          console.error('Exceção ao criar categoria "Sem Categoria" no Supabase:', e);
+        }
+      }
+
+      uncategorizedCat = createdCat;
+      uncategorizedId = createdCat.id;
+    }
+
+    if (!uncategorizedId) return;
+
+    // 2. Desvincular todas as perguntas vinculadas ao quiz e movê-las para "Sem Categoria"
+    const questionsToMigrate = questions.filter(q => q.category_id === categoryId);
+    if (questionsToMigrate.length > 0) {
+      setQuestions(prev => prev.map(q => 
+        q.category_id === categoryId ? { ...q, category_id: uncategorizedId! } : q
+      ));
+
+      if (useRealSupabase) {
+        try {
+          const { error: updateQError } = await supabase
+            .from('questions')
+            .update({ category_id: uncategorizedId })
+            .eq('category_id', categoryId);
+
+          if (updateQError) {
+            console.error('Erro ao atualizar perguntas para Sem Categoria no Supabase:', updateQError);
+          }
+        } catch (e) {
+          console.error('Exceção ao desvincular perguntas no Supabase:', e);
+        }
+      }
+    }
+
+    // 3. Excluir a categoria no Supabase
+    if (useRealSupabase) {
+      try {
+        const { error: delCatError } = await supabase
+          .from('categories')
+          .delete()
+          .eq('id', categoryId);
+
+        if (delCatError) {
+          console.error('Erro ao deletar categoria no Supabase:', delCatError);
+        }
+      } catch (e) {
+        console.error('Exceção ao deletar categoria no Supabase:', e);
+      }
+    }
+
+    // 4. Atualizar o estado de categorias (adicionando "Sem Categoria" se foi criada agora)
+    setCategories(prev => {
+      const filtered = prev.filter(c => c.id !== categoryId);
+      if (uncategorizedCat && !filtered.some(c => c.id === uncategorizedCat!.id)) {
+        return [...filtered, uncategorizedCat];
+      }
+      return filtered;
+    });
+
+    setSelectedCategoryIds(prev => prev.filter(id => id !== categoryId));
+
+    // 5. Excluir também qualquer SavedQuiz correspondente (por id, categoryIds ou nome)
+    const toRemoveQuizzes = savedQuizzes.filter(sq => 
+      sq.id === categoryId || 
+      (sq.categoryIds && sq.categoryIds.includes(categoryId)) ||
+      (sq.name && categoryToDelete.name && sq.name.trim().toLowerCase() === categoryToDelete.name.trim().toLowerCase())
+    );
+    if (toRemoveQuizzes.length > 0) {
+      let updatedSaved = savedQuizzes;
+      toRemoveQuizzes.forEach(sq => {
+        updatedSaved = deleteSavedQuiz(sq.id);
+      });
+      setSavedQuizzes(updatedSaved);
+    }
+
     sfx.playClick();
+  };
+
+  const handleDeleteQuizFromDashboard = async (quizId: string) => {
+    const quiz = savedQuizzes.find(q => q.id === quizId);
+    const cat = categories.find(c => c.id === quizId || (quiz && quiz.categoryIds && quiz.categoryIds.includes(c.id)));
+    if (cat) {
+      await handleDeleteCategoryQuiz(cat.id);
+    } else {
+      const confirmDelete = window.confirm('Tem certeza de que deseja excluir este quiz da sua biblioteca?');
+      if (!confirmDelete) return;
+      const updated = deleteSavedQuiz(quizId);
+      setSavedQuizzes(updated);
+      sfx.playClick();
+    }
   };
 
   const handleCreateQuizSubmit = async (quizData: {
@@ -2931,6 +3066,7 @@ Garanta que:
               onDuplicateQuiz={handleDuplicateQuizFromDashboard}
               onToggleFavorite={handleToggleFavoriteFromDashboard}
               onDeleteQuiz={handleDeleteQuizFromDashboard}
+              onDeleteCategory={handleDeleteCategoryQuiz}
               onCreateNewQuiz={() => { setShowCreateQuizModal(true); sfx.playClick(); }}
               onStartRouletteGame={handleStartRouletteGame}
               onSaveRouletteQuiz={handleSaveRouletteQuiz}
