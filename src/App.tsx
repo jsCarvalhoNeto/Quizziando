@@ -461,6 +461,59 @@ export default function App() {
     selectedCategoryIds.includes(q.category_id) && matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)
   ).length;
   
+  // ── Lista unificada de Categorias (Categorias do banco + Quizzes criados pelo usuário) ──
+  const allCategories = useMemo(() => {
+    const list = [...categories];
+    savedQuizzes.forEach(sq => {
+      const trimmedName = sq.name?.trim();
+      if (!trimmedName) return;
+      const exists = list.some(c => 
+        c.id === sq.id || 
+        (sq.categoryIds && sq.categoryIds.includes(c.id)) ||
+        c.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (!exists) {
+        list.push({
+          id: sq.id,
+          name: trimmedName,
+          color: '#7c3aed',
+          icon: 'HelpCircle',
+          folder_id: sq.folderId || null
+        });
+      }
+    });
+    return list;
+  }, [categories, savedQuizzes]);
+
+  // ── Sincronizar Quizzes Salvos no estado categories (para persistência e reatividade) ──
+  useEffect(() => {
+    if (!savedQuizzes || savedQuizzes.length === 0) return;
+    setCategories(prev => {
+      let changed = false;
+      const next = [...prev];
+      savedQuizzes.forEach(sq => {
+        const trimmedName = sq.name?.trim();
+        if (!trimmedName) return;
+        const exists = next.some(c => 
+          c.id === sq.id || 
+          (sq.categoryIds && sq.categoryIds.includes(c.id)) ||
+          c.name.trim().toLowerCase() === trimmedName.toLowerCase()
+        );
+        if (!exists) {
+          changed = true;
+          next.push({
+            id: sq.id,
+            name: trimmedName,
+            color: '#7c3aed',
+            icon: 'HelpCircle',
+            folder_id: sq.folderId || null
+          });
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [savedQuizzes]);
+
   const handleToggleCategorySelect = (id: string) => {
     setSelectedCategoryIds(prev => {
       if (prev.includes(id)) {
@@ -1545,11 +1598,35 @@ Garanta que:
     return { ...draft, id: savedQuestionId, alternatives, difficulty: draft.difficulty || 'medium', tags: draft.tags || [] };
   };
 
+  const syncSavedQuizQuestion = (qId: string, catId: string) => {
+    setSavedQuizzes(prev => {
+      let updated = false;
+      const next = prev.map(sq => {
+        const isTargetQuiz = sq.id === catId || (sq.categoryIds && sq.categoryIds.includes(catId));
+        if (isTargetQuiz && !sq.questionIds.includes(qId)) {
+          updated = true;
+          const newQIds = [...sq.questionIds, qId];
+          return {
+            ...sq,
+            questionIds: newQIds,
+            rounds: Math.max(1, Math.min(20, newQIds.length))
+          };
+        }
+        return sq;
+      });
+      if (updated) {
+        localStorage.setItem('quizziando_saved_quizzes_v1', JSON.stringify(next));
+      }
+      return updated ? next : prev;
+    });
+  };
+
   const handleAddAiDraftToBank = async (draft: Question) => {
     setAiSavingDraftIds((ids) => [...ids, draft.id]);
     try {
       const savedDraft = await persistAiDraft(draft);
       setQuestions((current) => [...current, savedDraft]);
+      syncSavedQuizQuestion(savedDraft.id, savedDraft.category_id);
       setAiDrafts((drafts) => drafts.filter((item) => item.id !== draft.id));
       sfx.playCorrect();
     } catch (error: any) {
@@ -1569,6 +1646,7 @@ Garanta que:
       try {
         const savedDraft = await persistAiDraft(draft);
         setQuestions((current) => [...current, savedDraft]);
+        syncSavedQuizQuestion(savedDraft.id, savedDraft.category_id);
         setAiDrafts((drafts) => drafts.filter((item) => item.id !== draft.id));
       } catch {
         failedDraftIds.push(draft.id);
@@ -1646,6 +1724,7 @@ Garanta que:
       setQuestions(questions.map(q => q.id === editingQuestionId ? questionObj : q));
     } else {
       setQuestions([...questions, questionObj]);
+      syncSavedQuizQuestion(savedQuestionId, managerQCatId);
     }
 
     // Resetar campos
@@ -1985,13 +2064,20 @@ Garanta que:
   };
 
   const handlePlayQuizFromDashboard = (quiz: SavedQuiz) => {
+    const qCount = quiz.questionIds?.length || 0;
+    if (qCount === 0) {
+      handleEditQuizFromDashboard(quiz);
+      return;
+    }
     handleLoadQuiz(quiz);
     setShowQuizConfigModal(true);
     sfx.playClick();
   };
 
   const handleEditQuizFromDashboard = (quiz: SavedQuiz) => {
-    handleLoadQuiz(quiz);
+    const effectiveCatId = quiz.categoryIds?.[0] || quiz.id;
+    setManagerQCatId(effectiveCatId);
+    setManagerSelectedCatFilter(effectiveCatId);
     setShowQuestionManagerModal(true);
     sfx.playClick();
   };
@@ -4884,7 +4970,7 @@ Garanta que:
                       className="qm-select"
                     >
                       <option value="">Selecione a categoria...</option>
-                      {categories.map((c) => (
+                      {allCategories.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
                         </option>
@@ -5334,7 +5420,7 @@ Garanta que:
                   className="qm-select w-auto min-w-[190px]"
                 >
                   <option value="">Todas Categorias</option>
-                  {categories.map((c) => (
+                  {allCategories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -5380,15 +5466,15 @@ Garanta que:
                 {questions
                   .filter((q) => {
                     const matchesSearch = q.question_text
-                      .toLowerCase()
-                      .includes(managerSearchTerm.toLowerCase());
+                        .toLowerCase()
+                        .includes(managerSearchTerm.toLowerCase());
                     const matchesCategory = managerSelectedCatFilter
                       ? q.category_id === managerSelectedCatFilter
                       : true;
                     return matchesSearch && matchesCategory;
                   })
                   .map((q) => {
-                    const cat = categories.find((c) => c.id === q.category_id);
+                    const cat = allCategories.find((c) => c.id === q.category_id);
                     return (
                       <div
                         key={q.id}

@@ -7,7 +7,8 @@ import {
   Trash, 
   Edit3, 
   HelpCircle,
-  Sparkles
+  Sparkles,
+  PlusCircle
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 
@@ -487,30 +488,56 @@ export const QuizCard: React.FC<QuizCardProps> = ({
                     <span>Jogar Agora</span>
                   </button>
                   {onEdit && (
-                    <button
-                      type="button"
-                      onClick={() => { setShowMenu(false); onEdit(quiz); }}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '8px 10px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: '#334155',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
-                      <span>Editar Perguntas</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setShowMenu(false); onEdit(quiz); }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#7c3aed',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <PlusCircle style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                        <span>Criar Questões</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowMenu(false); onEdit(quiz); }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 10px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          border: 'none',
+                          background: 'transparent',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      >
+                        <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
+                        <span>Editar Perguntas</span>
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -573,36 +600,64 @@ export const QuizCard: React.FC<QuizCardProps> = ({
           </div>
         </div>
 
-        {/* Botão de Ação Estilo Kahoot! */}
+        {/* Rodapé do Card */}
         <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-            {quiz.tagFilter || 'Geral'}
+          <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {quiz.folderId ? 'Pasta' : 'GERAL'}
           </span>
 
-          <button
-            type="button"
-            onClick={() => onPlay(quiz)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 16px',
-              borderRadius: '6px',
-              backgroundColor: '#1368ce',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 800,
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(19, 104, 206, 0.25)',
-              transition: 'background-color 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
-          >
-            <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
-            <span>Jogar</span>
-          </button>
+          {totalQuestions === 0 ? (
+            <button
+              type="button"
+              onClick={() => onEdit ? onEdit(quiz) : onPlay(quiz)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                backgroundColor: '#7c3aed',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(124, 58, 237, 0.25)',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#6d28d9')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#7c3aed')}
+              title="Criar perguntas para este quiz"
+            >
+              <PlusCircle style={{ width: '13px', height: '13px' }} />
+              <span>Criar Perguntas</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onPlay(quiz)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 16px',
+                borderRadius: '6px',
+                backgroundColor: '#1368ce',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 800,
+                border: 'none',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(19, 104, 206, 0.25)',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
+            >
+              <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
+              <span>Jogar</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
