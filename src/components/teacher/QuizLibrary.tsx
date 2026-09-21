@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   LayoutGrid, 
@@ -25,7 +25,8 @@ import {
   AlertTriangle,
   Loader2,
   Database,
-  Star
+  Star,
+  Zap
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -56,6 +57,7 @@ interface QuizLibraryProps {
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }
@@ -91,6 +93,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   onDeleteCategory,
   onCreateNewQuiz,
   onStartRouletteGame,
+  onStartClassicGame,
   onSaveRouletteQuiz,
   onOpenQuestionManager,
 }) => {
@@ -98,6 +101,26 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'favorites'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [openMenuCatId, setOpenMenuCatId] = useState<string | null>(null);
+
+  // 🖱️ Fecha o menu de contexto do quiz ao clicar fora dele
+  useEffect(() => {
+    if (!openMenuCatId) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(`[data-category-menu-container="${openMenuCatId}"]`)) {
+        return;
+      }
+      setOpenMenuCatId(null);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [openMenuCatId]);
 
   // ⭐ Estado de Quizzes/Categorias Favoritas persistido em localStorage
   const [favoriteCategoryIds, setFavoriteCategoryIds] = useState<string[]>(() => {
@@ -130,8 +153,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   const [showSaveRouletteModal, setShowSaveRouletteModal] = useState(false);
   const [rouletteQuizName, setRouletteQuizName] = useState('');
 
-  // 🎮 Estado do Modal de Escolha do Modo de Jogo com Roleta
+  // 🎮 Estado do Modal de Escolha do Modo de Jogo com Roleta ou Clássico
   const [showRouletteModeModal, setShowRouletteModeModal] = useState(false);
+  const [playSessionType, setPlaySessionType] = useState<'classic' | 'roulette'>('classic');
 
   // 🗑️ Estado do Modal de Confirmação para Excluir Quiz (Categoria)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
@@ -187,36 +211,46 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     });
   }, [categories, selectedFolderId, searchQuery, activeTab, favoriteCategoryIds, questionCountByCategory, folderMap]);
 
-  // Alternar seleção de um quiz para a Roleta
+  // Alternar seleção de um quiz para o jogo
   const handleToggleSelectQuiz = (catId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setSelectionWarning('');
-
-    if (selectedQuizIds.includes(catId)) {
-      setSelectedQuizIds(prev => prev.filter(id => id !== catId));
-    } else {
-      if (selectedQuizIds.length >= 12) {
-        setSelectionWarning('Limite atingido: a Roleta comporta no máximo 12 quizzes para sorteio.');
-        return;
+    setSelectedQuizIds(prev => {
+      if (prev.includes(catId)) {
+        setSelectionWarning('');
+        return prev.filter(id => id !== catId);
       }
-      setSelectedQuizIds(prev => [...prev, catId]);
+      if (prev.length >= 12) {
+        setSelectionWarning('Limite atingido: a seleção comporta no máximo 12 quizzes.');
+        return prev;
+      }
+      setSelectionWarning('');
+      return [...prev, catId];
+    });
+  };
+
+  // Selecionar todos os quizzes visíveis
+  const handleSelectAllVisible = (visibleIdsOrEvent?: string[] | React.MouseEvent) => {
+    const ids = Array.isArray(visibleIdsOrEvent) ? visibleIdsOrEvent : filteredCategories.map(c => c.id);
+    if (selectedQuizIds.length === ids.length && ids.length > 0) {
+      setSelectedQuizIds([]);
+    } else {
+      if (ids.length > 12) {
+        setSelectedQuizIds(ids.slice(0, 12));
+        setSelectionWarning('Selecionados os primeiros 12 quizzes.');
+      } else {
+        setSelectedQuizIds(ids);
+      }
     }
   };
 
-  // Selecionar todos os visíveis (até 12)
-  const handleSelectAllVisible = () => {
-    setSelectionWarning('');
-    const visibleIds = filteredCategories.map(c => c.id);
-    if (selectedQuizIds.length === visibleIds.length) {
-      setSelectedQuizIds([]);
-    } else {
-      if (visibleIds.length > 12) {
-        setSelectionWarning('Selecionados os primeiros 12 quizzes (limite da Roleta).');
-        setSelectedQuizIds(visibleIds.slice(0, 12));
-      } else {
-        setSelectedQuizIds(visibleIds);
-      }
+  // Confirmar início do jogo no Modo Clássico (Estilo Kahoot - sem roleta)
+  const handleConfirmPlayClassic = () => {
+    if (selectedQuizIds.length < 1) {
+      setSelectionWarning('Selecione pelo menos 1 quiz para jogar no Modo Clássico.');
+      return;
     }
+    setPlaySessionType('classic');
+    setShowRouletteModeModal(true);
   };
 
   // Confirmar início do jogo com Roleta (abre modal de escolha de modo)
@@ -225,6 +259,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       setSelectionWarning('Selecione pelo menos 2 quizzes para poder girar a Roleta.');
       return;
     }
+    setPlaySessionType('roulette');
     setShowRouletteModeModal(true);
   };
 
@@ -404,77 +439,107 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         </div>
       </div>
 
-      {/* ─── BARRA DE AÇÃO DE SELEÇÃO ESTILO KAHOOT! (Modo Roleta) ───────────── */}
+      {/* ─── BARRA DE AÇÃO DE SELEÇÃO ESTILO KAHOOT! ───────────── */}
       {selectedQuizIds.length > 0 && (
         <div 
           style={{
-            backgroundColor: '#1368ce',
+            backgroundColor: '#1e1b4b',
             color: '#ffffff',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '14px',
+            padding: '12px 20px',
             display: 'flex',
             flexWrap: 'wrap',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
-            boxShadow: '0 4px 12px rgba(19, 104, 206, 0.3)',
+            boxShadow: '0 8px 24px rgba(30, 27, 75, 0.35)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
           }}
         >
-          {/* Lado Esquerdo: Contador e Instrução da Roleta */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Lado Esquerdo: Contador e Instrução */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div 
               style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '6px',
-                backgroundColor: '#ffffff',
-                color: '#1368ce',
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                backgroundColor: '#10b981',
+                color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 900,
               }}
             >
-              <Check style={{ width: '16px', height: '16px', strokeWidth: 3 }} />
+              <Check style={{ width: '18px', height: '18px', strokeWidth: 3 }} />
             </div>
 
             <div>
               <span style={{ fontSize: '13px', fontWeight: 800 }}>
-                {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'} para a Roleta
+                {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'}
               </span>
-              <span style={{ fontSize: '11px', color: '#bfdbfe', display: 'block', fontWeight: 600 }}>
-                {selectedQuizIds.length < 2 
-                  ? `Selecione mais ${2 - selectedQuizIds.length} para liberar o sorteio na Roleta (Mínimo 2, Máximo 12)`
-                  : `Pronto! A Roleta sorteará entre estes ${selectedQuizIds.length} quizzes durante a partida.`}
+              <span style={{ fontSize: '11px', color: '#cbd5e1', display: 'block', fontWeight: 500 }}>
+                {selectedQuizIds.length === 1
+                  ? 'Pronto para o Quiz Clássico, ou selecione mais um para liberar a Roleta.'
+                  : 'Pronto para jogar no Quiz Clássico ou sorteando na Roleta.'}
               </span>
             </div>
           </div>
 
-          {/* Lado Direito: Ações da Roleta */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Lado Direito: Ações de Jogo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Botão NOVO: Jogar Clássico (Estilo Kahoot - sem roleta) */}
+            <button
+              type="button"
+              onClick={handleConfirmPlayClassic}
+              disabled={selectedQuizIds.length < 1}
+              style={{
+                height: '38px',
+                padding: '0 18px',
+                borderRadius: '10px',
+                backgroundColor: '#10b981',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '13px',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 10px rgba(16, 185, 129, 0.4)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Jogar diretamente em sequência (sem roleta), no formato estilo Kahoot"
+            >
+              <Zap style={{ width: '16px', height: '16px', fill: 'currentColor' }} />
+              <span>Jogar Clássico</span>
+            </button>
+
             {/* Botão Jogar com Roleta */}
             <button
               type="button"
               onClick={handleConfirmPlayWithRoulette}
               disabled={selectedQuizIds.length < 2}
               style={{
-                height: '36px',
+                height: '38px',
                 padding: '0 16px',
-                borderRadius: '8px',
-                backgroundColor: selectedQuizIds.length >= 2 ? '#ffffff' : 'rgba(255, 255, 255, 0.3)',
-                color: selectedQuizIds.length >= 2 ? '#1368ce' : '#ffffff',
+                borderRadius: '10px',
+                backgroundColor: selectedQuizIds.length >= 2 ? '#46178f' : 'rgba(255, 255, 255, 0.12)',
+                color: selectedQuizIds.length >= 2 ? '#ffffff' : 'rgba(255, 255, 255, 0.5)',
                 fontWeight: 800,
                 fontSize: '13px',
-                border: 'none',
+                border: selectedQuizIds.length >= 2 ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid transparent',
                 cursor: selectedQuizIds.length >= 2 ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: selectedQuizIds.length >= 2 ? '0 2px 6px rgba(0, 0, 0, 0.15)' : 'none',
+                gap: '7px',
+                boxShadow: selectedQuizIds.length >= 2 ? '0 2px 8px rgba(70, 23, 143, 0.3)' : 'none',
+                transition: 'all 0.15s ease',
               }}
+              title={selectedQuizIds.length < 2 ? 'Selecione pelo menos 2 quizzes para girar a roleta' : 'Girar a roleta para sortear as categorias'}
             >
               <RotateCw style={{ width: '15px', height: '15px' }} />
-              <span>Jogar com Roleta ({selectedQuizIds.length})</span>
+              <span>Jogar com Roleta</span>
             </button>
 
             {/* Botão Salvar Quiz da Roleta */}
@@ -483,11 +548,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
               onClick={handleOpenSaveRouletteModal}
               disabled={selectedQuizIds.length < 2}
               style={{
-                height: '36px',
+                height: '38px',
                 padding: '0 14px',
-                borderRadius: '8px',
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 color: '#ffffff',
                 fontWeight: 700,
                 fontSize: '12px',
@@ -875,7 +940,10 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                       </h3>
 
                       {/* Menu 3 Pontinhos */}
-                      <div style={{ position: 'relative' }}>
+                      <div 
+                        style={{ position: 'relative' }}
+                        data-category-menu-container={cat.id}
+                      >
                         <button
                           type="button"
                           onClick={() => setOpenMenuCatId(isMenuOpen ? null : cat.id)}
@@ -1474,7 +1542,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         </div>
       )}
 
-      {/* ─── MODAL DE ESCOLHA DO MODO DE JOGO COM ROLETA ──────────────────────── */}
+      {/* ─── MODAL DE ESCOLHA DO MODO DE JOGO (CLÁSSICO OU ROLETA) ─────────── */}
       {showRouletteModeModal && (
         <div
           style={{
@@ -1517,23 +1585,32 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     width: '46px',
                     height: '46px',
                     borderRadius: '12px',
-                    backgroundColor: '#eff6ff',
-                    border: '1.5px solid #dbeafe',
+                    backgroundColor: playSessionType === 'classic' ? '#ecfdf5' : '#eff6ff',
+                    border: playSessionType === 'classic' ? '1.5px solid #a7f3d0' : '1.5px solid #dbeafe',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#1368ce',
+                    color: playSessionType === 'classic' ? '#059669' : '#1368ce',
                     flexShrink: 0,
                   }}
                 >
-                  <RotateCw style={{ width: '24px', height: '24px' }} />
+                  {playSessionType === 'classic' ? (
+                    <Zap style={{ width: '24px', height: '24px', fill: 'currentColor' }} />
+                  ) : (
+                    <RotateCw style={{ width: '24px', height: '24px' }} />
+                  )}
                 </div>
                 <div>
                   <h3 style={{ fontSize: '19px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                    Como deseja jogar com a Roleta?
+                    {playSessionType === 'classic' ? 'Iniciar Partida - Quiz Clássico' : 'Como deseja jogar com a Roleta?'}
                   </h3>
                   <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0', fontWeight: 500 }}>
-                    <strong style={{ color: '#1368ce' }}>{selectedQuizIds.length} quizzes</strong> selecionados para o sorteio. Escolha o formato da partida:
+                    <strong style={{ color: playSessionType === 'classic' ? '#059669' : '#1368ce' }}>
+                      {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'}
+                    </strong>
+                    {playSessionType === 'classic'
+                      ? ' no formato estilo Kahoot (perguntas diretas, sem sorteio de roleta).'
+                      : ' selecionados para o sorteio na Roleta.'} Escolha o formato da partida:
                   </p>
                 </div>
               </div>
@@ -1568,7 +1645,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  onStartRouletteGame(selectedQuizIds, 'online');
+                  if (playSessionType === 'classic' && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'online');
+                  } else {
+                    onStartRouletteGame(selectedQuizIds, 'online');
+                  }
                 }}
                 style={{
                   padding: '18px',
@@ -1633,7 +1714,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    Jogue em tempo real com jogadores na internet. Crie salas, use o celular como controle e a Roleta sorteia as perguntas ao vivo.
+                    {playSessionType === 'classic'
+                      ? 'Partida multiplayer com PIN da sala. Os participantes usam o celular e as perguntas seguem em sequência sem roleta.'
+                      : 'Jogue em tempo real com jogadores na internet. Crie salas, use o celular como controle e a Roleta sorteia as perguntas ao vivo.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['Sala ao vivo', 'Multiplayer', 'Supabase Realtime'].map(tag => (
@@ -1662,7 +1745,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  onStartRouletteGame(selectedQuizIds, 'local');
+                  if (playSessionType === 'classic' && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'local');
+                  } else {
+                    onStartRouletteGame(selectedQuizIds, 'local');
+                  }
                 }}
                 style={{
                   padding: '18px',
@@ -1727,7 +1814,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    Jogue sem internet com dois times. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.
+                    {playSessionType === 'classic'
+                      ? 'Jogue sem internet com dois times. As perguntas são apresentadas em sequência e o apresentador confirma os pontos.'
+                      : 'Jogue sem internet com dois times. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['Sem internet', '2 Times', 'Resposta oral', 'SQLite Local'].map(tag => (
@@ -1756,7 +1845,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  onStartRouletteGame(selectedQuizIds, 'hybrid');
+                  if (playSessionType === 'classic' && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'hybrid');
+                  } else {
+                    onStartRouletteGame(selectedQuizIds, 'hybrid');
+                  }
                 }}
                 style={{
                   padding: '18px',
@@ -1803,7 +1896,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     <span style={{ fontSize: '16px', fontWeight: 800, color: '#831843' }}>
-                      Presencial com Celulares
+                      Presencial com Celulares (Kahoot)
                     </span>
                     <span
                       style={{
@@ -1821,7 +1914,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    Projete a tela com a Roleta no telão ou projetor e receba as respostas dos celulares dos alunos conectados pela internet.
+                    {playSessionType === 'classic'
+                      ? 'Projete a partida no telão ou projetor da sala. Os alunos respondem ao vivo com os 4 botões geométricos do celular.'
+                      : 'Projete a tela com a Roleta no telão ou projetor e receba as respostas dos celulares dos alunos conectados pela internet.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['Telão / Projetor', 'Controle por celular', 'Modo Híbrido'].map(tag => (

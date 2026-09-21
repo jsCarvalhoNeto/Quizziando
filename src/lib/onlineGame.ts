@@ -32,6 +32,7 @@ export interface OnlineRoom {
   reveal_when_all_answered: boolean;
   scoring_mode: 'speed' | 'fixed';
   fixed_points: number;
+  quiz_format?: 'classic' | 'roulette';
 }
 
 export interface PlayerSnapshot {

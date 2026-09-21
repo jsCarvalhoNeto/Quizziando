@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download
+  ArrowLeft, Search, Download, Play, Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -1039,6 +1039,7 @@ Garanta que:
   };
 
   // Estados de Partida Ativa
+  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette'>('classic');
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
   const [gameTimeLimit, setGameTimeLimit] = useState(15);
@@ -2024,6 +2025,62 @@ Garanta que:
     });
   };
 
+  // Iniciar a Pergunta no Quiz Clássico (Estilo Kahoot - sem roleta)
+  const handleStartClassicQuestion = async () => {
+    if (hostBusyRef.current || roundState !== 'idle') return;
+
+    let pool = questions.filter(q =>
+      selectedCategoryIds.includes(q.category_id) &&
+      matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter) &&
+      !usedQuestionIdsRef.current.includes(q.id)
+    );
+
+    if (pool.length === 0) {
+      pool = questions.filter(q =>
+        selectedCategoryIds.includes(q.category_id) &&
+        matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)
+      );
+    }
+
+    if (pool.length === 0) {
+      setGameError('Nenhuma pergunta disponível para os filtros e categorias selecionados.');
+      return;
+    }
+
+    const selectedQ = pool[0] || pool[Math.floor(Math.random() * pool.length)];
+    const cat = categories.find(c => c.id === selectedQ.category_id) || {
+      id: selectedQ.category_id,
+      name: 'Quiz',
+      color: '#7c3aed',
+      icon: 'HelpCircle'
+    };
+
+    const sequence = ++spinSequenceRef.current;
+    const later = (delay: number, action: () => Promise<void>) => {
+      onlineTimersRef.current.push(setTimeout(() => {
+        if (sequence === spinSequenceRef.current) void runHostAction(action);
+      }, delay));
+    };
+
+    await runHostAction(async () => {
+      sfx.playClick();
+      // Revela a pergunta diretamente (sem roleta, estilo Kahoot)
+      await publishRoomState({
+        round_state: 'question-reveal',
+        current_question: { id: selectedQ.id },
+        selected_category: cat
+      });
+      setSelectedCategory(cat);
+      setCurrentQuestion(selectedQ);
+
+      later(3500, async () => {
+        sfx.playGameSound();
+        await publishRoomState({ round_state: 'question' });
+        setPlayerAnswered(null);
+      });
+    });
+  };
+
   const handlePlayerAnswer = (altIndex: number) => {
     void altIndex;
     // Participantes respondem exclusivamente pela URL da sala, onde a resposta
@@ -2402,6 +2459,7 @@ Garanta que:
     const catQuestions = questions.filter(q => q.category_id === category.id);
     const roundsCount = Math.max(1, Math.min(catQuestions.length || 10, 20));
     setGameRounds(roundsCount);
+    setQuizFormat('classic');
     setShowQuizConfigModal(true);
     sfx.playClick();
   };
@@ -2412,11 +2470,88 @@ Garanta que:
     handleOpenQuestionManager('bank');
   };
 
+  const handleStartClassicGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
+    if (categoryIds.length < 1) {
+      alert('Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.');
+      return;
+    }
+    setQuizFormat('classic');
+    setSelectedCategoryIds(categoryIds);
+
+    // 1. Modo Local (Offline)
+    if (mode === 'local') {
+      setAppMode('local');
+      sfx.playClick();
+      return;
+    }
+
+    // 2. Modo Online ou Presencial com Celulares (Híbrido) -> Criar sala e ir direto para o Lobby
+    const isHybrid = mode === 'hybrid';
+    const effectiveMode = isHybrid ? 'open' : (gameMode || 'classic');
+
+    setHybridMode(isHybrid);
+    setGameMode(effectiveMode);
+    setRole('operator');
+    setAppMode('online');
+    setShowQuizConfigModal(false);
+    sfx.playClick();
+
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+    if (catQuestions.length === 0) {
+      alert('O quiz selecionado não possui perguntas cadastradas.');
+      return;
+    }
+
+    const roundsCount = Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
+    setGameRounds(roundsCount);
+
+    try {
+      await runHostAction(async () => {
+        createRequestRef.current = crypto.randomUUID();
+        const room = await gameRpc<OnlineRoom>('quiz_create_room', {
+          p_request_id: createRequestRef.current,
+          p_mode: effectiveMode,
+          p_rounds: roundsCount,
+          p_time_limit: gameTimeLimit || 20,
+          p_category_ids: categoryIds,
+        });
+
+        const configured = await gameRpc<HostSnapshot>('quiz_host_configure_room', {
+          p_code: room.code,
+          p_settings: {
+            max_players: maxPlayers || 100,
+            join_locked: false,
+            reveal_when_all_answered: autoReveal,
+            scoring_mode: scoringMode,
+            fixed_points: fixedPoints,
+            question_ids: catQuestions.map(q => q.id),
+          },
+        });
+
+        createRequestRef.current = null;
+        lastHostSnapshotRef.current = 0;
+        setRoomCode(room.code);
+        setRoomLink(`${window.location.origin}${window.location.pathname}?room=${room.code}`);
+        setActivePlayers([]);
+        setRoomAnswers([0, 0, 0, 0]);
+        setTotalAnswered(0);
+        setGameError('');
+        applyHostSnapshot(configured);
+        setScreen('game-lobby');
+        sfx.playLobby();
+      });
+    } catch (err: any) {
+      console.error('Erro ao iniciar sala do quiz clássico:', err);
+      alert(`Não foi possível criar a sala para o Quiz Clássico: ${err.message || String(err)}`);
+    }
+  };
+
   const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
     if (categoryIds.length < 2 || categoryIds.length > 12) {
       alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
       return;
     }
+    setQuizFormat('roulette');
     setSelectedCategoryIds(categoryIds);
 
     // 1. Modo Local (Offline)
@@ -3079,6 +3214,7 @@ Garanta que:
               onDeleteCategory={handleDeleteCategoryQuiz}
               onCreateNewQuiz={() => { setShowCreateQuizModal(true); sfx.playClick(); }}
               onStartRouletteGame={handleStartRouletteGame}
+              onStartClassicGame={handleStartClassicGame}
               onSaveRouletteQuiz={handleSaveRouletteQuiz}
               onCreateFolder={handleCreateFolder}
               onOpenQuestionManager={handleOpenQuestionManager}
@@ -3160,6 +3296,8 @@ Garanta que:
                 setShowQuizConfigModal(false);
                 handleStartGameSetup();
               }}
+              quizFormat={quizFormat}
+              setQuizFormat={setQuizFormat}
               gameMode={gameMode}
               setGameMode={setGameMode}
               gameRounds={gameRounds}
@@ -3242,6 +3380,7 @@ Garanta que:
             }}
             nickname={nickname}
             getAvatarUrl={getAvatarUrl}
+            quizFormat={quizFormat}
           />
         )}
 
@@ -3284,8 +3423,99 @@ Garanta que:
                 )}
 
 
-              {/* ROLETA DE CATEGORIAS */}
-              {roundState === 'idle' || roundState === 'spinning' ? (
+              {/* APRESENTAÇÃO DA RODADA: QUIZ CLÁSSICO (SEM ROLETA) OU ROLETA DE CATEGORIAS */}
+              {(roundState === 'idle' || roundState === 'spinning') ? (
+                quizFormat === 'classic' ? (
+                  <div 
+                    style={{ 
+                      flex: 1, 
+                      padding: '48px 24px', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      borderRadius: '32px', 
+                      border: '4px solid rgba(16, 185, 129, 0.45)', 
+                      position: 'relative', 
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.45)', 
+                      background: 'radial-gradient(ellipse at 50% 40%, #1e1b4b 0%, #0f172a 100%)',
+                      minHeight: '380px' 
+                    }}
+                  >
+                    {/* Floating Header */}
+                    <div style={{ position: 'absolute', top: '-24px', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+                      <div style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: '3px solid #047857', borderRadius: '9999px', padding: '10px 28px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
+                        <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Zap style={{ width: '20px', height: '20px', fill: 'currentColor' }} />
+                          Quiz Clássico
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Chips de status no topo do card */}
+                    <span style={{ position: 'absolute', top: 16, left: 20, zIndex: 10, fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '6px 14px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Rodada {currentRoundIndex} de {gameRounds}
+                    </span>
+                    <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
+                        title={isLobbyExpanded ? "Ocultar lista de jogadores" : "Mostrar lista de jogadores"}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: 'white', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 999, padding: '6px 14px', cursor: 'pointer' }}
+                      >
+                        <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                        {isLobbyExpanded ? 'Recolher' : 'Lobby'}
+                      </button>
+                    </div>
+
+                    <div style={{ textAlign: 'center', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '16px' }}>
+                      <div style={{ width: '84px', height: '84px', borderRadius: '24px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '2px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)' }}>
+                        <Sparkles style={{ width: '42px', height: '42px' }} />
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          Rodada {currentRoundIndex} de {gameRounds}
+                        </span>
+                        <h2 style={{ fontSize: '32px', fontWeight: 900, color: '#ffffff', margin: '8px 0 6px 0', fontFamily: "'Outfit', sans-serif" }}>
+                          Preparados para a Pergunta {currentRoundIndex}?
+                        </h2>
+                        <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>
+                          A pergunta será exibida com as opções no estilo Kahoot para os competidores responderem.
+                        </p>
+                      </div>
+
+                      {role === 'operator' && (
+                        <button
+                          type="button"
+                          onClick={handleStartClassicQuestion}
+                          disabled={hostBusy}
+                          style={{
+                            height: '54px',
+                            padding: '0 36px',
+                            borderRadius: '14px',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            fontSize: '17px',
+                            fontWeight: 900,
+                            border: 'none',
+                            cursor: hostBusy ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                            transition: 'all 0.15s ease',
+                            letterSpacing: '0.4px'
+                          }}
+                          onMouseEnter={e => { if (!hostBusy) { e.currentTarget.style.transform = 'scale(1.02)'; } }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
+                        >
+                          <Play style={{ width: '18px', height: '18px', fill: 'currentColor' }} />
+                          <span>INICIAR PERGUNTA {currentRoundIndex}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
                 <div style={{ flex: 1, paddingTop: '44px', paddingBottom: '20px', paddingLeft: '24px', paddingRight: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '32px', border: '6px solid rgba(49,46,129,0.8)', position: 'relative', boxShadow: '0 12px 0 rgba(49,46,129,0.8), 0 20px 40px rgba(0,0,0,0.5)', backgroundColor: activeThemeBg, backgroundImage: activeThemeImg, backgroundSize: 'cover', backgroundPosition: 'center', minHeight: '350px' }}>
 
                   {/* Vinheta — escurece as bordas do card para focar a atenção na roda */}
@@ -3577,7 +3807,7 @@ Garanta que:
                     </div>
                   )}
                 </div>
-              ) : null}
+              )) : null}
 
               {/* REVEAL DA CATEGORIA — estado intermediário após a roleta parar */}
               {roundState === 'category-reveal' && selectedCategory && (

@@ -61,6 +61,7 @@ interface TeacherDashboardProps {
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
@@ -114,6 +115,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onDeleteCategory,
   onCreateNewQuiz,
   onStartRouletteGame,
+  onStartClassicGame,
   onSaveRouletteQuiz,
   onCreateFolder,
   onOpenQuestionManager,
@@ -1770,6 +1772,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               onDeleteCategory={onDeleteCategory}
               onCreateNewQuiz={onCreateNewQuiz}
               onStartRouletteGame={onStartRouletteGame}
+              onStartClassicGame={onStartClassicGame}
               onSaveRouletteQuiz={onSaveRouletteQuiz}
               onOpenQuestionManager={onOpenQuestionManager}
             />

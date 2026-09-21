@@ -9,6 +9,7 @@ export interface SavedQuiz {
   onlineMode: 'open' | 'duel' | 'team';
   scoringMode: 'speed' | 'fixed';
   fixedPoints: number;
+  quizFormat?: 'classic' | 'roulette';
   difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
   tagFilter?: string;
   thumbnailUrl?: string;
