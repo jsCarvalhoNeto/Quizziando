@@ -2064,19 +2064,30 @@ Garanta que:
 
     await runHostAction(async () => {
       sfx.playClick();
-      // Revela a pergunta diretamente (sem roleta, estilo Kahoot)
-      await publishRoomState({
-        round_state: 'question-reveal',
-        current_question: { id: selectedQ.id },
-        selected_category: cat
-      });
+      // Passo 1: Transita para spinning (compatibilidade com a máquina de estados do banco de dados)
+      await publishRoomState({ round_state: 'spinning' });
       setSelectedCategory(cat);
       setCurrentQuestion(selectedQ);
 
-      later(3500, async () => {
-        sfx.playGameSound();
-        await publishRoomState({ round_state: 'question' });
-        setPlayerAnswered(null);
+      // Passo 2: Associa a pergunta e a categoria da rodada
+      later(100, async () => {
+        await publishRoomState({
+          round_state: 'category-reveal',
+          current_question: { id: selectedQ.id },
+          selected_category: cat
+        });
+
+        // Passo 3: Revela a pergunta para leitura rápida
+        later(1500, async () => {
+          await publishRoomState({ round_state: 'question-reveal' });
+
+          // Passo 4: Abre as alternativas para os competidores responderem
+          later(3000, async () => {
+            sfx.playGameSound();
+            await publishRoomState({ round_state: 'question' });
+            setPlayerAnswered(null);
+          });
+        });
       });
     });
   };
