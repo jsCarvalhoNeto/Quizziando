@@ -685,11 +685,20 @@ select.input-glow option {
 /* Position Engine */
 .relative { position: relative; }
 .absolute { position: absolute; }
+.fixed { position: fixed !important; }
+.inset-0 { top: 0 !important; right: 0 !important; bottom: 0 !important; left: 0 !important; }
 .top-0 { top: 0; }
 .left-0 { left: 0; }
 .right-0 { right: 0; }
 .bottom-0 { bottom: 0; }
 .z-10 { z-index: 10; }
+.z-40 { z-index: 40; }
+.z-50 { z-index: 50 !important; }
+
+.backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.backdrop-blur-md { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.bg-black\/60 { background-color: rgba(0, 0, 0, 0.6); }
+.bg-black\/80 { background-color: rgba(0, 0, 0, 0.8); }
 
 .-top-2 { top: -8px; }
 .left-1\.5 { left: 6px; }

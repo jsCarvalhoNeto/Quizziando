@@ -22,6 +22,7 @@ import LocalGameMode from './LocalGameMode';
 import LoginPortal from './components/auth/LoginPortal';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import QuizConfigModal from './components/teacher/QuizConfigModal';
+import CreateQuizModal from './components/teacher/CreateQuizModal';
 import GameLobbyView from './components/game/GameLobbyView';
 import WelcomeView from './components/game/WelcomeView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -565,6 +566,7 @@ export default function App() {
   const [appMode, setAppMode] = useState<'portal' | 'select' | 'online' | 'local' | 'practice'>('portal');
   const [studentRoomCode, setStudentRoomCode] = useState<string | null>(null);
   const [showQuizConfigModal, setShowQuizConfigModal] = useState(false);
+  const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
   const [hybridMode, setHybridMode] = useState(false);
 
   const handleReturnToSelectMode = () => {
@@ -2014,6 +2016,43 @@ Garanta que:
     sfx.playClick();
   };
 
+  const handleCreateQuizSubmit = (quizData: {
+    name: string;
+    folderId: string | null;
+    description?: string;
+    timeLimit: number;
+    questionIds: string[];
+    categoryIds: string[];
+  }) => {
+    const newQuiz: SavedQuiz = {
+      id: `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: quizData.name,
+      savedAt: new Date().toISOString(),
+      categoryIds: quizData.categoryIds,
+      questionIds: quizData.questionIds,
+      rounds: Math.max(1, Math.min(20, quizData.questionIds.length || 10)),
+      timeLimit: quizData.timeLimit,
+      onlineMode: 'open',
+      scoringMode: 'speed',
+      fixedPoints: 100,
+      difficultyFilter: 'all',
+      folderId: quizData.folderId,
+      description: quizData.description,
+      isFavorite: false,
+      localRules: {
+        hasObstacles: false,
+        pointsPerCorrect: 100,
+        pointsOnPass: 100,
+        quickMode: false,
+        tiePolicy: 'shared'
+      }
+    };
+
+    const updated = saveQuiz(newQuiz);
+    setSavedQuizzes(updated);
+    sfx.playCorrect();
+  };
+
   const handleCreateFolder = async (name: string, color: string = '#46178F') => {
     if (!name.trim()) return;
     const newFolderId = crypto.randomUUID();
@@ -2727,7 +2766,7 @@ Garanta que:
               onDuplicateQuiz={handleDuplicateQuizFromDashboard}
               onToggleFavorite={handleToggleFavoriteFromDashboard}
               onDeleteQuiz={handleDeleteQuizFromDashboard}
-              onCreateNewQuiz={() => { setShowQuizConfigModal(true); sfx.playClick(); }}
+              onCreateNewQuiz={() => { setShowCreateQuizModal(true); sfx.playClick(); }}
               onStartRouletteGame={handleStartRouletteGame}
               onSaveRouletteQuiz={handleSaveRouletteQuiz}
               onCreateFolder={handleCreateFolder}
@@ -2792,6 +2831,15 @@ Garanta que:
                 localStorage.setItem('gameTheme', theme);
                 sfx.playClick();
               }}
+            />
+
+            <CreateQuizModal
+              isOpen={showCreateQuizModal}
+              onClose={() => setShowCreateQuizModal(false)}
+              folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
+              categories={categories}
+              questions={questions}
+              onSaveQuiz={handleCreateQuizSubmit}
             />
 
             <QuizConfigModal
