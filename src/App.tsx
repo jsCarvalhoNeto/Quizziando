@@ -2061,37 +2061,78 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleStartRouletteGame = (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
+  const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
     if (categoryIds.length < 2 || categoryIds.length > 12) {
       alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
       return;
     }
     setSelectedCategoryIds(categoryIds);
-    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
-    const roundsCount = Math.max(1, Math.min(catQuestions.length || 10, 20));
-    setGameRounds(roundsCount);
 
+    // 1. Modo Local (Offline)
     if (mode === 'local') {
       setAppMode('local');
       sfx.playClick();
       return;
     }
 
-    if (mode === 'hybrid') {
-      setHybridMode(true);
-      setGameMode('open');
-      setAppMode('online');
-      setShowQuizConfigModal(true);
-      sfx.playClick();
+    // 2. Modo Online ou Presencial com Celulares (Híbrido) -> Criar sala e ir direto para o Lobby
+    const isHybrid = mode === 'hybrid';
+    const effectiveMode = isHybrid ? 'open' : (gameMode || 'classic');
+
+    setHybridMode(isHybrid);
+    setGameMode(effectiveMode);
+    setRole('operator');
+    setAppMode('online');
+    setShowQuizConfigModal(false);
+    sfx.playClick();
+
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+    if (catQuestions.length === 0) {
+      alert('Os quizzes selecionados não possuem perguntas cadastradas.');
       return;
     }
 
-    if (mode === 'online') {
-      setHybridMode(false);
-      setAppMode('online');
-      setShowQuizConfigModal(true);
-      sfx.playClick();
-      return;
+    const roundsCount = Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
+    setGameRounds(roundsCount);
+
+    try {
+      await runHostAction(async () => {
+        createRequestRef.current = crypto.randomUUID();
+        const room = await gameRpc<OnlineRoom>('quiz_create_room', {
+          p_request_id: createRequestRef.current,
+          p_mode: effectiveMode,
+          p_rounds: roundsCount,
+          p_time_limit: gameTimeLimit || 20,
+          p_category_ids: categoryIds,
+        });
+
+        const configured = await gameRpc<HostSnapshot>('quiz_host_configure_room', {
+          p_code: room.code,
+          p_settings: {
+            max_players: maxPlayers || 100,
+            join_locked: false,
+            reveal_when_all_answered: autoReveal,
+            scoring_mode: scoringMode,
+            fixed_points: fixedPoints,
+            question_ids: catQuestions.map(q => q.id),
+          },
+        });
+
+        createRequestRef.current = null;
+        lastHostSnapshotRef.current = 0;
+        setRoomCode(room.code);
+        setRoomLink(`${window.location.origin}${window.location.pathname}?room=${room.code}`);
+        setActivePlayers([]);
+        setRoomAnswers([0, 0, 0, 0]);
+        setTotalAnswered(0);
+        setGameError('');
+        applyHostSnapshot(configured);
+        setScreen('game-lobby');
+        sfx.playLobby();
+      });
+    } catch (err: any) {
+      console.error('Erro ao iniciar sala da roleta:', err);
+      alert(`Não foi possível criar a sala para a Roleta: ${err.message || String(err)}`);
     }
   };
 
