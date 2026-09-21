@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Library, 
   Play, 
@@ -8,18 +8,32 @@ import {
   Sparkles, 
   Wifi, 
   Monitor, 
-  Users,
-  Search,
-  Radio,
-  Folder,
-  FolderPlus,
-  ChevronDown,
-  ChevronRight,
-  Layers,
-  X
+  Users, 
+  Search, 
+  Radio, 
+  Folder, 
+  FolderPlus, 
+  ChevronDown, 
+  ChevronRight, 
+  Layers, 
+  X,
+  Volume2,
+  VolumeX,
+  Palette,
+  User,
+  Key,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  ExternalLink,
+  BookOpen,
+  Loader2,
+  Sliders
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
-import { type Category, type Question } from '../../App';
+import { type Category, type Question, GAME_THEMES, sfx } from '../../App';
 import QuizLibrary from './QuizLibrary';
 
 interface TeacherDashboardProps {
@@ -53,6 +67,22 @@ interface TeacherDashboardProps {
   onRecoverRoom: (roomCode: string) => void;
   onCloseRoom: (roomCode: string) => void;
   onLaunchNewRoom: (mode: 'online' | 'hybrid' | 'local') => void;
+  // Configurações e IA
+  geminiApiKey?: string;
+  onUpdateGeminiApiKey?: (key: string) => void;
+  geminiModel?: string;
+  onUpdateGeminiModel?: (model: string) => void;
+  geminiCustomModels?: string[];
+  onAddCustomModel?: (model: string) => void;
+  onRemoveCustomModel?: (model: string) => void;
+  aiTestStatus?: 'idle' | 'success' | 'error';
+  aiTestingKey?: boolean;
+  aiTestErrorMsg?: string;
+  onTestGeminiConnection?: (key: string) => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+  gameTheme?: string;
+  onSelectGameTheme?: (theme: string) => void;
 }
 
 const FOLDER_COLORS = [
@@ -89,11 +119,49 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onRecoverRoom,
   onCloseRoom,
   onLaunchNewRoom,
+  // Configurações e IA
+  geminiApiKey = '',
+  onUpdateGeminiApiKey,
+  geminiModel = 'gemini-1.5-flash',
+  onUpdateGeminiModel,
+  geminiCustomModels = [],
+  onAddCustomModel,
+  onRemoveCustomModel,
+  aiTestStatus = 'idle',
+  aiTestingKey = false,
+  aiTestErrorMsg = '',
+  onTestGeminiConnection,
+  soundEnabled = true,
+  onToggleSound,
+  gameTheme = 'default',
+  onSelectGameTheme,
 }) => {
   const [activeNav, setActiveNav] = useState<'library' | 'launch' | 'active_rooms'>('library');
   const [isLibraryExpanded, setIsLibraryExpanded] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState('');
+
+  // Estados do Menu Popover de Configurações no Painel
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'ai' | 'preferences' | 'themes' | 'account'>('ai');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [customModelInput, setCustomModelInput] = useState('');
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fechar menu de configurações ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
+        setShowSettingsMenu(false);
+      }
+    };
+    if (showSettingsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSettingsMenu]);
 
   // Estado do Modal de Criar Pasta
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
@@ -289,35 +357,916 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <span>Banco de Questões</span>
           </button>
 
-          {/* Botão Configurações */}
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '8px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              color: '#64748b',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f1f5f9';
-              e.currentTarget.style.color = '#1e293b';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#f8fafc';
-              e.currentTarget.style.color = '#64748b';
-            }}
-            title="Configurações"
-          >
-            <Settings style={{ width: '16px', height: '16px' }} />
-          </button>
+          {/* Botão e Menu Popover de Configurações */}
+          <div style={{ position: 'relative' }} ref={settingsMenuRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSettingsMenu(prev => !prev);
+                sfx.playClick();
+              }}
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '8px',
+                backgroundColor: showSettingsMenu ? '#ede9fe' : '#f8fafc',
+                border: `1px solid ${showSettingsMenu ? '#8b5cf6' : '#e2e8f0'}`,
+                color: showSettingsMenu ? '#6d28d9' : '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: showSettingsMenu ? '0 0 0 3px rgba(139, 92, 246, 0.15)' : 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (!showSettingsMenu) {
+                  e.currentTarget.style.backgroundColor = '#f1f5f9';
+                  e.currentTarget.style.color = '#1e293b';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showSettingsMenu) {
+                  e.currentTarget.style.backgroundColor = '#f8fafc';
+                  e.currentTarget.style.color = '#64748b';
+                }
+              }}
+              title="Configurações e Inteligência Artificial"
+            >
+              <Settings 
+                style={{ 
+                  width: '18px', 
+                  height: '18px', 
+                  transform: showSettingsMenu ? 'rotate(45deg)' : 'none', 
+                  transition: 'transform 0.25s ease' 
+                }} 
+              />
+            </button>
+
+            {/* Menu Popover de Configurações */}
+            {showSettingsMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 10px)',
+                  right: 0,
+                  width: '420px',
+                  maxWidth: '92vw',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.04)',
+                  zIndex: 100,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  animation: 'fadeInModal 0.2s ease',
+                }}
+              >
+                {/* Cabeçalho do Popover */}
+                <div 
+                  style={{
+                    padding: '16px 20px 12px 20px',
+                    borderBottom: '1px solid #f1f5f9',
+                    backgroundColor: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div 
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f5f3ff',
+                          color: '#7c3aed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Settings style={{ width: '18px', height: '18px' }} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                          Configurações
+                        </h4>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                          IA, áudio, temas e perfil
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSettingsMenu(false)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = '#0f172a'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; }}
+                      title="Fechar"
+                    >
+                      <X style={{ width: '18px', height: '18px' }} />
+                    </button>
+                  </div>
+
+                  {/* Abas de Navegação */}
+                  <div 
+                    style={{
+                      display: 'flex',
+                      gap: '4px',
+                      backgroundColor: '#f8fafc',
+                      padding: '4px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: settingsActiveTab === 'ai' ? '#ffffff' : 'transparent',
+                        color: settingsActiveTab === 'ai' ? '#7c3aed' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        boxShadow: settingsActiveTab === 'ai' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Sparkles style={{ width: '13px', height: '13px' }} />
+                      <span>IA Gemini</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setSettingsActiveTab('preferences'); sfx.playClick(); }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: settingsActiveTab === 'preferences' ? '#ffffff' : 'transparent',
+                        color: settingsActiveTab === 'preferences' ? '#0284c7' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        boxShadow: settingsActiveTab === 'preferences' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Volume2 style={{ width: '13px', height: '13px' }} />
+                      <span>Geral</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setSettingsActiveTab('themes'); sfx.playClick(); }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: settingsActiveTab === 'themes' ? '#ffffff' : 'transparent',
+                        color: settingsActiveTab === 'themes' ? '#db2777' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        boxShadow: settingsActiveTab === 'themes' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Palette style={{ width: '13px', height: '13px' }} />
+                      <span>Temas</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setSettingsActiveTab('account'); sfx.playClick(); }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: settingsActiveTab === 'account' ? '#ffffff' : 'transparent',
+                        color: settingsActiveTab === 'account' ? '#059669' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        boxShadow: settingsActiveTab === 'account' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <User style={{ width: '13px', height: '13px' }} />
+                      <span>Conta</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Conteúdo Dinâmico das Abas */}
+                <div 
+                  style={{ 
+                    padding: '16px 20px', 
+                    maxHeight: '440px', 
+                    overflowY: 'auto',
+                    backgroundColor: '#ffffff'
+                  }}
+                >
+                  {/* ABA: INTELIGÊNCIA ARTIFICIAL */}
+                  {settingsActiveTab === 'ai' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {/* Card de Status da Conexão */}
+                      {aiTestStatus === 'success' && (
+                        <div 
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            backgroundColor: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            color: '#15803d',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <CheckCircle2 style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                          <span>Google Gemini AI conectado e pronto para uso!</span>
+                        </div>
+                      )}
+
+                      {aiTestStatus === 'error' && (
+                        <div 
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            backgroundColor: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            color: '#b91c1c',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                          <span>{aiTestErrorMsg || 'Falha ao conectar. Verifique a chave ou cota.'}</span>
+                        </div>
+                      )}
+
+                      {!geminiApiKey?.trim() && aiTestStatus === 'idle' && (
+                        <div 
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            backgroundColor: '#fffbeb',
+                            border: '1px solid #fef3c7',
+                            color: '#b45309',
+                            fontSize: '12px',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <AlertTriangle style={{ width: '16px', height: '16px', flexShrink: 0, marginTop: '2px' }} />
+                          <span>Chave de API do Gemini não configurada. Insira sua chave abaixo para gerar questões automaticamente por IA.</span>
+                        </div>
+                      )}
+
+                      {/* Campo: Chave de API */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Key style={{ width: '13px', height: '13px', color: '#7c3aed' }} />
+                            Chave de API do Gemini
+                          </label>
+                          <a
+                            href="https://aistudio.google.com/app/apikey"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: '11px',
+                              color: '#7c3aed',
+                              textDecoration: 'none',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Obter chave gratuita
+                            <ExternalLink style={{ width: '10px', height: '10px' }} />
+                          </a>
+                        </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <input
+                            type={showApiKey ? 'text' : 'password'}
+                            placeholder="Cole sua API Key do Google AI Studio..."
+                            value={geminiApiKey}
+                            onChange={(e) => {
+                              if (onUpdateGeminiApiKey) {
+                                onUpdateGeminiApiKey(e.target.value);
+                              } else {
+                                localStorage.setItem('geminiApiKey', e.target.value);
+                              }
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '10px 38px 10px 12px',
+                              borderRadius: '10px',
+                              border: '1px solid #cbd5e1',
+                              backgroundColor: '#f8fafc',
+                              color: '#0f172a',
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box',
+                              fontFamily: showApiKey ? 'monospace' : 'inherit',
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = '#8b5cf6';
+                              e.currentTarget.style.backgroundColor = '#ffffff';
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = '#cbd5e1';
+                              e.currentTarget.style.backgroundColor = '#f8fafc';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowApiKey(prev => !prev)}
+                            style={{
+                              position: 'absolute',
+                              right: '8px',
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#64748b',
+                              cursor: 'pointer',
+                              padding: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                            title={showApiKey ? 'Ocultar chave' : 'Mostrar chave'}
+                          >
+                            {showApiKey ? <EyeOff style={{ width: '16px', height: '16px' }} /> : <Eye style={{ width: '16px', height: '16px' }} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Campo: Modelo Ativo */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569' }}>
+                          Modelo Ativo do Gemini
+                        </label>
+                        <select
+                          value={geminiModel}
+                          onChange={(e) => {
+                            if (onUpdateGeminiModel) {
+                              onUpdateGeminiModel(e.target.value);
+                            } else {
+                              localStorage.setItem('geminiModel', e.target.value);
+                            }
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            borderRadius: '10px',
+                            border: '1px solid #cbd5e1',
+                            backgroundColor: '#f8fafc',
+                            color: '#0f172a',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            outline: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <option value="gemini-1.5-flash">gemini-1.5-flash (Padrão e Mais Rápido)</option>
+                          <option value="gemini-1.5-pro">gemini-1.5-pro (Raciocínio Avançado)</option>
+                          <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
+                          <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
+                          {geminiCustomModels.map((model) => (
+                            <option key={model} value={model}>{model} (Personalizado)</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Adicionar Modelo Customizado */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>
+                          Adicionar modelo personalizado
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            type="text"
+                            placeholder="Ex: gemini-2.5-pro"
+                            value={customModelInput}
+                            onChange={(e) => setCustomModelInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (customModelInput.trim() && onAddCustomModel) {
+                                  onAddCustomModel(customModelInput.trim());
+                                  setCustomModelInput('');
+                                }
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #cbd5e1',
+                              backgroundColor: '#ffffff',
+                              fontSize: '12px',
+                              color: '#0f172a',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (customModelInput.trim() && onAddCustomModel) {
+                                onAddCustomModel(customModelInput.trim());
+                                setCustomModelInput('');
+                              }
+                            }}
+                            disabled={!customModelInput.trim()}
+                            style={{
+                              padding: '0 12px',
+                              borderRadius: '8px',
+                              backgroundColor: customModelInput.trim() ? '#7c3aed' : '#e2e8f0',
+                              color: customModelInput.trim() ? '#ffffff' : '#94a3b8',
+                              border: 'none',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: customModelInput.trim() ? 'pointer' : 'default',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Plus style={{ width: '13px', height: '13px' }} />
+                            <span>Adicionar</span>
+                          </button>
+                        </div>
+
+                        {/* Chips de modelos customizados */}
+                        {geminiCustomModels.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '4px' }}>
+                            {geminiCustomModels.map((model) => (
+                              <span
+                                key={model}
+                                style={{
+                                  fontSize: '11px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#f5f3ff',
+                                  border: '1px solid #ddd6fe',
+                                  color: '#6d28d9',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {model}
+                                {onRemoveCustomModel && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onRemoveCustomModel(model)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#7c3aed',
+                                      cursor: 'pointer',
+                                      padding: '0 2px',
+                                      fontSize: '13px',
+                                      lineHeight: 1,
+                                    }}
+                                    title={`Remover ${model}`}
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Botões de Ação de IA */}
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onTestGeminiConnection) {
+                              onTestGeminiConnection(geminiApiKey);
+                            }
+                          }}
+                          disabled={aiTestingKey || !geminiApiKey?.trim()}
+                          style={{
+                            flex: 1,
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            backgroundColor: geminiApiKey?.trim() ? '#46178f' : '#cbd5e1',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: geminiApiKey?.trim() && !aiTestingKey ? 'pointer' : 'default',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            boxShadow: geminiApiKey?.trim() ? '0 4px 12px rgba(70, 23, 143, 0.25)' : 'none',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {aiTestingKey ? (
+                            <>
+                              <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
+                              <span>Validando Conexão...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles style={{ width: '14px', height: '14px' }} />
+                              <span>Testar Conexão</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSettingsMenu(false);
+                            onOpenQuestionManager();
+                          }}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #cbd5e1',
+                            color: '#1e293b',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f1f5f9';
+                            e.currentTarget.style.borderColor = '#94a3b8';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f8fafc';
+                            e.currentTarget.style.borderColor = '#cbd5e1';
+                          }}
+                          title="Abrir Gerador de Questões com IA"
+                        >
+                          <BookOpen style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                          <span>Gerar Questões</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ABA: PREFERÊNCIAS & SOM */}
+                  {settingsActiveTab === 'preferences' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {/* Efeitos Sonoros */}
+                      <div 
+                        style={{
+                          padding: '14px',
+                          borderRadius: '12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div 
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '8px',
+                              backgroundColor: soundEnabled ? '#e0f2fe' : '#fee2e2',
+                              color: soundEnabled ? '#0284c7' : '#ef4444',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {soundEnabled ? <Volume2 style={{ width: '18px', height: '18px' }} /> : <VolumeX style={{ width: '18px', height: '18px' }} />}
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'block' }}>
+                              Efeitos Sonoros
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                              Sons de lobby, cliques e respostas
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onToggleSound) onToggleSound();
+                            else sfx.playClick();
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '20px',
+                            border: 'none',
+                            backgroundColor: soundEnabled ? '#0284c7' : '#e2e8f0',
+                            color: soundEnabled ? '#ffffff' : '#64748b',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          {soundEnabled ? 'LIGADO' : 'DESLIGADO'}
+                        </button>
+                      </div>
+
+                      {/* Acesso ao Gerenciador de Perguntas */}
+                      <div 
+                        style={{
+                          padding: '14px',
+                          borderRadius: '12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div 
+                            style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '8px',
+                              backgroundColor: '#f5f3ff',
+                              color: '#7c3aed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <BookOpen style={{ width: '18px', height: '18px' }} />
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'block' }}>
+                              Banco de Questões
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>
+                              {questions.length} perguntas cadastradas
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSettingsMenu(false);
+                            onOpenQuestionManager();
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            backgroundColor: '#46178f',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Gerenciar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ABA: TEMAS DA ARENA */}
+                  {settingsActiveTab === 'themes' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        Escolha a aparência visual de fundo das partidas e roleta:
+                      </span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                        {Object.entries(GAME_THEMES).map(([key, theme]) => {
+                          const isSelected = gameTheme === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                if (onSelectGameTheme) onSelectGameTheme(key);
+                              }}
+                              style={{
+                                padding: '8px',
+                                borderRadius: '10px',
+                                border: `2px solid ${isSelected ? '#7c3aed' : '#e2e8f0'}`,
+                                backgroundColor: isSelected ? '#f5f3ff' : '#f8fafc',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              <div 
+                                style={{
+                                  width: '100%',
+                                  height: '36px',
+                                  borderRadius: '6px',
+                                  backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#1e1b4b',
+                                  backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #46178f, #1368ce)',
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                }}
+                              />
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: isSelected ? 800 : 600, color: isSelected ? '#6d28d9' : '#334155' }}>
+                                  {theme.label}
+                                </span>
+                                {isSelected && (
+                                  <span style={{ fontSize: '9px', fontWeight: 800, color: '#16a34a', backgroundColor: '#dcfce7', padding: '1px 5px', borderRadius: '4px' }}>
+                                    Ativo
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ABA: CONTA */}
+                  {settingsActiveTab === 'account' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div 
+                        style={{
+                          padding: '16px',
+                          borderRadius: '12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div 
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              backgroundColor: '#46178f',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 800,
+                              fontSize: '16px',
+                            }}
+                          >
+                            {teacherEmail.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              {teacherEmail}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
+                              ✓ Professor Autenticado
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                          Você possui permissão de operador com acesso ao gerenciador de quizzes, pastas, relatórios e controle de salas.
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSettingsMenu(false);
+                          onLogout();
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          borderRadius: '10px',
+                          backgroundColor: '#fef2f2',
+                          border: '1px solid #fecaca',
+                          color: '#dc2626',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#fee2e2';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#fef2f2';
+                        }}
+                      >
+                        <LogOut style={{ width: '15px', height: '15px' }} />
+                        <span>Sair da Conta (Logout)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Rodapé do Menu: Atalho para o Modal Completo de Configurações */}
+                <div 
+                  style={{
+                    padding: '10px 20px',
+                    borderTop: '1px solid #f1f5f9',
+                    backgroundColor: '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSettingsMenu(false);
+                      onOpenSettings();
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#46178f',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 0',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+                  >
+                    <Sliders style={{ width: '13px', height: '13px' }} />
+                    <span>Abrir Configurações Detalhadas (Modal)</span>
+                  </button>
+
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                    Quizziando v2.0
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Divisor */}
           <div style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />

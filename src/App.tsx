@@ -49,7 +49,7 @@ function ScoreCountUp({ value, duration = 1200, style }: { value: number; durati
 const urlParams = new URLSearchParams(window.location.search);
 const URL_ROOM_CODE = urlParams.get('room')?.toUpperCase() || null;
 
-const GAME_THEMES: Record<string, { bg: string, img: string, label: string }> = {
+export const GAME_THEMES: Record<string, { bg: string, img: string, label: string }> = {
   'default': { bg: '#2a1b54', img: 'none', label: 'Padrão' },
   'tema1': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema1.png)', label: 'Tema 1' },
   'tema2': { bg: 'transparent', img: 'url(https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/tema2.png)', label: 'Tema 2' },
@@ -238,7 +238,7 @@ class SoundFX {
   }
 }
 
-const sfx = new SoundFX();
+export const sfx = new SoundFX();
 
 // ==========================================
 // 📊 TIPAGENS E INTERFACES DO PROJETO
@@ -2678,446 +2678,6 @@ Garanta que:
           >
             <Settings className={`w-5 h-5 transition-transform duration-300 ${showSettingsModal ? 'rotate-90 text-[hsl(var(--primary))]' : ''}`} />
           </button>
-
-          {/* ==========================================
-              ⚙️ MODAL PREMIUM DE CONFIGURAÇÕES (ESTILO SIDEBAR)
-              ========================================== */}
-          {showSettingsModal && (
-            <div
-              style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
-                background: 'rgba(0,0,0,0.8)',
-                backdropFilter: 'blur(12px)',
-                display: 'flex', alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px',
-                animation: 'fadeInModal 0.25s ease'
-              }}
-              onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
-            >
-              <div
-                style={{
-                  width: '100%', maxWidth: '740px',
-                  height: '640px',
-                  background: 'rgba(8,12,28,0.96)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '24px',
-                  boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.15)',
-                  display: 'flex', flexDirection: 'column',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                }}
-              >
-                {/* Header */}
-                <div className="flex justify-between items-center px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/[0.02] to-transparent">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
-                      Preferências do Sistema
-                    </span>
-                    <h3 className="text-xl font-extrabold text-white tracking-tight font-sans">
-                      Configurações
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => setShowSettingsModal(false)}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 border border-white/10 hover:border-white/20 flex-shrink-0"
-                    title="Fechar Configurações"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Body (Sidebar + Content) */}
-                <div className="flex flex-1 overflow-hidden">
-                  {/* Sidebar */}
-                  <div className="w-1/4 border-r border-white/5 bg-[#080c1c]/40 px-4 py-6 flex flex-col gap-2">
-                    <button
-                      onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
-                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
-                        settingsActiveTab === 'general'
-                          ? 'bg-white/5 text-[hsl(var(--primary))] border-l-2 border-[hsl(var(--primary))]'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <Settings className="w-4 h-4" />
-                      Geral
-                    </button>
-
-                    <button
-                      onClick={() => { setSettingsActiveTab('appearance'); sfx.playClick(); }}
-                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
-                        settingsActiveTab === 'appearance'
-                          ? 'bg-white/5 text-pink-400 border-l-2 border-pink-500'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <Palette className="w-4 h-4" />
-                      Aparência
-                    </button>
-
-                    <button
-                      onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
-                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
-                        settingsActiveTab === 'ai'
-                          ? 'bg-white/5 text-[hsl(var(--secondary))] border-l-2 border-[hsl(var(--secondary))]'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Inteligência Artificial
-                    </button>
-
-                    {(role === 'operator' || authUser) && (
-                      <button
-                        onClick={() => { setSettingsActiveTab('questions'); sfx.playClick(); }}
-                        className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
-                          settingsActiveTab === 'questions'
-                            ? 'bg-white/5 text-indigo-400 border-l-2 border-indigo-500'
-                            : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        <BookOpen className="w-4 h-4" />
-                        Questões
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => { setSettingsActiveTab('account'); sfx.playClick(); }}
-                      className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
-                        settingsActiveTab === 'account'
-                          ? 'bg-white/5 text-emerald-400 border-l-2 border-emerald-500'
-                          : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <User className="w-4 h-4" />
-                      Conta
-                    </button>
-                  </div>
-
-                  {/* Content Panel */}
-                  <div className="w-3/4 px-8 py-8 overflow-y-auto">
-                    {settingsActiveTab === 'general' && (
-                      <div className="flex flex-col gap-6 animate-fade-in">
-                        <div className="flex flex-col gap-4 pt-2">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
-                            <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
-                          </div>
-                          <button
-                            onClick={() => {
-                              if (soundEnabled) {
-                                sfx.playClick();
-                              }
-                              setSoundEnabled(!soundEnabled);
-                            }}
-                            title={soundEnabled ? 'Desativar som' : 'Ativar som'}
-                            className="flex items-center justify-center gap-3 p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl transition-colors"
-                          >
-                            {soundEnabled ? <Volume2 className="w-5 h-5 text-[hsl(var(--primary))]" /> : <VolumeX className="w-5 h-5 text-red-400" />}
-                            <span className="text-sm font-bold text-white">
-                              {soundEnabled ? 'Som ativado' : 'Som desativado'}
-                            </span>
-                          </button>
-                        </div>
-
-                      </div>
-                    )}
-
-                    {settingsActiveTab === 'appearance' && (
-                      <div className="flex flex-col gap-6 animate-fade-in pt-2">
-                        <div className="flex flex-col gap-4">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Temas da Arena</h4>
-                            <p className="text-[11px] text-slate-400">Personalize a imagem de fundo da Roleta.</p>
-                          </div>
-                          <div className="grid grid-cols-4 gap-4">
-                            {Object.entries(GAME_THEMES).map(([key, theme]) => (
-                              <button
-                                key={key}
-                                onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
-                                className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${
-                                  gameTheme === key
-                                    ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
-                                    : 'border-white/10 bg-white/5 hover:bg-white/10'
-                                }`}
-                              >
-                                <div
-                                  className="w-full rounded-lg border border-white/10 bg-cover bg-center"
-                                  style={{
-                                    height: '64px',
-                                    backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
-                                    backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
-                                  }}
-                                />
-                                <span className={`text-[8px] font-semibold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
-                                  {theme.label}
-                                </span>
-                              </button>
-                            ))}
-
-                            {/* Card Personalizado — carrega imagem local */}
-                            <label
-                              className={`p-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${
-                                gameTheme === 'custom'
-                                  ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
-                                  : 'border-dashed border-white/20 bg-white/5 hover:bg-white/10'
-                              }`}
-                            >
-                              <input type="file" accept="image/*" className="hidden" onChange={handleCustomThemeUpload} />
-                              <div
-                                className="w-full rounded-lg border border-white/10 bg-cover bg-center flex items-center justify-center"
-                                style={{
-                                  height: '64px',
-                                  backgroundColor: '#0d1326',
-                                  backgroundImage: (gameTheme === 'custom' && customThemeImg) ? `url(${customThemeImg})` : 'none'
-                                }}
-                              >
-                                {!(gameTheme === 'custom' && customThemeImg) && (
-                                  <Upload className="w-5 h-5 text-slate-400" />
-                                )}
-                              </div>
-                              <span className={`text-[8px] font-semibold text-center ${gameTheme === 'custom' ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
-                                Personalizado
-                              </span>
-                            </label>
-                          </div>
-
-                          {gameTheme === 'custom' && customThemeImg && (
-                            <button
-                              onClick={() => {
-                                localStorage.removeItem('customThemeImg');
-                                setCustomThemeImg(null);
-                                setGameTheme('default');
-                                localStorage.setItem('gameTheme', 'default');
-                                sfx.playClick();
-                              }}
-                              className="self-start flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-bold transition-all"
-                            >
-                              <Trash className="w-3 h-3" />
-                              Remover imagem personalizada
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {settingsActiveTab === 'questions' && (role === 'operator' || authUser) && (
-                      <div className="flex flex-col gap-6 animate-fade-in pt-2">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Banco de Questões</h4>
-                          <p className="text-[11px] text-slate-400">Gerencie as perguntas do quiz.</p>
-                        </div>
-
-                        {/* Card hero do gerenciador */}
-                        <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-indigo-950/60 via-[#0d1326] to-purple-950/40">
-                          {/* Brilho decorativo */}
-                          <div className="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-                          <div className="absolute -bottom-20 -left-10 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
-
-                          <div className="relative p-6 flex flex-col items-center text-center gap-4">
-                            {/* Ícone destaque */}
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                              <BookOpen className="w-8 h-8 text-white" />
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <span className="text-lg font-extrabold text-white tracking-tight">Gerenciador de Questões</span>
-                              <span className="text-[12px] text-slate-400 max-w-[280px] leading-relaxed">
-                                Adicione, edite, organize e remova as perguntas que aparecem no seu quiz.
-                              </span>
-                            </div>
-
-                            <button
-                              onClick={() => {
-                                setShowQuestionManagerModal(true);
-                                setShowSettingsModal(false);
-                                sfx.playClick();
-                              }}
-                              className="group mt-1 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all duration-300 active:scale-[0.98]"
-                            >
-                              <BookOpen className="w-4 h-4" />
-                              Abrir Gerenciador
-                              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {settingsActiveTab === 'ai' && (
-                      <div className="flex flex-col gap-4 animate-fade-in pt-2">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Integração Gemini AI</h4>
-                          <p className="text-[11px] text-slate-400">Configure a chave de acesso e escolha ou cadastre um modelo compatível com a API Gemini.</p>
-                        </div>
-
-                        <div className="flex flex-col gap-3">
-                          {/* Chave de API */}
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Gemini API Key</label>
-                            <input
-                              type="password"
-                              placeholder="Cole sua API Key aqui..."
-                              value={geminiApiKey}
-                              onChange={(e) => {
-                                setGeminiApiKey(e.target.value);
-                                localStorage.setItem('geminiApiKey', e.target.value);
-                                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
-                              }}
-                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
-                            />
-                          </div>
-
-                          {/* Nome do Modelo */}
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-extrabold text-slate-400 uppercase">Modelo ativo</label>
-                            <select
-                              value={geminiModel}
-                              onChange={(e) => {
-                                setGeminiModel(e.target.value);
-                                localStorage.setItem('geminiModel', e.target.value);
-                                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
-                              }}
-                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
-                            >
-                              <option value="gemini-1.5-flash">gemini-1.5-flash (Padrão e Rápido)</option>
-                              <option value="gemini-1.5-pro">gemini-1.5-pro (Precisão Máxima)</option>
-                              <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
-                              <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
-                              {geminiCustomModels.map((model) => (
-                                <option key={model} value={model}>{model} (Personalizado)</option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="ai-model-manager">
-                            <div className="ai-model-manager__heading">
-                              <span>Modelos personalizados</span>
-                              <small>Ex.: gemini-2.5-pro</small>
-                            </div>
-                            <div className="ai-model-manager__add">
-                              <input
-                                type="text"
-                                value={newGeminiModel}
-                                onChange={(e) => setNewGeminiModel(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key !== 'Enter') return;
-                                  e.preventDefault();
-                                  const model = newGeminiModel.trim();
-                                  if (!model || geminiCustomModels.includes(model)) return;
-                                  setGeminiCustomModels((models) => [...models, model]);
-                                  setGeminiModel(model);
-                                  setNewGeminiModel('');
-                                  setAiTestStatus('idle');
-                                }}
-                                placeholder="ID do modelo"
-                                className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
-                              />
-                              <button
-                                type="button"
-                                className="ai-model-manager__button"
-                                onClick={() => {
-                                  const model = newGeminiModel.trim();
-                                  if (!model || geminiCustomModels.includes(model)) return;
-                                  setGeminiCustomModels((models) => [...models, model]);
-                                  setGeminiModel(model);
-                                  setNewGeminiModel('');
-                                  setAiTestStatus('idle');
-                                }}
-                                disabled={!newGeminiModel.trim() || geminiCustomModels.includes(newGeminiModel.trim())}
-                              >Adicionar</button>
-                            </div>
-                            {geminiCustomModels.length > 0 && (
-                              <div className="ai-model-manager__chips">
-                                {geminiCustomModels.map((model) => (
-                                  <span key={model}>{model}
-                                    <button type="button" aria-label={`Remover ${model}`} onClick={() => {
-                                      setGeminiCustomModels((models) => models.filter((item) => item !== model));
-                                      if (geminiModel === model) setGeminiModel('gemini-1.5-flash');
-                                    }}>×</button>
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Teste de Conexão */}
-                          <div className="flex gap-2 items-center mt-1">
-                            <button
-                              onClick={() => testGeminiConnection(geminiApiKey)}
-                              disabled={aiTestingKey}
-                              className="py-2 px-4 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
-                            >
-                              {aiTestingKey ? 'Validando...' : 'Testar Chave'}
-                            </button>
-                            {aiTestStatus === 'success' && (
-                              <span className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20">
-                                ✓ Chave Conectada
-                              </span>
-                            )}
-                            {aiTestStatus === 'error' && (
-                              <span className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20" title={aiTestErrorMsg}>
-                                ✗ {aiTestErrorMsg ? `Falha: ${aiTestErrorMsg}` : 'Chave Inválida'}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {settingsActiveTab === 'account' && (
-                      <div className="flex flex-col gap-4 animate-fade-in pt-2">
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Gerenciamento de Conta</h4>
-                          <p className="text-[11px] text-slate-400">Verifique seu perfil de operador e permissões de arena.</p>
-                        </div>
-
-                        {authUser ? (
-                          <div className="flex flex-col gap-3">
-                            <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1.5">
-                              <span className="text-xs text-white font-bold">{authUser.email}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
-                                  Permissão: Operador
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => { setShowSettingsModal(false); handleLogout(); }}
-                              className="w-full py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all flex items-center justify-center gap-2"
-                            >
-                              <LogOut className="w-4 h-4" />
-                              Sair da Conta
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-3 p-4 border border-white/5 rounded-xl bg-white/[0.01] text-center justify-center items-center">
-                            <Lock className="w-8 h-8 text-[hsl(var(--primary))] opacity-60 mb-1" />
-                            <span className="text-xs text-slate-300 font-bold">Nenhuma Conta Logada</span>
-                            <p className="text-[11px] text-slate-400 leading-relaxed max-w-[280px]">
-                              Faça login como organizador para poder acessar a gestão de questões e gerenciar o quiz online.
-                            </p>
-                            <button
-                              onClick={() => {
-                                setShowSettingsModal(false);
-                                setShowLoginModal(true);
-                                sfx.playClick();
-                              }}
-                              className="py-1.5 px-4 bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 rounded-lg text-[hsl(var(--primary))] text-xs font-bold hover:bg-[hsl(var(--primary))]/20 transition-all mt-1"
-                            >
-                              Fazer Login agora
-                        </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
@@ -3186,6 +2746,50 @@ Garanta que:
                 } else {
                   setAppMode('local');
                 }
+                sfx.playClick();
+              }}
+              geminiApiKey={geminiApiKey}
+              onUpdateGeminiApiKey={(key) => {
+                setGeminiApiKey(key);
+                localStorage.setItem('geminiApiKey', key);
+                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+              }}
+              geminiModel={geminiModel}
+              onUpdateGeminiModel={(model) => {
+                setGeminiModel(model);
+                localStorage.setItem('geminiModel', model);
+                if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+              }}
+              geminiCustomModels={geminiCustomModels}
+              onAddCustomModel={(model) => {
+                const trimmed = model.trim();
+                if (!trimmed || geminiCustomModels.includes(trimmed)) return;
+                setGeminiCustomModels(prev => [...prev, trimmed]);
+                setGeminiModel(trimmed);
+                localStorage.setItem('geminiModel', trimmed);
+                setAiTestStatus('idle');
+              }}
+              onRemoveCustomModel={(model) => {
+                setGeminiCustomModels(prev => prev.filter(m => m !== model));
+                if (geminiModel === model) {
+                  setGeminiModel('gemini-1.5-flash');
+                  localStorage.setItem('geminiModel', 'gemini-1.5-flash');
+                }
+              }}
+              aiTestStatus={aiTestStatus}
+              aiTestingKey={aiTestingKey}
+              aiTestErrorMsg={aiTestErrorMsg}
+              onTestGeminiConnection={testGeminiConnection}
+              soundEnabled={soundEnabled}
+              onToggleSound={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                if (next) sfx.playClick();
+              }}
+              gameTheme={gameTheme}
+              onSelectGameTheme={(theme) => {
+                setGameTheme(theme);
+                localStorage.setItem('gameTheme', theme);
                 sfx.playClick();
               }}
             />
@@ -4590,6 +4194,446 @@ Garanta que:
             >
               ×
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          ⚙️ MODAL PREMIUM DE CONFIGURAÇÕES (ESTILO SIDEBAR)
+          ========================================== */}
+      {showSettingsModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            animation: 'fadeInModal 0.25s ease'
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false); }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: '740px',
+              height: '640px',
+              background: 'rgba(8,12,28,0.96)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '24px',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.15)',
+              display: 'flex', flexDirection: 'column',
+              position: 'relative',
+              overflow: 'hidden',
+              animation: 'slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center px-8 py-6 border-b border-white/5 bg-gradient-to-r from-white/[0.02] to-transparent">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
+                  Preferências do Sistema
+                </span>
+                <h3 className="text-xl font-extrabold text-white tracking-tight font-sans">
+                  Configurações
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:scale-110 active:scale-95 transition-all duration-200 border border-white/10 hover:border-white/20 flex-shrink-0"
+                title="Fechar Configurações"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body (Sidebar + Content) */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Sidebar */}
+              <div className="w-1/4 border-r border-white/5 bg-[#080c1c]/40 px-4 py-6 flex flex-col gap-2">
+                <button
+                  onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
+                  className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                    settingsActiveTab === 'general'
+                      ? 'bg-white/5 text-[hsl(var(--primary))] border-l-2 border-[hsl(var(--primary))]'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  Geral
+                </button>
+
+                <button
+                  onClick={() => { setSettingsActiveTab('appearance'); sfx.playClick(); }}
+                  className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                    settingsActiveTab === 'appearance'
+                      ? 'bg-white/5 text-pink-400 border-l-2 border-pink-500'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Palette className="w-4 h-4" />
+                  Aparência
+                </button>
+
+                <button
+                  onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
+                  className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                    settingsActiveTab === 'ai'
+                      ? 'bg-white/5 text-[hsl(var(--secondary))] border-l-2 border-[hsl(var(--secondary))]'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Inteligência Artificial
+                </button>
+
+                {(role === 'operator' || authUser) && (
+                  <button
+                    onClick={() => { setSettingsActiveTab('questions'); sfx.playClick(); }}
+                    className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                      settingsActiveTab === 'questions'
+                        ? 'bg-white/5 text-indigo-400 border-l-2 border-indigo-500'
+                        : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Questões
+                  </button>
+                )}
+
+                <button
+                  onClick={() => { setSettingsActiveTab('account'); sfx.playClick(); }}
+                  className={`flex items-center gap-2.5 py-2 px-3 rounded-lg text-xs font-bold transition-all text-left ${
+                    settingsActiveTab === 'account'
+                      ? 'bg-white/5 text-emerald-400 border-l-2 border-emerald-500'
+                      : 'text-slate-400 hover:text-white hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Conta
+                </button>
+              </div>
+
+              {/* Content Panel */}
+              <div className="w-3/4 px-8 py-8 overflow-y-auto">
+                {settingsActiveTab === 'general' && (
+                  <div className="flex flex-col gap-6 animate-fade-in">
+                    <div className="flex flex-col gap-4 pt-2">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Efeitos Sonoros</h4>
+                        <p className="text-[11px] text-slate-400">Ative ou desative o feedback sonoro do aplicativo.</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (soundEnabled) {
+                            sfx.playClick();
+                          }
+                          setSoundEnabled(!soundEnabled);
+                        }}
+                        title={soundEnabled ? 'Desativar som' : 'Ativar som'}
+                        className="flex items-center justify-center gap-3 p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl transition-colors"
+                      >
+                        {soundEnabled ? <Volume2 className="w-5 h-5 text-[hsl(var(--primary))]" /> : <VolumeX className="w-5 h-5 text-red-400" />}
+                        <span className="text-sm font-bold text-white">
+                          {soundEnabled ? 'Som ativado' : 'Som desativado'}
+                        </span>
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
+                {settingsActiveTab === 'appearance' && (
+                  <div className="flex flex-col gap-6 animate-fade-in pt-2">
+                    <div className="flex flex-col gap-4">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Temas da Arena</h4>
+                        <p className="text-[11px] text-slate-400">Personalize a imagem de fundo da Roleta.</p>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        {Object.entries(GAME_THEMES).map(([key, theme]) => (
+                          <button
+                            key={key}
+                            onClick={() => { setGameTheme(key); localStorage.setItem('gameTheme', key); sfx.playClick(); }}
+                            className={`p-2 rounded-xl border flex flex-col gap-2 transition-all ${
+                              gameTheme === key
+                                ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
+                                : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            }`}
+                          >
+                            <div
+                              className="w-full rounded-lg border border-white/10 bg-cover bg-center"
+                              style={{
+                                height: '64px',
+                                backgroundColor: theme.bg !== 'transparent' ? theme.bg : '#0d1326',
+                                backgroundImage: theme.img !== 'none' ? theme.img : 'linear-gradient(135deg, #2a1b54, #4338ca)'
+                              }}
+                            />
+                            <span className={`text-[8px] font-semibold text-center ${gameTheme === key ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                              {theme.label}
+                            </span>
+                          </button>
+                        ))}
+
+                        {/* Card Personalizado — carrega imagem local */}
+                        <label
+                          className={`p-2 rounded-xl border flex flex-col gap-2 transition-all cursor-pointer ${
+                            gameTheme === 'custom'
+                              ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 shadow-[0_0_15px_rgba(124,58,237,0.2)]'
+                              : 'border-dashed border-white/20 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <input type="file" accept="image/*" className="hidden" onChange={handleCustomThemeUpload} />
+                          <div
+                            className="w-full rounded-lg border border-white/10 bg-cover bg-center flex items-center justify-center"
+                            style={{
+                              height: '64px',
+                              backgroundColor: '#0d1326',
+                              backgroundImage: (gameTheme === 'custom' && customThemeImg) ? `url(${customThemeImg})` : 'none'
+                            }}
+                          >
+                            {!(gameTheme === 'custom' && customThemeImg) && (
+                              <Upload className="w-5 h-5 text-slate-400" />
+                            )}
+                          </div>
+                          <span className={`text-[8px] font-semibold text-center ${gameTheme === 'custom' ? 'text-[hsl(var(--primary))]' : 'text-slate-300'}`}>
+                            Personalizado
+                          </span>
+                        </label>
+                      </div>
+
+                      {gameTheme === 'custom' && customThemeImg && (
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem('customThemeImg');
+                            setCustomThemeImg(null);
+                            setGameTheme('default');
+                            localStorage.setItem('gameTheme', 'default');
+                            sfx.playClick();
+                          }}
+                          className="self-start flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-bold transition-all"
+                        >
+                          <Trash className="w-3 h-3" />
+                          Remover imagem personalizada
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {settingsActiveTab === 'questions' && (role === 'operator' || authUser) && (
+                  <div className="flex flex-col gap-6 animate-fade-in pt-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Banco de Questões</h4>
+                      <p className="text-[11px] text-slate-400">Gerencie as perguntas do quiz.</p>
+                    </div>
+
+                    {/* Card hero do gerenciador */}
+                    <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-indigo-950/60 via-[#0d1326] to-purple-950/40">
+                      {/* Brilho decorativo */}
+                      <div className="absolute -top-16 -right-16 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+                      <div className="absolute -bottom-20 -left-10 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                      <div className="relative p-6 flex flex-col items-center text-center gap-4">
+                        {/* Ícone destaque */}
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                          <BookOpen className="w-8 h-8 text-white" />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          <span className="text-lg font-extrabold text-white tracking-tight">Gerenciador de Questões</span>
+                          <span className="text-[12px] text-slate-400 max-w-[280px] leading-relaxed">
+                            Adicione, edite, organize e remova as perguntas que aparecem no seu quiz.
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setShowQuestionManagerModal(true);
+                            setShowSettingsModal(false);
+                            sfx.playClick();
+                          }}
+                          className="group mt-1 w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all duration-300 active:scale-[0.98]"
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Abrir Gerenciador
+                          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {settingsActiveTab === 'ai' && (
+                  <div className="flex flex-col gap-4 animate-fade-in pt-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Integração Gemini AI</h4>
+                      <p className="text-[11px] text-slate-400">Configure a chave de acesso e escolha ou cadastre um modelo compatível com a API Gemini.</p>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      {/* Chave de API */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase">Gemini API Key</label>
+                        <input
+                          type="password"
+                          placeholder="Cole sua API Key aqui..."
+                          value={geminiApiKey}
+                          onChange={(e) => {
+                            setGeminiApiKey(e.target.value);
+                            localStorage.setItem('geminiApiKey', e.target.value);
+                            if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+                          }}
+                          className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                        />
+                      </div>
+
+                      {/* Nome do Modelo */}
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-extrabold text-slate-400 uppercase">Modelo ativo</label>
+                        <select
+                          value={geminiModel}
+                          onChange={(e) => {
+                            setGeminiModel(e.target.value);
+                            localStorage.setItem('geminiModel', e.target.value);
+                            if (aiTestStatus !== 'idle') setAiTestStatus('idle');
+                          }}
+                          className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
+                        >
+                          <option value="gemini-1.5-flash">gemini-1.5-flash (Padrão e Rápido)</option>
+                          <option value="gemini-1.5-pro">gemini-1.5-pro (Precisão Máxima)</option>
+                          <option value="gemini-2.5-flash">gemini-2.5-flash (Nova Geração)</option>
+                          <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp (Experimental)</option>
+                          {geminiCustomModels.map((model) => (
+                            <option key={model} value={model}>{model} (Personalizado)</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="ai-model-manager">
+                        <div className="ai-model-manager__heading">
+                          <span>Modelos personalizados</span>
+                          <small>Ex.: gemini-2.5-pro</small>
+                        </div>
+                        <div className="ai-model-manager__add">
+                          <input
+                            type="text"
+                            value={newGeminiModel}
+                            onChange={(e) => setNewGeminiModel(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter') return;
+                              e.preventDefault();
+                              const model = newGeminiModel.trim();
+                              if (!model || geminiCustomModels.includes(model)) return;
+                              setGeminiCustomModels((models) => [...models, model]);
+                              setGeminiModel(model);
+                              setNewGeminiModel('');
+                              setAiTestStatus('idle');
+                            }}
+                            placeholder="ID do modelo"
+                            className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                          />
+                          <button
+                            type="button"
+                            className="ai-model-manager__button"
+                            onClick={() => {
+                              const model = newGeminiModel.trim();
+                              if (!model || geminiCustomModels.includes(model)) return;
+                              setGeminiCustomModels((models) => [...models, model]);
+                              setGeminiModel(model);
+                              setNewGeminiModel('');
+                              setAiTestStatus('idle');
+                            }}
+                            disabled={!newGeminiModel.trim() || geminiCustomModels.includes(newGeminiModel.trim())}
+                          >Adicionar</button>
+                        </div>
+                        {geminiCustomModels.length > 0 && (
+                          <div className="ai-model-manager__chips">
+                            {geminiCustomModels.map((model) => (
+                              <span key={model}>{model}
+                                <button type="button" aria-label={`Remover ${model}`} onClick={() => {
+                                  setGeminiCustomModels((models) => models.filter((item) => item !== model));
+                                  if (geminiModel === model) setGeminiModel('gemini-1.5-flash');
+                                }}>×</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Teste de Conexão */}
+                      <div className="flex gap-2 items-center mt-1">
+                        <button
+                          onClick={() => testGeminiConnection(geminiApiKey)}
+                          disabled={aiTestingKey}
+                          className="py-2 px-4 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 hover:opacity-90"
+                        >
+                          {aiTestingKey ? 'Validando...' : 'Testar Chave'}
+                        </button>
+                        {aiTestStatus === 'success' && (
+                          <span className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/20">
+                            ✓ Chave Conectada
+                          </span>
+                        )}
+                        {aiTestStatus === 'error' && (
+                          <span className="px-3 py-1.5 bg-red-500/10 text-red-400 text-xs font-bold rounded-lg border border-red-500/20" title={aiTestErrorMsg}>
+                            ✗ {aiTestErrorMsg ? `Falha: ${aiTestErrorMsg}` : 'Chave Inválida'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {settingsActiveTab === 'account' && (
+                  <div className="flex flex-col gap-4 animate-fade-in pt-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Gerenciamento de Conta</h4>
+                      <p className="text-[11px] text-slate-400">Verifique seu perfil de operador e permissões de arena.</p>
+                    </div>
+
+                    {authUser ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 flex flex-col gap-1.5">
+                          <span className="text-xs text-white font-bold">{authUser.email}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider">
+                              Permissão: Operador
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { setShowSettingsModal(false); handleLogout(); }}
+                          className="w-full py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all flex items-center justify-center gap-2"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sair da Conta
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 p-4 border border-white/5 rounded-xl bg-white/[0.01] text-center justify-center items-center">
+                        <Lock className="w-8 h-8 text-[hsl(var(--primary))] opacity-60 mb-1" />
+                        <span className="text-xs text-slate-300 font-bold">Nenhuma Conta Logada</span>
+                        <p className="text-[11px] text-slate-400 leading-relaxed max-w-[280px]">
+                          Faça login como organizador para poder acessar a gestão de questões e gerenciar o quiz online.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setShowSettingsModal(false);
+                            setShowLoginModal(true);
+                            sfx.playClick();
+                          }}
+                          className="py-1.5 px-4 bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 rounded-lg text-[hsl(var(--primary))] text-xs font-bold hover:bg-[hsl(var(--primary))]/20 transition-all mt-1"
+                        >
+                          Fazer Login agora
+                    </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
