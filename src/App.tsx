@@ -2016,7 +2016,7 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleCreateQuizSubmit = (quizData: {
+  const handleCreateQuizSubmit = async (quizData: {
     name: string;
     folderId: string | null;
     description?: string;
@@ -2024,11 +2024,84 @@ Garanta que:
     questionIds: string[];
     categoryIds: string[];
   }) => {
+    const trimmedName = quizData.name.trim();
+    if (!trimmedName) return;
+
+    // 1. Criar e registrar a nova Categoria correspondente a este Quiz
+    const newCategoryId = crypto.randomUUID();
+    let newCategory: Category = {
+      id: newCategoryId,
+      name: trimmedName,
+      color: '#7c3aed',
+      icon: 'HelpCircle',
+      folder_id: quizData.folderId || null
+    };
+
+    if (useRealSupabase) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = authUser?.id || sessionData.session?.user?.id;
+        if (userId) {
+          const { data, error } = await supabase
+            .from('categories')
+            .insert({
+              id: newCategoryId,
+              name: newCategory.name,
+              color: newCategory.color,
+              icon: newCategory.icon,
+              folder_id: newCategory.folder_id,
+              created_by: userId
+            })
+            .select()
+            .single();
+
+          if (!error && data) {
+            newCategory = {
+              id: data.id.toString(),
+              name: data.name,
+              color: data.color,
+              icon: data.icon,
+              folder_id: data.folder_id
+            };
+          } else if (error) {
+            console.error('Erro ao inserir categoria do quiz no Supabase:', error);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao salvar categoria do quiz no Supabase:', err);
+      }
+    }
+
+    // 2. Atualizar estado de categorias (o novo Quiz agora é uma categoria oficial)
+    setCategories(prev => {
+      const exists = prev.some(c => c.id === newCategory.id);
+      return exists ? prev : [...prev, newCategory];
+    });
+
+    // 3. Se houver perguntas associadas no modal de criação, vinculá-las à nova categoria
+    if (quizData.questionIds && quizData.questionIds.length > 0) {
+      setQuestions(prev => prev.map(q => 
+        quizData.questionIds.includes(q.id) ? { ...q, category_id: newCategory.id } : q
+      ));
+
+      if (useRealSupabase) {
+        try {
+          await supabase
+            .from('questions')
+            .update({ category_id: newCategory.id })
+            .in('id', quizData.questionIds);
+        } catch (e) {
+          console.error('Erro ao vincular perguntas à nova categoria no Supabase:', e);
+        }
+      }
+    }
+
+    // 4. Salvar também no registro de SavedQuiz
     const newQuiz: SavedQuiz = {
       id: `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: quizData.name,
+      name: trimmedName,
       savedAt: new Date().toISOString(),
-      categoryIds: quizData.categoryIds,
+      categoryIds: [newCategory.id],
       questionIds: quizData.questionIds,
       rounds: Math.max(1, Math.min(20, quizData.questionIds.length || 10)),
       timeLimit: quizData.timeLimit,
@@ -2051,6 +2124,11 @@ Garanta que:
     const updated = saveQuiz(newQuiz);
     setSavedQuizzes(updated);
     sfx.playCorrect();
+
+    // 5. Configurar o modal de perguntas com o novo quiz selecionado como categoria
+    setManagerQCatId(newCategory.id);
+    setManagerSelectedCatFilter(newCategory.id);
+    setShowQuestionManagerModal(true);
   };
 
   const handleCreateFolder = async (name: string, color: string = '#46178F') => {
@@ -2098,6 +2176,7 @@ Garanta que:
 
   const handleEditCategoryQuestions = (category: Category) => {
     setManagerQCatId(category.id);
+    setManagerSelectedCatFilter(category.id);
     setShowQuestionManagerModal(true);
     sfx.playClick();
   };

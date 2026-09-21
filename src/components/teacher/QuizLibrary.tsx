@@ -19,7 +19,8 @@ import {
   Wifi,
   Monitor,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  PlusCircle
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -864,33 +865,62 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             </button>
 
                             {onEditCategory && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setOpenMenuCatId(null);
-                                  onEditCategory(cat);
-                                }}
-                                style={{
-                                  width: '100%',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  padding: '8px 10px',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  color: '#334155',
-                                  border: 'none',
-                                  background: 'transparent',
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                              >
-                                <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
-                                <span>Ver Perguntas ({totalQ})</span>
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuCatId(null);
+                                    onEditCategory(cat);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    color: '#7c3aed',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                  <PlusCircle style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                                  <span>Criar Questões</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuCatId(null);
+                                    onEditCategory(cat);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    color: '#334155',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                  <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
+                                  <span>Ver Perguntas ({totalQ})</span>
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
@@ -913,7 +943,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </div>
                   </div>
 
-                  {/* Rodapé do Bloco: Jogar Convencional Individual */}
+                  {/* Rodapé do Bloco: Jogar Convencional ou Criar Perguntas se Vazio */}
                   <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <button
                       type="button"
@@ -934,32 +964,60 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                       <span>{isSelectedForRoulette ? 'Na Roleta' : '+ Roleta'}</span>
                     </button>
 
-                    {/* Botão Jogar Convencional (Estilo Kahoot Direto) */}
-                    <button
-                      type="button"
-                      onClick={() => onPlayCategory(cat)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 16px',
-                        borderRadius: '6px',
-                        backgroundColor: '#1368ce',
-                        color: '#ffffff',
-                        fontSize: '12px',
-                        fontWeight: 800,
-                        border: 'none',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(19, 104, 206, 0.25)',
-                        transition: 'background-color 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
-                      title="Jogar este quiz de forma direta e convencional"
-                    >
-                      <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
-                      <span>Jogar</span>
-                    </button>
+                    {/* Botão Principal: Criar Perguntas (se 0 perguntas) ou Jogar Convencional */}
+                    {totalQ === 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => onEditCategory?.(cat)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '6px',
+                          backgroundColor: '#7c3aed',
+                          color: '#ffffff',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          border: 'none',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(124, 58, 237, 0.25)',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#6d28d9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#7c3aed')}
+                        title="Criar perguntas para este quiz"
+                      >
+                        <PlusCircle style={{ width: '13px', height: '13px' }} />
+                        <span>Criar Perguntas</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onPlayCategory(cat)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 16px',
+                          borderRadius: '6px',
+                          backgroundColor: '#1368ce',
+                          color: '#ffffff',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          border: 'none',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(19, 104, 206, 0.25)',
+                          transition: 'background-color 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
+                        title="Jogar este quiz de forma direta e convencional"
+                      >
+                        <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
+                        <span>Jogar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
