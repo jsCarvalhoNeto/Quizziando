@@ -15,7 +15,11 @@ import {
   RotateCw,
   Save,
   X,
-  AlertCircle
+  AlertCircle,
+  Wifi,
+  Monitor,
+  Smartphone,
+  ChevronRight
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question } from '../../App';
@@ -44,7 +48,7 @@ interface QuizLibraryProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onCreateNewQuiz: () => void;
-  onStartRouletteGame: (categoryIds: string[]) => void;
+  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: () => void;
 }
@@ -94,6 +98,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   // Estado do Modal para Salvar Quiz com Roleta
   const [showSaveRouletteModal, setShowSaveRouletteModal] = useState(false);
   const [rouletteQuizName, setRouletteQuizName] = useState('');
+
+  // 🎮 Estado do Modal de Escolha do Modo de Jogo com Roleta
+  const [showRouletteModeModal, setShowRouletteModeModal] = useState(false);
 
   // Mapeamento de contagem de perguntas por categoria
   const questionCountByCategory = useMemo(() => {
@@ -172,13 +179,13 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     }
   };
 
-  // Confirmar início do jogo com Roleta
+  // Confirmar início do jogo com Roleta (abre modal de escolha de modo)
   const handleConfirmPlayWithRoulette = () => {
     if (selectedQuizIds.length < 2) {
       setSelectionWarning('Selecione pelo menos 2 quizzes para poder girar a Roleta.');
       return;
     }
-    onStartRouletteGame(selectedQuizIds);
+    setShowRouletteModeModal(true);
   };
 
   // Abrir modal de salvar quiz com roleta
@@ -1177,6 +1184,403 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL DE ESCOLHA DO MODO DE JOGO COM ROLETA ──────────────────────── */}
+      {showRouletteModeModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRouletteModeModal(false);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '640px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              padding: '28px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              border: '1px solid #e2e8f0',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Cabeçalho do Modal */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '12px',
+                    backgroundColor: '#eff6ff',
+                    border: '1.5px solid #dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#1368ce',
+                    flexShrink: 0,
+                  }}
+                >
+                  <RotateCw style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '19px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                    Como deseja jogar com a Roleta?
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0', fontWeight: 500 }}>
+                    <strong style={{ color: '#1368ce' }}>{selectedQuizIds.length} quizzes</strong> selecionados para o sorteio. Escolha o formato da partida:
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowRouletteModeModal(false)}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#f1f5f9',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s',
+                }}
+                title="Fechar"
+              >
+                <X style={{ width: '18px', height: '18px' }} />
+              </button>
+            </div>
+
+            {/* Lista dos 3 Modos */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              
+              {/* Opção 1: Modo Online */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRouletteModeModal(false);
+                  onStartRouletteGame(selectedQuizIds, 'online');
+                }}
+                style={{
+                  padding: '18px',
+                  borderRadius: '14px',
+                  border: '1.5px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#7c3aed';
+                  e.currentTarget.style.backgroundColor = '#faf5ff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(124, 58, 237, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Wifi style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#1e1b4b' }}>
+                      Modo Online
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        backgroundColor: '#ede9fe',
+                        color: '#6d28d9',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Multiplayer Remoto
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                    Jogue em tempo real com jogadores na internet. Crie salas, use o celular como controle e a Roleta sorteia as perguntas ao vivo.
+                  </p>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {['Sala ao vivo', 'Multiplayer', 'Supabase Realtime'].map(tag => (
+                      <span
+                        key={tag}
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#7c3aed',
+                          backgroundColor: '#f5f3ff',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #ddd6fe',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
+              </button>
+
+              {/* Opção 2: Modo Local */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRouletteModeModal(false);
+                  onStartRouletteGame(selectedQuizIds, 'local');
+                }}
+                style={{
+                  padding: '18px',
+                  borderRadius: '14px',
+                  border: '1.5px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#059669';
+                  e.currentTarget.style.backgroundColor = '#ecfdf5';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(5, 150, 105, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #059669, #047857)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Monitor style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#064e3b' }}>
+                      Modo Local
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        backgroundColor: '#d1fae5',
+                        color: '#065f46',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      100% Offline
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                    Jogue sem internet com dois times. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.
+                  </p>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {['Sem internet', '2 Times', 'Resposta oral', 'SQLite Local'].map(tag => (
+                      <span
+                        key={tag}
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#059669',
+                          backgroundColor: '#ecfdf5',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #a7f3d0',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
+              </button>
+
+              {/* Opção 3: Presencial com Celulares */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRouletteModeModal(false);
+                  onStartRouletteGame(selectedQuizIds, 'hybrid');
+                }}
+                style={{
+                  padding: '18px',
+                  borderRadius: '14px',
+                  border: '1.5px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#db2777';
+                  e.currentTarget.style.backgroundColor = '#fdf2f8';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(219, 39, 119, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #db2777, #be185d)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(219, 39, 119, 0.3)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Smartphone style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#831843' }}>
+                      Presencial com Celulares
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        backgroundColor: '#fce7f3',
+                        color: '#be185d',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Telão + Celulares
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                    Projete a tela com a Roleta no telão ou projetor e receba as respostas dos celulares dos alunos conectados pela internet.
+                  </p>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {['Telão / Projetor', 'Controle por celular', 'Modo Híbrido'].map(tag => (
+                      <span
+                        key={tag}
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#db2777',
+                          backgroundColor: '#fdf2f8',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #fbcfe8',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
+              </button>
+
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+              <button
+                type="button"
+                onClick={() => setShowRouletteModeModal(false)}
+                style={{
+                  height: '38px',
+                  padding: '0 20px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f1f5f9',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}

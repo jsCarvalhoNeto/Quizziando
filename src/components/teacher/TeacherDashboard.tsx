@@ -45,7 +45,7 @@ interface TeacherDashboardProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onCreateNewQuiz: () => void;
-  onStartRouletteGame: (categoryIds: string[]) => void;
+  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: () => void;

@@ -21,6 +21,7 @@ import { localCategoryPool } from './lib/gameRules';
 import { parseLocalGameSnapshot, type LocalPlayer, type RoundPhase, type SavedLocalGame } from './lib/localGameSnapshot';
 import { getOfflineAssetsStatus, prepareOfflineAssets, type OfflineAssetsStatus } from './lib/offline';
 
+
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
 const ANSWER_COLORS = [
@@ -46,6 +47,7 @@ interface Props {
   onSavedQuizzesChange?: (quizzes: SavedQuiz[]) => void;
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
+  initialSelectedCategoryIds?: string[];
   soundEnabled: boolean;
   onToggleSound: () => void;
 }
@@ -186,7 +188,15 @@ const TEAM_BG     = ['rgba(239,68,68,0.15)', 'rgba(59,130,246,0.15)'] as const;
 
 // ─── Componente Principal ────────────────────────────────────────────────────
 
-export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCategories, supabaseQuestions, soundEnabled, onToggleSound }: Props) {
+export default function LocalGameMode({
+  onBack,
+  onSavedQuizzesChange,
+  supabaseCategories,
+  supabaseQuestions,
+  initialSelectedCategoryIds,
+  soundEnabled,
+  onToggleSound
+}: Props) {
   sfx.enabled = soundEnabled;
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
@@ -417,7 +427,11 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
         setLocalDbReady(true);
         setAllCategories(cats);
         setAllQuestions(qs);
-        setSelectedCatIds(cats.map(c => c.id));
+        if (initialSelectedCategoryIds && initialSelectedCategoryIds.length > 0) {
+          setSelectedCatIds(initialSelectedCategoryIds);
+        } else {
+          setSelectedCatIds(cats.map(c => c.id));
+        }
         setLocalBackupAvailable(hasLocalBackup());
         setSavedGame(loadSavedGame());
       } catch (err: any) {
@@ -426,7 +440,11 @@ export default function LocalGameMode({ onBack, onSavedQuizzesChange, supabaseCa
         setDbError(`Usando perguntas em memória (sql.js indisponível: ${err.message || String(err)}).`);
         if (supabaseCategories?.length) {
           setAllCategories(supabaseCategories);
-          setSelectedCatIds(supabaseCategories.map(c => c.id));
+          if (initialSelectedCategoryIds && initialSelectedCategoryIds.length > 0) {
+            setSelectedCatIds(initialSelectedCategoryIds);
+          } else {
+            setSelectedCatIds(supabaseCategories.map(c => c.id));
+          }
         }
         if (supabaseQuestions?.length) {
           setAllQuestions(supabaseQuestions);

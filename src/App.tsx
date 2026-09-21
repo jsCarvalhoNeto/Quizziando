@@ -2061,7 +2061,7 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleStartRouletteGame = (categoryIds: string[]) => {
+  const handleStartRouletteGame = (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
     if (categoryIds.length < 2 || categoryIds.length > 12) {
       alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
       return;
@@ -2070,8 +2070,29 @@ Garanta que:
     const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
     const roundsCount = Math.max(1, Math.min(catQuestions.length || 10, 20));
     setGameRounds(roundsCount);
-    setShowQuizConfigModal(true);
-    sfx.playClick();
+
+    if (mode === 'local') {
+      setAppMode('local');
+      sfx.playClick();
+      return;
+    }
+
+    if (mode === 'hybrid') {
+      setHybridMode(true);
+      setGameMode('open');
+      setAppMode('online');
+      setShowQuizConfigModal(true);
+      sfx.playClick();
+      return;
+    }
+
+    if (mode === 'online') {
+      setHybridMode(false);
+      setAppMode('online');
+      setShowQuizConfigModal(true);
+      sfx.playClick();
+      return;
+    }
   };
 
   const handleSaveRouletteQuiz = (name: string, categoryIds: string[]) => {
@@ -2313,7 +2334,15 @@ Garanta que:
           <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
             <button
               type="button"
-              onClick={() => { setAppMode(authUser ? 'online' : 'portal'); sfx.playClick(); }}
+              onClick={() => {
+                if (authUser) {
+                  setAppMode('online');
+                  setScreen('operator-dashboard');
+                } else {
+                  setAppMode('portal');
+                }
+                sfx.playClick();
+              }}
               className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition group cursor-pointer border border-transparent hover:border-white/10"
               title="Voltar à tela anterior"
             >
@@ -2330,7 +2359,15 @@ Garanta que:
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
-                onClick={() => { setAppMode(authUser ? 'online' : 'portal'); sfx.playClick(); }}
+                onClick={() => {
+                  if (authUser) {
+                    setAppMode('online');
+                    setScreen('operator-dashboard');
+                  } else {
+                    setAppMode('portal');
+                  }
+                  sfx.playClick();
+                }}
                 className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 group cursor-pointer"
                 title="Voltar à tela anterior"
               >
@@ -2349,7 +2386,15 @@ Garanta que:
         </div>
         <main className="flex-grow flex flex-col justify-center">
           <LocalGameMode
-            onBack={() => setAppMode('select')}
+            onBack={() => {
+              if (authUser) {
+                setAppMode('online');
+                setScreen('operator-dashboard');
+              } else {
+                setAppMode('select');
+              }
+              sfx.playClick();
+            }}
             onSavedQuizzesChange={setSavedQuizzes}
             supabaseCategories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
             supabaseQuestions={questions.map(q => ({
@@ -2363,6 +2408,7 @@ Garanta que:
               tags: q.tags,
               alternatives: q.alternatives
             }))}
+            initialSelectedCategoryIds={selectedCategoryIds}
             soundEnabled={soundEnabled}
             onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
           />
