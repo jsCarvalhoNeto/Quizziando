@@ -375,7 +375,8 @@ select.input-glow option {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 6px 12px;
+  min-height: 54px;
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
   background: #ffffff;
@@ -389,24 +390,25 @@ select.input-glow option {
 .answer-option--correct {
   border-color: #10b981 !important;
   background: #f0fdf4 !important;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
 }
 .answer-option input[type="radio"] {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
   accent-color: #10b981;
 }
 .answer-option__letter {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   color: #ffffff;
-  font: 900 12px var(--font-display);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font: 900 13px var(--font-display);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+  flex-shrink: 0;
 }
 /* Cores Kahoot clássicas para cada alternativa */
 .answer-option:nth-child(1) .answer-option__letter { background: #e21b3c; } /* Vermelho */
@@ -417,17 +419,90 @@ select.input-glow option {
 .answer-option--correct .answer-option__letter {
   transform: scale(1.05);
 }
-.answer-option .input-glow {
-  min-width: 0;
+
+/* Question Manager - Campos Confortáveis e Legíveis */
+.qm-input,
+.qm-select,
+.qm-textarea {
+  width: 100%;
   background: #ffffff !important;
-  border: 1px solid #e2e8f0 !important;
   color: #0f172a !important;
-  border-radius: 10px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  font-family: var(--font-sans) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  box-sizing: border-box !important;
 }
-.answer-option .input-glow:focus {
+
+.qm-input:focus,
+.qm-select:focus,
+.qm-textarea:focus {
+  outline: none !important;
   border-color: #7c3aed !important;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15) !important;
+  background: #ffffff !important;
+}
+
+.qm-input::placeholder,
+.qm-textarea::placeholder {
+  color: #94a3b8 !important;
+  font-size: 13px !important;
+}
+
+.qm-input {
+  height: 44px !important;
+  min-height: 44px !important;
+}
+
+.qm-select {
+  height: 44px !important;
+  min-height: 44px !important;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 16px 16px !important;
+  padding-right: 36px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+.qm-textarea {
+  min-height: 108px !important;
+  resize: vertical;
+}
+
+.qm-search-input {
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 11px 18px !important;
+  font-size: 14px !important;
+  border-radius: 14px !important;
+}
+
+.qm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.qm-action-btn:hover {
+  background: #f8fafc;
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
 
 .question-save-bar {
@@ -582,6 +657,7 @@ select.input-glow option {
 .py-1 { padding-top: 4px; padding-bottom: 4px; }
 .py-1\.5 { padding-top: 6px; padding-bottom: 6px; }
 .py-2 { padding-top: 8px; padding-bottom: 8px; }
+.py-2\.5 { padding-top: 10px; padding-bottom: 10px; }
 .py-3 { padding-top: 12px; padding-bottom: 12px; }
 .py-4 { padding-top: 16px; padding-bottom: 16px; }
 

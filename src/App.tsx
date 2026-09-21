@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft
+  ArrowLeft, Search, Download
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -4744,17 +4744,17 @@ Garanta que:
                 <div className="question-basics">
                   <div>
                     <div className="question-category-label">
-                      <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                      <label className="text-[11px] font-black text-slate-700 uppercase block mb-1">
                         Categoria da Questão <span className="text-red-500">*</span>
                       </label>
                       <button type="button" onClick={() => setShowQuickCategoryForm((visible) => !visible)} className="question-category-add">
-                        <Plus className="w-3 h-3" /> Nova categoria
+                        <Plus className="w-3.5 h-3.5" /> Nova categoria
                       </button>
                     </div>
                     <select
                       value={managerQCatId}
                       onChange={(e) => setManagerQCatId(e.target.value)}
-                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl font-medium text-slate-800 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                      className="qm-select"
                     >
                       <option value="">Selecione a categoria...</option>
                       {categories.map((c) => (
@@ -4766,7 +4766,7 @@ Garanta que:
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    <label className="text-[11px] font-black text-slate-700 uppercase block mb-1">
                       Tempo Limite (Seg)
                     </label>
                     <input
@@ -4775,7 +4775,7 @@ Garanta que:
                       max="120"
                       value={managerQTimeLimit}
                       onChange={(e) => setManagerQTimeLimit(parseInt(e.target.value) || 20)}
-                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl font-bold text-slate-800 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                      className="qm-input text-center font-bold"
                     />
                   </div>
                 </div>
@@ -4799,7 +4799,7 @@ Garanta que:
                       }}
                       maxLength={80}
                       placeholder="Ex.: História Geral"
-                      className="py-2 px-3 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                      className="qm-input"
                     />
                     <input type="color" value={newCatColor} onChange={(event) => setNewCatColor(event.target.value)} title="Cor da categoria" />
                     <button type="button" className="quick-category-form__save" onClick={() => {
@@ -4820,46 +4820,46 @@ Garanta que:
                         <p>A pergunta que os participantes vão responder.</p>
                       </div>
                     </div>
-                    <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                    <label className="text-[11px] font-black text-slate-700 uppercase block mb-1">
                       Enunciado da Pergunta <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       placeholder="Digite a pergunta aqui de forma clara..."
                       value={managerQText}
                       onChange={(e) => setManagerQText(e.target.value)}
-                      className="py-2.5 px-3 text-xs h-24 w-full bg-white border border-slate-300 rounded-xl resize-none font-medium text-slate-900 placeholder-slate-400 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                      className="qm-textarea"
                     />
                   </section>
 
                   <details className="question-details">
                     <summary>Adicionar explicação, referência e etiquetas <span>Opcional</span></summary>
                     <div className="question-details__content">
-                      <label className="text-[10px] font-black text-slate-700 uppercase">
+                      <label className="text-[11px] font-black text-slate-700 uppercase">
                         Explicação após a resposta
                         <textarea
                           value={managerQExplanation}
                           onChange={event => setManagerQExplanation(event.target.value)}
                           maxLength={2000}
-                          className="p-2.5 text-xs min-h-20 bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                          className="qm-textarea min-h-20"
                           placeholder="Explique por que a resposta está correta..."
                         />
                       </label>
-                      <label className="text-[10px] font-black text-slate-700 uppercase">
+                      <label className="text-[11px] font-black text-slate-700 uppercase">
                         Referência (URL)
                         <input
                           type="url"
                           value={managerQReference}
                           onChange={event => setManagerQReference(event.target.value)}
                           maxLength={500}
-                          className="p-2 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                          className="qm-input"
                           placeholder="https://..."
                         />
                       </label>
                       <div className="question-details__grid">
-                        <label className="text-[10px] font-black text-slate-700 uppercase">
+                        <label className="text-[11px] font-black text-slate-700 uppercase">
                           Dificuldade
                           <select
-                            className="mt-1 w-full text-xs p-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                            className="qm-select"
                             value={managerQDifficulty}
                             onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}
                           >
@@ -4868,10 +4868,10 @@ Garanta que:
                             <option value="hard">Difícil</option>
                           </select>
                         </label>
-                        <label className="text-[10px] font-black text-slate-700 uppercase">
+                        <label className="text-[11px] font-black text-slate-700 uppercase">
                           Etiquetas
                           <input
-                            className="mt-1 w-full text-xs p-2 bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                            className="qm-input"
                             value={managerQTags}
                             onChange={event => setManagerQTags(event.target.value)}
                             maxLength={300}
@@ -4916,7 +4916,7 @@ Garanta que:
                                 );
                                 sfx.playClick();
                               }}
-                              className="w-4 h-4 cursor-pointer"
+                              className="cursor-pointer"
                               title="Marcar como correta"
                             />
                             <span
@@ -4939,10 +4939,10 @@ Garanta que:
                                   prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
                                 );
                               }}
-                              className="py-2 px-3 text-xs w-full bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                              className="qm-input font-medium"
                             />
                             {alt.isCorrect && (
-                              <span className="hidden sm:inline-flex items-center text-[10px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2 py-1 rounded-lg flex-shrink-0">
+                              <span className="hidden sm:inline-flex items-center text-[11px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded-lg flex-shrink-0">
                                 ✓ Correta
                               </span>
                             )}
@@ -5009,20 +5009,20 @@ Garanta que:
 
                   {/* Prompt de Contexto/Tema */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                    <label className="text-[11px] font-black text-slate-700 uppercase">
                       Tema ou instrução adicional (Opcional)
                     </label>
                     <textarea
                       placeholder="Deixe em branco para usar somente o PDF anexado. Ex.: foco em exercícios práticos."
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      className="py-2.5 px-3 text-xs h-20 w-full bg-white border border-slate-300 rounded-xl resize-none text-slate-800 placeholder-slate-400 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                      className="qm-textarea min-h-20"
                     />
                   </div>
 
                   {/* URL ou Link do YouTube */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                    <label className="text-[11px] font-black text-slate-700 uppercase">
                       URL ou Vídeo do YouTube (Opcional)
                     </label>
                     <input
@@ -5030,13 +5030,13 @@ Garanta que:
                       placeholder="Ex: https://youtube.com/watch?v=... ou https://wikipedia.org/..."
                       value={aiUrl}
                       onChange={(e) => setAiUrl(e.target.value)}
-                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                      className="qm-input"
                     />
                   </div>
 
                   {/* Upload de Arquivo PDF */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                    <label className="text-[11px] font-black text-slate-700 uppercase">
                       Documento PDF de Contexto (Opcional)
                     </label>
                     <div className="flex flex-col gap-2">
@@ -5079,7 +5079,7 @@ Garanta que:
 
                   {/* Quantidade de Questões */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                    <label className="text-[11px] font-black text-slate-700 uppercase">
                       Quantidade de Questões (1 a 25)
                     </label>
                     <input
@@ -5095,7 +5095,7 @@ Garanta que:
                           setAiQuantity(1);
                         }
                       }}
-                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                      className="qm-input font-bold"
                     />
                   </div>
 
@@ -5204,7 +5204,7 @@ Garanta que:
                 <select
                   value={managerSelectedCatFilter}
                   onChange={(e) => setManagerSelectedCatFilter(e.target.value)}
-                  className="py-2 px-3 text-xs bg-white border border-slate-300 rounded-xl w-fit font-semibold text-slate-700 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                  className="qm-select w-auto min-w-[190px]"
                 >
                   <option value="">Todas Categorias</option>
                   {categories.map((c) => (
@@ -5219,29 +5219,34 @@ Garanta que:
                 <button
                   type="button"
                   onClick={handleExportQuestionBank}
-                  className="px-3 py-2 bg-white border border-slate-300 hover:border-purple-400 hover:bg-purple-50 text-slate-700 font-bold rounded-xl shadow-sm transition"
+                  className="qm-action-btn"
                 >
+                  <Download className="w-4 h-4 text-purple-600" />
                   Exportar acervo JSON
                 </button>
-                <label className="px-3 py-2 bg-white border border-slate-300 hover:border-purple-400 hover:bg-purple-50 text-slate-700 font-bold rounded-xl shadow-sm transition cursor-pointer">
+                <label className="qm-action-btn cursor-pointer">
+                  <Upload className="w-4 h-4 text-purple-600" />
                   Importar acervo JSON
                   <input
                     type="file"
                     accept=".json,application/json"
-                    className="hidden"
+                    style={{ display: 'none' }}
                     onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }}
                   />
                 </label>
               </div>
 
-              {/* Campo de Busca */}
-              <input
-                type="text"
-                placeholder="Pesquisar pergunta pelo enunciado..."
-                value={managerSearchTerm}
-                onChange={(e) => setManagerSearchTerm(e.target.value)}
-                className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 font-medium shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-              />
+              {/* Campo de Busca Espaçoso com Ícone */}
+              <div className="relative w-full">
+                <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar pergunta pelo enunciado..."
+                  value={managerSearchTerm}
+                  onChange={(e) => setManagerSearchTerm(e.target.value)}
+                  className="qm-input qm-search-input pl-11 pr-4"
+                />
+              </div>
 
               {/* Lista Scrollable */}
               <div className="question-library__list flex flex-col gap-3 overflow-y-auto max-h-[50vh] pr-2">
