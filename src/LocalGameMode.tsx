@@ -1069,28 +1069,85 @@ export default function LocalGameMode({
             </label>
           </section>
 
-          {/* Grid de duas colunas responsivo */}
+          {/* Seção Quizzes Selecionados para a Roleta (Largura total, acima das equipes) */}
+          {allCategories.length > 0 && (() => {
+            const selectedCats = allCategories.filter(cat => selectedCatIds.includes(cat.id));
+            const count = selectedCats.length;
+            return (
+              <div style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '18px',
+                padding: '18px 22px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                width: '100%',
+                boxSizing: 'border-box'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      🎯 Quizzes na Roleta
+                    </span>
+                    <span style={{ fontSize: 12, background: '#ede9fe', color: '#6d28d9', padding: '2px 10px', borderRadius: 999, fontWeight: 800 }}>
+                      {count} selecionado{count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', fontWeight: 600 }}>
+                    <span>📝 Perguntas disponíveis:</span>
+                    <strong style={{ color: '#0f172a', fontSize: 15, fontWeight: 900 }}>
+                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
+                    </strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {selectedCats.map(cat => (
+                    <div
+                      key={cat.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '7px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13,
+                        background: `${cat.color}15`,
+                        border: `1.5px solid ${cat.color}55`,
+                        color: cat.color,
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
+                      {cat.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Grid de duas colunas responsivo com minWidth: 0 */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
-            gap: 40,
-            alignItems: 'start'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 460px), 1fr))',
+            gap: 36,
+            alignItems: 'start',
+            width: '100%',
+            boxSizing: 'border-box'
           }}>
             
-            {/* Coluna 1: Configurações do Jogo */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+            {/* Coluna 1: Configurações do Jogo & Equipes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
               {/* Nomes dos times */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
                   Nomes das Equipes
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', boxSizing: 'border-box' }}>
                   {[0, 1].map(i => (
                     <div key={i} style={{
                       display: 'flex', flexDirection: 'column', gap: 8,
                       background: i === 0 ? '#fef2f2' : '#eff6ff',
                       border: `1.5px solid ${i === 0 ? '#fecaca' : '#bfdbfe'}`,
-                      borderRadius: 16, padding: '16px'
+                      borderRadius: 16, padding: '16px', boxSizing: 'border-box'
                     }}>
                       <label style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? '#dc2626' : '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                         {i === 0 ? '🔴 Time A' : '🔵 Time B'}
@@ -1100,7 +1157,7 @@ export default function LocalGameMode({
                         style={{
                           textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px',
                           background: '#ffffff', border: `1.5px solid ${i === 0 ? '#f87171' : '#60a5fa'}`,
-                          borderRadius: 12, color: '#0f172a', outline: 'none'
+                          borderRadius: 12, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box'
                         }}
                         value={playerNames[i]}
                         onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
@@ -1111,12 +1168,42 @@ export default function LocalGameMode({
                 </div>
               </div>
 
+              {/* Modo de Jogo & Pontuação */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, width: '100%', boxSizing: 'border-box' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                  Pontos por acerto
+                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                  Pontos no repasse
+                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                  Tempo por tentativa (s)
+                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                  Empate
+                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }}>
+                    <option value="shared">Vitória compartilhada</option>
+                    <option value="extra">Pergunta extra</option>
+                  </select>
+                </label>
+              </div>
+
+              <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#065f46' : '#475569', background: quickMode ? '#ecfdf5' : '#f8fafc', border: `1.5px solid ${quickMode ? '#86efac' : '#e2e8f0'}`, fontWeight: 800, fontSize: 13, width: '100%', boxSizing: 'border-box' }}>
+                {quickMode ? '✓ Modo rápido ativado' : 'Ativar modo rápido'}
+              </button>
+            </div>
+
+            {/* Coluna 2: Rodadas & Regras */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
               {/* Rodadas */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Número de Rodadas
                 </label>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
                   {[2, 6, 10, 16].map(n => (
                     <button key={n}
                       onClick={() => { setTotalRounds(n); setIsCustomRounds(false); sfx.playClick(); }}
@@ -1145,7 +1232,7 @@ export default function LocalGameMode({
                   </button>
                 </div>
                 {isCustomRounds && (
-                  <div style={{ marginTop: 6 }}>
+                  <div style={{ marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                     <input
                       type="number"
                       min={2}
@@ -1156,7 +1243,7 @@ export default function LocalGameMode({
                         const val = parseInt(e.target.value) || 2;
                         setTotalRounds(val % 2 !== 0 ? val + 1 : val);
                       }}
-                      style={{ width: '100%', textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 12, color: '#0f172a', outline: 'none' }}
+                      style={{ width: '100%', textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 12, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
                       placeholder="Digite o número de rodadas (par)..."
                     />
                     <p style={{ fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center', lineHeight: 1.4 }}>
@@ -1167,11 +1254,11 @@ export default function LocalGameMode({
               </div>
 
               {/* Modo de Jogo */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Modo de Jogo
                 </label>
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12, width: '100%', boxSizing: 'border-box' }}>
                   <button
                     onClick={() => { setHasObstacles(false); sfx.playClick(); }}
                     style={{
@@ -1199,95 +1286,8 @@ export default function LocalGameMode({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Pontos por acerto
-                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Pontos no repasse
-                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Tempo por tentativa (s)
-                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Empate
-                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }}>
-                    <option value="shared">Vitória compartilhada</option>
-                    <option value="extra">Pergunta extra</option>
-                  </select>
-                </label>
-              </div>
-
-              <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#065f46' : '#475569', background: quickMode ? '#ecfdf5' : '#f8fafc', border: `1.5px solid ${quickMode ? '#86efac' : '#e2e8f0'}`, fontWeight: 800, fontSize: 13 }}>
-                {quickMode ? '✓ Modo rápido ativado' : 'Ativar modo rápido'}
-              </button>
-            </div>
-
-            {/* Coluna 2: Categorias e Regras */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-              {/* Quizzes / Categorias Selecionados para a Roleta */}
-              {allCategories.length > 0 && (() => {
-                const selectedCats = allCategories.filter(cat => selectedCatIds.includes(cat.id));
-                const count = selectedCats.length;
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span>🎯 Quizzes na Roleta</span>
-                        <span style={{ fontSize: 12, background: '#ede9fe', color: '#6d28d9', padding: '2px 10px', borderRadius: 999, fontWeight: 800 }}>
-                          {count} selecionado{count === 1 ? '' : 's'}
-                        </span>
-                      </label>
-                      <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
-                        Pré-selecionados para o sorteio
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 16, maxHeight: 180, overflowY: 'auto' }}>
-                      {selectedCats.map(cat => (
-                        <div
-                          key={cat.id}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '7px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13,
-                            background: `${cat.color}18`,
-                            border: `1.5px solid ${cat.color}55`,
-                            color: cat.color,
-                          }}
-                        >
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
-                          {cat.name}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Total de questões disponíveis */}
-                    <div style={{
-                      fontSize: 14,
-                      color: '#475569',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: '#f8fafc',
-                      padding: '10px 16px',
-                      borderRadius: 12,
-                      border: '1px solid #e2e8f0',
-                      alignSelf: 'flex-start'
-                    }}>
-                      <span>📝 Perguntas disponíveis no sorteio:</span>
-                      <strong style={{ color: '#0f172a', fontSize: 16, fontWeight: 900 }}>
-                        {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
-                      </strong>
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* Regras */}
-              <div style={{ padding: '20px 24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20 }}>
+              <div style={{ padding: '20px 24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20, width: '100%', boxSizing: 'border-box' }}>
                 <p style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
                   ℹ️ Regras do Modo Local
                 </p>
