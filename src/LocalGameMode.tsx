@@ -1228,59 +1228,63 @@ export default function LocalGameMode({
 
             {/* Coluna 2: Categorias e Regras */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-              {/* Categorias */}
-              {allCategories.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Categorias ({selectedCatIds.length}/{allCategories.length})
-                    </label>
-                    <button onClick={() => setSelectedCatIds(s => s.length === allCategories.length ? [] : allCategories.map(c => c.id))}
-                      style={{ fontSize: 14, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, transition: 'color 0.2s' }}>
-                      {selectedCatIds.length === allCategories.length ? 'Desmarcar todas' : 'Selecionar todas'}
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 260, overflowY: 'auto', paddingRight: 8 }}>
-                    {allCategories.map(cat => {
-                      const sel = selectedCatIds.includes(cat.id);
-                      return (
-                        <button key={cat.id}
-                          onClick={() => { setSelectedCatIds(prev => sel ? prev.filter(id => id !== cat.id) : [...prev, cat.id]); sfx.playClick(); }}
+              {/* Quizzes / Categorias Selecionados para a Roleta */}
+              {allCategories.length > 0 && (() => {
+                const selectedCats = allCategories.filter(cat => selectedCatIds.includes(cat.id));
+                const count = selectedCats.length;
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>🎯 Quizzes na Roleta</span>
+                        <span style={{ fontSize: 12, background: '#ede9fe', color: '#6d28d9', padding: '2px 10px', borderRadius: 999, fontWeight: 800 }}>
+                          {count} selecionado{count === 1 ? '' : 's'}
+                        </span>
+                      </label>
+                      <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                        Pré-selecionados para o sorteio
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '14px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 16, maxHeight: 180, overflowY: 'auto' }}>
+                      {selectedCats.map(cat => (
+                        <div
+                          key={cat.id}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '8px 16px', borderRadius: 999, fontWeight: 700, fontSize: 14,
-                            background: sel ? `${cat.color}15` : '#f8fafc',
-                            border: sel ? `2px solid ${cat.color}` : '1.5px solid #e2e8f0',
-                            color: sel ? cat.color : '#64748b',
-                            cursor: 'pointer', transition: 'all 0.18s'
-                          }}>
-                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
+                            padding: '7px 14px', borderRadius: 999, fontWeight: 700, fontSize: 13,
+                            background: `${cat.color}18`,
+                            border: `1.5px solid ${cat.color}55`,
+                            color: cat.color,
+                          }}
+                        >
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
                           {cat.name}
-                        </button>
-                      );
-                    })}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Total de questões disponíveis */}
+                    <div style={{
+                      fontSize: 14,
+                      color: '#475569',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: '#f8fafc',
+                      padding: '10px 16px',
+                      borderRadius: 12,
+                      border: '1px solid #e2e8f0',
+                      alignSelf: 'flex-start'
+                    }}>
+                      <span>📝 Perguntas disponíveis no sorteio:</span>
+                      <strong style={{ color: '#0f172a', fontSize: 16, fontWeight: 900 }}>
+                        {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
+                      </strong>
+                    </div>
                   </div>
-                  
-                  {/* Total de questões disponíveis */}
-                  <div style={{
-                    fontSize: 14,
-                    color: '#475569',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    background: '#f8fafc',
-                    padding: '10px 16px',
-                    borderRadius: 12,
-                    border: '1px solid #e2e8f0',
-                    alignSelf: 'flex-start'
-                  }}>
-                    <span>📝 Questões disponíveis no acervo:</span>
-                    <strong style={{ color: '#0f172a', fontSize: 16, fontWeight: 900 }}>
-                      {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
-                    </strong>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Regras */}
               <div style={{ padding: '20px 24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20 }}>
