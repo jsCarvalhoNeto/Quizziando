@@ -1,10 +1,10 @@
 // Quizziando - Arena Realtime Arena - Produção Supabase Habilitada
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Trophy, Play, Plus, Trash, User, Users, Volume2, VolumeX, 
+  Trophy, Plus, Trash, User, Users, Volume2, VolumeX, 
   Clock, CheckCircle, XCircle, RotateCcw, 
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
-  Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail, Copy,
+  Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
   ArrowLeft
 } from 'lucide-react';
@@ -22,6 +22,8 @@ import LocalGameMode from './LocalGameMode';
 import LoginPortal from './components/auth/LoginPortal';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import QuizConfigModal from './components/teacher/QuizConfigModal';
+import GameLobbyView from './components/game/GameLobbyView';
+import WelcomeView from './components/game/WelcomeView';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
@@ -289,7 +291,7 @@ interface HostRoomSummary {
   updated_at: string;
 }
 
-interface GamePlayer {
+export interface GamePlayer {
   id: string;
   nickname: string;
   team_name?: string;
@@ -2585,8 +2587,8 @@ Garanta que:
   }
 
   return (
-    <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen || screen === 'operator-dashboard' ? '' : 'app-container'}`}
-      style={isGamePlayFullscreen || screen === 'operator-dashboard' ? { maxWidth: '100%', margin: 0, padding: '0' } : undefined}
+    <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? '' : 'app-container'}`}
+      style={isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? { maxWidth: '100%', margin: 0, padding: '0', backgroundColor: (screen === 'game-lobby' || screen === 'welcome') ? '#f8fafc' : undefined } : undefined}
     >
       {gameError && <div role="alert" style={{ position: 'fixed', top: 12, left: '10%', right: '10%', zIndex: 9999, background: '#451a1a', color: 'white', padding: 16, borderRadius: 12 }}>
         <p>{gameError}</p>
@@ -2600,9 +2602,9 @@ Garanta que:
         })}>Retomar rodada</button>}
         <button onClick={() => setGameError('')} style={{ marginLeft: 12 }}>Fechar aviso</button>
       </div>}
-      {/* HEADER PREMIUM — oculto durante game-play fullscreen ou no dashboard do operador */}
+      {/* HEADER PREMIUM — oculto durante game-play fullscreen, no dashboard do operador, no lobby ou tela de boas-vindas */}
       <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6"
-        style={isGamePlayFullscreen || screen === 'operator-dashboard' ? { display: 'none' } : undefined}
+        style={isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? { display: 'none' } : undefined}
       >
         <button
           type="button"
@@ -3100,102 +3102,23 @@ Garanta que:
             1. TELA DE ENTRADA (WELCOME)
             ========================================== */}
         {screen === 'welcome' && (
-          <div className="max-w-md mx-auto w-full glass-card p-8 flex flex-col gap-6">
-            <div className="text-center">
-              <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
-                Bem-vindo ao Quizziando!
-              </span>
-              <h2 className="text-3xl font-extrabold mt-1">Escolha seu Papel</h2>
-              <p className="text-sm text-[hsl(var(--text-secondary))] mt-2">
-                Acesse como Organizador para criar salas ou entre como Jogador para duelar em tempo real.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <button 
-                onClick={() => { setRole('player'); sfx.playClick(); }}
-                className={`flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition ${
-                  role === 'player' 
-                    ? 'border-[hsl(var(--secondary))] bg-[hsla(var(--secondary),0.05)] text-white' 
-                    : 'border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] text-[hsl(var(--text-muted))]'
-                }`}
-              >
-                <User className="w-8 h-8" />
-                <span className="font-semibold text-sm">Jogar Arena</span>
-              </button>
-              
-              <button 
-                onClick={handleOpenManagerLogin}
-                className={`flex-1 p-4 rounded-xl border flex flex-col items-center gap-2 transition ${
-                  role === 'operator' 
-                    ? 'border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.05)] text-white' 
-                    : 'border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.01)] text-[hsl(var(--text-muted))]'
-                }`}
-              >
-                <Crown className="w-8 h-8" />
-                <span className="font-semibold text-sm">Gerenciar Quiz</span>
-                {authUser && (
-                  <span style={{ fontSize: '10px', color: 'rgba(52, 211, 153, 0.9)', background: 'rgba(16,185,129,0.1)', borderRadius: '999px', padding: '2px 8px', border: '1px solid rgba(16,185,129,0.25)' }}>
-                    ✓ Autenticado
-                  </span>
-                )}
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              {role === 'player' ? (
-                <>
-                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase">Nickname do Competidor</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: QuizMaster99" 
-                    value={nickname} 
-                    onChange={e => setNickname(e.target.value)}
-                    className="input-glow"
-                  />
-                  
-                  <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase mt-2">Código da Sala (para Jogar Online)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: Y9KA (Opcional para local)" 
-                    value={joinRoomCode} 
-                    onChange={e => setJoinRoomCode(e.target.value)}
-                    className="input-glow font-mono uppercase"
-                  />
-                  {gameMode === 'team' && (
-                    <>
-                      <label className="text-xs font-semibold text-[hsl(var(--text-secondary))] uppercase mt-2">Nome da Equipe (Opcional)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Time Alfa" 
-                        value={teamName} 
-                        onChange={e => setTeamName(e.target.value)}
-                        className="input-glow"
-                      />
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl text-xs text-[hsl(var(--text-secondary))] flex items-start gap-2">
-                  <Lock className="w-4 h-4 text-[hsl(var(--primary))] flex-shrink-0 mt-0.5" />
-                  <span>
-                    {authUser 
-                      ? `Logado como ${authUser.email}. Acesse o painel abaixo.`
-                      : 'Acesso restrito. Clique em "Gerenciar Quiz" para autenticar-se como organizador.'
-                    }
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <button 
-              onClick={role === 'operator' ? handleOpenManagerLogin : handleStartGameSetup}
-              className="btn-glow justify-center text-center font-bold"
-            >
-              {role === 'operator' ? (authUser ? 'Entrar no Painel' : 'Fazer Login') : 'Entrar no Lobby'}
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
+          <WelcomeView
+            role={role}
+            onRoleChange={(newRole) => {
+              setRole(newRole);
+              sfx.playClick();
+            }}
+            nickname={nickname}
+            onNicknameChange={setNickname}
+            roomCode={joinRoomCode}
+            onRoomCodeChange={setJoinRoomCode}
+            teamName={teamName}
+            onTeamNameChange={setTeamName}
+            isTeamMode={gameMode === 'team'}
+            authUser={authUser}
+            onStartGame={handleStartGameSetup}
+            onOpenManagerLogin={handleOpenManagerLogin}
+          />
         )}
 
         {/* ==========================================
@@ -3281,217 +3204,56 @@ Garanta que:
         )}
 
         {/* ==========================================
-            3. LOBBY DE ESPERA (LOBBY)
+            3. LOBBY DE ESPERA (LOBBY REESTILIZADO)
             ========================================== */}
         {screen === 'game-lobby' && (
-          <div className={`${role === 'operator' ? 'max-w-4xl' : 'max-w-2xl'} mx-auto w-full glass-card p-8 flex flex-col gap-6`}>
-            <div className="text-center">
-              <span className="text-xs font-bold text-[hsl(var(--accent))] tracking-widest uppercase">
-                Sala de Espera
-              </span>
-              <h2 className="text-3xl font-extrabold mt-1">Lobby do Quiz</h2>
-              <p className="text-sm text-[hsl(var(--text-secondary))] mt-2">
-                {role === 'operator' 
-                  ? 'Compartilhe o código ou o link abaixo com seus competidores.' 
-                  : 'Aguardando os competidores se conectarem.'}
-              </p>
-            </div>
-
-            {role === 'operator' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                {/* Lado Esquerdo: Acesso à Sala */}
-                <div className="flex flex-col gap-5 p-5 rounded-2xl border border-[rgba(255,255,255,0.04)] bg-white/5 relative overflow-hidden">
-                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-[hsl(var(--primary))]/10 rounded-full blur-2xl pointer-events-none" />
-                  
-                  <div className="text-center">
-                    <span className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase tracking-widest block mb-1">
-                      Código de Acesso
-                    </span>
-                    <div className="text-4xl font-black bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent tracking-widest font-mono">
-                      {roomCode}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase">Link para Celular</label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="text" 
-                        readOnly 
-                        value={roomLink}
-                        className="input-glow text-xs flex-grow font-semibold"
-                        onClick={e => (e.target as any).select()}
-                      />
-                      <button 
-                        onClick={handleCopyLink}
-                        className="p-2.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition text-white"
-                        title="Copiar Link"
-                      >
-                        {linkCopied ? <span className="text-xs text-emerald-400 font-bold">Copiado!</span> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase">Link para Espectadores</label>
-                    <div className="flex gap-2">
-                      <input type="text" readOnly value={spectatorLink} className="input-glow text-xs flex-grow font-semibold" onClick={event => event.currentTarget.select()} />
-                      <button type="button" onClick={() => void navigator.clipboard.writeText(spectatorLink)} className="p-2.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 transition text-white" title="Copiar link para espectadores" aria-label="Copiar link para espectadores">
-                        <Copy className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* QR Code */}
-                  <div className="flex flex-col items-center justify-center gap-3 pt-2">
-                    <span className="text-[10px] font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider">
-                      Aponte a câmera para jogar 📱
-                    </span>
-                    <div className="p-3 bg-white rounded-2xl shadow-xl shadow-purple-900/10 border border-purple-500/20">
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(roomLink)}&color=7c3aed&bgcolor=ffffff`}
-                        alt="QR Code da Sala"
-                        className="w-36 h-36 rounded-lg"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Lado Direito: Jogadores Conectados */}
-                <div className="flex flex-col gap-4">
-                  <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                    Jogadores na Sala ({activePlayers.length}) · {onlineCount} online · {activePlayers.length - onlineCount} offline · {totalAnswered} responderam
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
-                    {activePlayers.map((player) => (
-                      <div key={player.id} className="p-3 bg-white/5 border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center transition hover:border-[rgba(255,255,255,0.1)]">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img src={getAvatarUrl(player.nickname)} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 bg-[#0d1326] flex-shrink-0" />
-                          <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">{player.nickname}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className={`w-2.5 h-2.5 rounded-full ${onlinePlayerIds.includes(player.id) ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} title={onlinePlayerIds.includes(player.id) ? 'Conectado' : 'Desconectado'} />
-                          <button
-                            onClick={() => handleRemovePlayer(player.id)}
-                            className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
-                            title="Remover jogador"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {activePlayers.length === 0 && (
-                      <div className="col-span-2 text-center text-xs text-[hsl(var(--text-muted))] py-12 border border-dashed border-[rgba(255,255,255,0.05)] rounded-2xl">
-                        Aguardando competidores se conectarem...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Status do Jogador Principal */}
-                <div className="p-4 bg-[hsla(var(--secondary),0.05)] border border-[hsla(var(--secondary),0.2)] rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <User className="w-5 h-5 text-[hsl(var(--secondary))]" />
-                    <div>
-                      <p className="text-sm font-bold text-white">{nickname}</p>
-                      <p className="text-xs text-[hsl(var(--text-secondary))]">Seu Nickname de Jogo</p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 bg-[hsl(var(--secondary))]/10 text-[hsl(var(--secondary))] text-xs font-bold rounded-full">
-                    Pronto
-                  </span>
-                </div>
-
-                {/* Grid de Competidores */}
-                <div className="flex flex-col gap-3">
-                  <h4 className="text-sm font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-2">
-                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                    Jogadores Conectados ({activePlayers.length})
-                  </h4>
-                  
-                  <div className="grid grid-cols-2 gap-3 max-h-48 overflow-y-auto">
-                    {activePlayers.map((player) => (
-                      <div key={player.id} className="p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] rounded-xl flex justify-between items-center">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img src={getAvatarUrl(player.nickname)} alt="" className="w-8 h-8 rounded-full object-cover border border-white/10 bg-[#0d1326] flex-shrink-0" />
-                          <span className="font-semibold text-sm text-[hsl(var(--text-primary))] truncate">{player.nickname}</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <button
-                            onClick={() => handleRemovePlayer(player.id)}
-                            className="p-1 text-[hsl(var(--text-muted))] hover:text-red-400 transition"
-                            title="Remover jogador"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                    {activePlayers.length === 0 && (
-                      <div className="col-span-2 text-center text-xs text-[hsl(var(--text-muted))] py-6">
-                        Nenhum jogador conectado ainda.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {role === 'operator' && <div className="rounded-xl border border-pink-400/30 bg-pink-500/10 p-4 flex flex-wrap items-center justify-between gap-3 text-sm text-pink-100">
-              <span>Abra a tela do público em outra janela para projetar a partida.</span>
-              <button type="button" onClick={() => window.open(spectatorLink, '_blank', 'noopener,noreferrer')} className="btn-glow px-4 py-2 text-xs">Abrir tela do público</button>
-            </div>}
-
-            {role === 'operator' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white/5 border border-[rgba(255,255,255,0.06)]">
-                <label className="text-xs text-[hsl(var(--text-secondary))]">Limite de participantes
-                  <input type="number" min="1" max="500" value={maxPlayers}
-                    onChange={event => { const value = Math.max(1, Math.min(500, Number(event.target.value) || 1)); setMaxPlayers(value); void saveRoomControls({ max_players: value }); }}
-                    className="input-glow mt-1 w-full text-center" />
-                </label>
-                <div className="flex flex-col gap-2 text-xs text-[hsl(var(--text-secondary))]">
-                  <button onClick={() => { const value = !joinLocked; setJoinLocked(value); void saveRoomControls({ join_locked: value }); }} className="btn-secondary-glow py-2">
-                    {joinLocked ? 'Liberar entradas' : 'Bloquear novas entradas'}
-                  </button>
-                  <button onClick={() => { const value = !autoReveal; setAutoReveal(value); void saveRoomControls({ reveal_when_all_answered: value }); }} className="btn-secondary-glow py-2">
-                    {autoReveal ? 'Revelar manualmente' : 'Revelar quando todos responderem'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Controles */}
-            <div className="flex justify-between items-center gap-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
-              <button 
-                onClick={() => { setScreen(role === 'operator' ? 'operator-dashboard' : 'welcome'); sfx.stopLobby(); sfx.playClick(); }}
-                className="btn-secondary-glow"
-              >
-                Voltar
-              </button>
-              
-              {role === 'operator' ? (
-                <button 
-                  onClick={handleStartMatch}
-                  className="btn-glow px-8"
-                  disabled={activePlayers.length === 0}
-                  style={{ opacity: activePlayers.length === 0 ? 0.6 : 1 }}
-                >
-                  <Play className="w-4 h-4" /> Iniciar Partida
-                </button>
-              ) : (
-                <div className="text-xs text-[hsl(var(--text-secondary))] font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 bg-[hsl(var(--primary))] rounded-full animate-ping" />
-                  Aguardando Host iniciar...
-                </div>
-              )}
-            </div>
-          </div>
+          <GameLobbyView
+            role={role}
+            roomCode={roomCode}
+            roomLink={roomLink}
+            spectatorLink={spectatorLink}
+            linkCopied={linkCopied}
+            onCopyLink={handleCopyLink}
+            activePlayers={activePlayers}
+            onlineCount={onlineCount}
+            onlinePlayerIds={onlinePlayerIds}
+            totalAnswered={totalAnswered}
+            onRemovePlayer={handleRemovePlayer}
+            onStartMatch={handleStartMatch}
+            onBack={() => {
+              setScreen(role === 'operator' ? 'operator-dashboard' : 'welcome');
+              sfx.stopLobby();
+              sfx.playClick();
+            }}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => {
+              setSoundEnabled(s => !s);
+              sfx.playClick();
+            }}
+            hybridMode={hybridMode}
+            gameRounds={gameRounds}
+            selectedCategoryIds={selectedCategoryIds}
+            categories={categories}
+            maxPlayers={maxPlayers}
+            onMaxPlayersChange={(val) => {
+              setMaxPlayers(val);
+              void saveRoomControls({ max_players: val });
+            }}
+            joinLocked={joinLocked}
+            onToggleJoinLocked={() => {
+              const val = !joinLocked;
+              setJoinLocked(val);
+              void saveRoomControls({ join_locked: val });
+            }}
+            autoReveal={autoReveal}
+            onToggleAutoReveal={() => {
+              const val = !autoReveal;
+              setAutoReveal(val);
+              void saveRoomControls({ reveal_when_all_answered: val });
+            }}
+            nickname={nickname}
+            getAvatarUrl={getAvatarUrl}
+          />
         )}
 
         {/* ==========================================
