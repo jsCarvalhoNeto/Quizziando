@@ -4627,7 +4627,7 @@ Garanta que:
                           className="py-1.5 px-4 bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 rounded-lg text-[hsl(var(--primary))] text-xs font-bold hover:bg-[hsl(var(--primary))]/20 transition-all mt-1"
                         >
                           Fazer Login agora
-                    </button>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -4645,8 +4645,8 @@ Garanta que:
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 9998,
-            background: 'rgba(0,0,0,0.82)',
-            backdropFilter: 'blur(12px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '20px',
             animation: 'fadeInModal 0.25s ease'
@@ -4656,10 +4656,10 @@ Garanta que:
           <div
             className="question-manager-modal flex flex-col lg:flex-row gap-6 w-full max-w-6xl"
             style={{
-              background: 'rgba(8,12,28,0.95)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '24px',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 60px rgba(124,58,237,0.12)',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '28px',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(226, 232, 240, 0.8)',
               padding: '32px',
               position: 'relative',
               maxHeight: '90vh',
@@ -4687,49 +4687,51 @@ Garanta que:
                 ]);
               }}
               style={{
-                position: 'absolute', top: '16px', right: '16px',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '8px', width: '32px', height: '32px',
+                position: 'absolute', top: '20px', right: '20px',
+                background: '#f1f5f9', border: '1px solid #e2e8f0',
+                borderRadius: '12px', width: '36px', height: '36px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: 'white', fontSize: '20px',
+                cursor: 'pointer', color: '#64748b', fontSize: '20px',
                 transition: 'all 0.2s', zIndex: 10
               }}
-              className="hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/20"
+              className="hover:bg-red-50 hover:text-red-500 hover:border-red-200"
               title="Fechar"
             >
               ×
             </button>
 
             {/* LADO ESQUERDO: FORMULÁRIO (CADASTRO / EDIÇÃO / GERADOR IA) */}
-            <div className="question-composer w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-[rgba(255,255,255,0.06)]">
+            <div className="question-composer w-full lg:w-5/12 flex flex-col gap-4 pr-0 lg:pr-4 border-r-0 lg:border-r border-slate-200">
               <div className="question-composer__heading">
-                <span className="text-xs font-bold text-[hsl(var(--primary))] tracking-widest uppercase">
+                <span className="text-xs font-black text-purple-600 tracking-wider uppercase">
                   {editingQuestionId ? 'Modo de Edição' : 'Painel de Criação'}
                 </span>
-                <h3 className="text-xl font-extrabold text-white mt-1">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
                   {editingQuestionId ? 'Editar Pergunta' : 'Criar Pergunta'}
                 </h3>
-                <p className="question-composer__intro">Preencha os dados essenciais e escolha a alternativa correta.</p>
+                <p className="question-composer__intro text-slate-500 text-xs">
+                  Preencha os dados essenciais e defina a alternativa correta.
+                </p>
               </div>
 
               {/* TABS DE SELEÇÃO */}
-              <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
+              <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl">
                 <button
                   onClick={() => { setManagerTab('manual'); sfx.playClick(); }}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
                     managerTab === 'manual'
-                      ? 'bg-[hsl(var(--primary))] text-white'
-                      : 'text-[hsl(var(--text-muted))] hover:text-white'
+                      ? 'bg-white text-purple-700 shadow-sm border border-purple-200/60 font-black'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Manual
                 </button>
                 <button
                   onClick={() => { setManagerTab('ai'); sfx.playClick(); }}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     managerTab === 'ai'
-                      ? 'bg-[hsl(var(--secondary))] text-white shadow-[0_0_15px_rgba(236,72,153,0.3)]'
-                      : 'text-[hsl(var(--text-muted))] hover:text-white'
+                      ? 'bg-white text-pink-600 shadow-sm border border-pink-200/60 font-black'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -4740,43 +4742,44 @@ Garanta que:
               <div className="flex flex-col gap-3">
                 {/* Selecionar Categoria (Comum a ambos) */}
                 <div className="question-basics">
-                <div>
-                  <div className="question-category-label">
-                    <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
-                      Categoria da Questão <span className="text-red-400">*</span>
-                    </label>
-                    <button type="button" onClick={() => setShowQuickCategoryForm((visible) => !visible)} className="question-category-add">
-                      <Plus className="w-3 h-3" /> Nova categoria
-                    </button>
+                  <div>
+                    <div className="question-category-label">
+                      <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                        Categoria da Questão <span className="text-red-500">*</span>
+                      </label>
+                      <button type="button" onClick={() => setShowQuickCategoryForm((visible) => !visible)} className="question-category-add">
+                        <Plus className="w-3 h-3" /> Nova categoria
+                      </button>
+                    </div>
+                    <select
+                      value={managerQCatId}
+                      onChange={(e) => setManagerQCatId(e.target.value)}
+                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl font-medium text-slate-800 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    >
+                      <option value="">Selecione a categoria...</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={managerQCatId}
-                    onChange={(e) => setManagerQCatId(e.target.value)}
-                    className="input-glow py-2 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
-                  >
-                    <option value="">Selecione a categoria...</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                      Tempo Limite (Seg)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="120"
+                      value={managerQTimeLimit}
+                      onChange={(e) => setManagerQTimeLimit(parseInt(e.target.value) || 20)}
+                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl font-bold text-slate-800 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
-                    Tempo Limite de Resposta (Segundos)
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="120"
-                    value={managerQTimeLimit}
-                    onChange={(e) => setManagerQTimeLimit(parseInt(e.target.value) || 20)}
-                    className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-semibold text-white"
-                  />
-                </div>
-                </div>
                 {showQuickCategoryForm && (
                   <div className="quick-category-form">
                     <div>
@@ -4795,8 +4798,8 @@ Garanta que:
                         setShowQuickCategoryForm(false);
                       }}
                       maxLength={80}
-                      placeholder="Ex.: História"
-                      className="input-glow py-2 px-3 text-xs"
+                      placeholder="Ex.: História Geral"
+                      className="py-2 px-3 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                     />
                     <input type="color" value={newCatColor} onChange={(event) => setNewCatColor(event.target.value)} title="Cor da categoria" />
                     <button type="button" className="quick-category-form__save" onClick={() => {
@@ -4808,49 +4811,101 @@ Garanta que:
                 )}
 
                 <div className={`question-composer__workspace ${managerTab === 'manual' ? '' : 'question-composer__workspace--hidden'}`} aria-hidden={managerTab !== 'manual'}>
-                    {/* Texto da Pergunta */}
-                    <section className="question-form-section question-form-section--prompt">
-                      <div className="question-section-heading"><span>01</span><div><h4>Enunciado</h4><p>A pergunta que os participantes vão responder.</p></div></div>
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-1">
-                        Enunciado da Pergunta <span className="text-red-400">*</span>
-                      </label>
-                      <textarea
-                        placeholder="Digite a pergunta aqui de forma clara..."
-                        value={managerQText}
-                        onChange={(e) => setManagerQText(e.target.value)}
-                        className="input-glow py-2 px-3 text-xs h-24 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none font-semibold text-white"
-                      />
-                    </section>
-
-                    <details className="question-details">
-                      <summary>Adicionar explicação, referência e etiquetas <span>Opcional</span></summary>
-                      <div className="question-details__content">
-                        <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Explicação após a resposta
-                          <textarea value={managerQExplanation} onChange={event => setManagerQExplanation(event.target.value)} maxLength={2000} className="input-glow p-2 text-xs min-h-20" placeholder="Explique por que a resposta está correta" />
-                        </label>
-                        <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Referência (URL)
-                          <input type="url" value={managerQReference} onChange={event => setManagerQReference(event.target.value)} maxLength={500} className="input-glow p-2 text-xs" placeholder="https://..." />
-                        </label>
-                        <div className="question-details__grid">
-                          <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Dificuldade
-                            <select className="input-glow mt-1 w-full text-xs" value={managerQDifficulty} onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}>
-                              <option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
-                            </select>
-                          </label>
-                          <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">Etiquetas
-                            <input className="input-glow mt-1 w-full text-xs" value={managerQTags} onChange={event => setManagerQTags(event.target.value)} maxLength={300} placeholder="8º ano, ciência" />
-                          </label>
-                        </div>
+                  {/* Texto da Pergunta */}
+                  <section className="question-form-section question-form-section--prompt">
+                    <div className="question-section-heading">
+                      <span>01</span>
+                      <div>
+                        <h4>Enunciado</h4>
+                        <p>A pergunta que os participantes vão responder.</p>
                       </div>
-                    </details>
-                    <section className="question-form-section question-form-section--answers">
-                      <div className="question-section-heading"><span>02</span><div><h4>Alternativas <em>Selecione a correta</em></h4><p>Inclua uma resposta certa e três distratores.</p></div></div>
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase block mb-2">
-                        Alternativas (Selecione a opção CORRETA) <span className="text-red-400">*</span>
+                    </div>
+                    <label className="text-[10px] font-black text-slate-700 uppercase block mb-1">
+                      Enunciado da Pergunta <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      placeholder="Digite a pergunta aqui de forma clara..."
+                      value={managerQText}
+                      onChange={(e) => setManagerQText(e.target.value)}
+                      className="py-2.5 px-3 text-xs h-24 w-full bg-white border border-slate-300 rounded-xl resize-none font-medium text-slate-900 placeholder-slate-400 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                    />
+                  </section>
+
+                  <details className="question-details">
+                    <summary>Adicionar explicação, referência e etiquetas <span>Opcional</span></summary>
+                    <div className="question-details__content">
+                      <label className="text-[10px] font-black text-slate-700 uppercase">
+                        Explicação após a resposta
+                        <textarea
+                          value={managerQExplanation}
+                          onChange={event => setManagerQExplanation(event.target.value)}
+                          maxLength={2000}
+                          className="p-2.5 text-xs min-h-20 bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                          placeholder="Explique por que a resposta está correta..."
+                        />
                       </label>
-                      <div className="flex flex-col gap-2.5">
-                        {managerQAlts.map((alt, index) => (
-                          <div key={index} className={`answer-option flex gap-3 items-center ${alt.isCorrect ? 'answer-option--correct' : ''}`}>
+                      <label className="text-[10px] font-black text-slate-700 uppercase">
+                        Referência (URL)
+                        <input
+                          type="url"
+                          value={managerQReference}
+                          onChange={event => setManagerQReference(event.target.value)}
+                          maxLength={500}
+                          className="p-2 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                          placeholder="https://..."
+                        />
+                      </label>
+                      <div className="question-details__grid">
+                        <label className="text-[10px] font-black text-slate-700 uppercase">
+                          Dificuldade
+                          <select
+                            className="mt-1 w-full text-xs p-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                            value={managerQDifficulty}
+                            onChange={event => setManagerQDifficulty(event.target.value as typeof managerQDifficulty)}
+                          >
+                            <option value="easy">Fácil</option>
+                            <option value="medium">Média</option>
+                            <option value="hard">Difícil</option>
+                          </select>
+                        </label>
+                        <label className="text-[10px] font-black text-slate-700 uppercase">
+                          Etiquetas
+                          <input
+                            className="mt-1 w-full text-xs p-2 bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                            value={managerQTags}
+                            onChange={event => setManagerQTags(event.target.value)}
+                            maxLength={300}
+                            placeholder="8º ano, ciência"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </details>
+
+                  <section className="question-form-section question-form-section--answers">
+                    <div className="question-section-heading">
+                      <span>02</span>
+                      <div>
+                        <h4>Alternativas <em>Selecione a correta</em></h4>
+                        <p>Marque o círculo da alternativa correta e digite as 4 opções.</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2.5">
+                      {managerQAlts.map((alt, index) => {
+                        const kahootBadges = [
+                          { letter: 'A', bg: '#e21b3c' },
+                          { letter: 'B', bg: '#1368ce' },
+                          { letter: 'C', bg: '#d89e00' },
+                          { letter: 'D', bg: '#26890c' }
+                        ];
+                        const currentBadge = kahootBadges[index] || { letter: '?', bg: '#64748b' };
+                        return (
+                          <div
+                            key={index}
+                            className={`answer-option flex gap-3 items-center ${
+                              alt.isCorrect ? 'answer-option--correct' : ''
+                            }`}
+                          >
                             <input
                               type="radio"
                               name="manager-correct-alt"
@@ -4861,10 +4916,15 @@ Garanta que:
                                 );
                                 sfx.playClick();
                               }}
-                              className="w-4 h-4 accent-[hsl(var(--primary))] cursor-pointer"
+                              className="w-4 h-4 cursor-pointer"
                               title="Marcar como correta"
                             />
-                            <span className="answer-option__letter">{'ABCD'[index]}</span>
+                            <span
+                              className="answer-option__letter"
+                              style={{ backgroundColor: currentBadge.bg }}
+                            >
+                              {currentBadge.letter}
+                            </span>
                             <input
                               type="text"
                               placeholder={
@@ -4879,215 +4939,252 @@ Garanta que:
                                   prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
                                 );
                               }}
-                              className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl font-medium text-white"
+                              className="py-2 px-3 text-xs w-full bg-white border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
                             />
+                            {alt.isCorrect && (
+                              <span className="hidden sm:inline-flex items-center text-[10px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2 py-1 rounded-lg flex-shrink-0">
+                                ✓ Correta
+                              </span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </section>
+                        );
+                      })}
+                    </div>
+                  </section>
 
-                    {/* Botões do Form */}
-                    <div className="question-save-bar flex gap-2 mt-2">
-                      {editingQuestionId && (
-                        <button
-                          onClick={() => {
-                            setEditingQuestionId(null);
-                            setEditingAiDraftId(null);
-                            setManagerQText('');
-                            setManagerQTimeLimit(20);
-                            setManagerQExplanation('');
-                            setManagerQReference('');
-                            setManagerQDifficulty('medium');
-                            setManagerQTags('');
-                            setManagerQAlts([
-                              { text: '', isCorrect: true },
-                              { text: '', isCorrect: false },
-                              { text: '', isCorrect: false },
-                              { text: '', isCorrect: false }
-                            ]);
-                            sfx.playClick();
-                          }}
-                          className="flex-1 py-2.5 rounded-xl border border-white/10 text-white hover:bg-white/5 text-xs font-bold transition-all"
-                        >
-                          Cancelar
-                        </button>
-                      )}
+                  {/* Botões do Form */}
+                  <div className="question-save-bar flex gap-2 mt-2">
+                    {editingQuestionId && (
                       <button
-                        onClick={handleManagerSaveQuestion}
-                        className="flex-grow btn-glow justify-center py-2.5 text-xs font-bold"
+                        onClick={() => {
+                          setEditingQuestionId(null);
+                          setEditingAiDraftId(null);
+                          setManagerQText('');
+                          setManagerQTimeLimit(20);
+                          setManagerQExplanation('');
+                          setManagerQReference('');
+                          setManagerQDifficulty('medium');
+                          setManagerQTags('');
+                          setManagerQAlts([
+                            { text: '', isCorrect: true },
+                            { text: '', isCorrect: false },
+                            { text: '', isCorrect: false },
+                            { text: '', isCorrect: false }
+                          ]);
+                          sfx.playClick();
+                        }}
+                        className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
                       >
-                        {editingQuestionId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
+                        Cancelar
                       </button>
+                    )}
+                    <button
+                      onClick={handleManagerSaveQuestion}
+                      className="flex-grow py-3 px-6 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-purple-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                    >
+                      {editingQuestionId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                      {editingQuestionId ? 'Salvar Alterações' : 'Adicionar Pergunta'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ABA DE IA */}
+                <div className={`flex flex-col gap-3.5 p-5 rounded-2xl border border-purple-200 bg-purple-50/40 relative overflow-hidden animate-fade-in ${managerTab === 'ai' ? '' : 'question-composer__workspace--hidden'}`} aria-hidden={managerTab !== 'ai'}>
+                  <div>
+                    <h4 className="text-xs font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-pink-500" />
+                      Assistente de IA Gemini
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      Selecione a categoria acima e anexe um PDF ou informe um tema. Com o PDF anexado, você pode gerar as questões sem escrever um prompt.
+                    </p>
+                  </div>
+
+                  {/* API Key Warning */}
+                  {!geminiApiKey && (
+                    <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 leading-relaxed">
+                      ⚠️ <strong>Atenção:</strong> Chave de API do Gemini não configurada! Insira a chave no menu de Configurações para utilizar esta ferramenta.
+                    </div>
+                  )}
+
+                  {/* Prompt de Contexto/Tema */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                      Tema ou instrução adicional (Opcional)
+                    </label>
+                    <textarea
+                      placeholder="Deixe em branco para usar somente o PDF anexado. Ex.: foco em exercícios práticos."
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      className="py-2.5 px-3 text-xs h-20 w-full bg-white border border-slate-300 rounded-xl resize-none text-slate-800 placeholder-slate-400 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                    />
+                  </div>
+
+                  {/* URL ou Link do YouTube */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                      URL ou Vídeo do YouTube (Opcional)
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="Ex: https://youtube.com/watch?v=... ou https://wikipedia.org/..."
+                      value={aiUrl}
+                      onChange={(e) => setAiUrl(e.target.value)}
+                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                    />
+                  </div>
+
+                  {/* Upload de Arquivo PDF */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                      Documento PDF de Contexto (Opcional)
+                    </label>
+                    <div className="flex flex-col gap-2">
+                      {aiFile ? (
+                        <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex justify-between items-center text-xs text-slate-800 shadow-sm">
+                          <div className="flex items-center gap-2 truncate">
+                            <FileText className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                            <span className="truncate font-semibold">{aiFile.name}</span>
+                            <span className="text-[10px] text-slate-500">({Math.round(aiFile.size / 1024)} KB)</span>
+                          </div>
+                          <button
+                            onClick={() => { setAiFile(null); sfx.playClick(); }}
+                            className="text-red-500 hover:text-red-700 font-bold p-1 text-sm"
+                            title="Remover arquivo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="border-2 border-dashed border-slate-300 hover:border-purple-400 bg-white hover:bg-purple-50/50 transition rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center group">
+                          <Upload className="w-5 h-5 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                          <span className="text-xs font-bold text-slate-700">Fazer upload de PDF</span>
+                          <span className="text-[10px] text-slate-500">Processamento 100% local e seguro</span>
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (file) {
+                                setAiFile(file);
+                                sfx.playClick();
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
                     </div>
                   </div>
-                  <div className={`flex flex-col gap-3.5 p-4 rounded-2xl border border-[hsla(var(--secondary),0.15)] bg-[hsla(var(--secondary),0.02)] relative overflow-hidden animate-fade-in ${managerTab === 'ai' ? '' : 'question-composer__workspace--hidden'}`} aria-hidden={managerTab !== 'ai'}>
-                    <div className="absolute -top-10 -right-10 w-24 h-24 bg-[hsl(var(--secondary))]/10 rounded-full blur-2xl pointer-events-none" />
-                    
-                    <div>
-                      <h4 className="text-xs font-bold text-[hsl(var(--text-secondary))] uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[hsl(var(--secondary))]" />
-                        Assistente de IA Gemini
-                      </h4>
-                      <p className="text-[11px] text-[hsl(var(--text-muted))] mt-1 leading-relaxed">
-                        Selecione a categoria acima e anexe um PDF ou informe um tema. Com o PDF anexado, você pode gerar as questões sem escrever um prompt.
-                      </p>
-                    </div>
 
-                    {/* API Key Warning */}
-                    {!geminiApiKey && (
-                      <div className="p-3 bg-amber-500/10 border border-amber-500/25 rounded-xl text-[11px] text-amber-300 leading-relaxed">
-                        ⚠️ <strong>Atenção:</strong> Chave de API do Gemini não configurada! Insira a chave nas Configurações (ícone de engrenagem no topo direito) para utilizar esta ferramenta.
-                      </div>
+                  {/* Quantidade de Questões */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-black text-slate-700 uppercase">
+                      Quantidade de Questões (1 a 25)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="25"
+                      value={aiQuantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (!isNaN(val)) {
+                          setAiQuantity(Math.min(25, Math.max(1, val)));
+                        } else {
+                          setAiQuantity(1);
+                        }
+                      }}
+                      className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                    />
+                  </div>
+
+                  {/* AI Error Display */}
+                  {aiError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 leading-relaxed">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {/* Gerar Button */}
+                  <button
+                    onClick={generateQuestionWithAI}
+                    disabled={aiLoading || !geminiApiKey || !managerQCatId}
+                    className={`group w-full py-3.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 ${
+                      aiLoading
+                        ? 'bg-purple-300 text-white cursor-not-allowed'
+                        : 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:to-rose-700 text-white shadow-lg shadow-purple-500/25 active:scale-[0.98]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {aiLoading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processando com Gemini...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        {aiQuantity > 1 ? `Gerar ${aiQuantity} Questões` : 'Gerar Questão'}
+                      </>
                     )}
+                  </button>
 
-                    {/* Prompt de Contexto/Tema */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
-                        Tema ou instrução adicional (Opcional)
-                      </label>
-                      <textarea
-                        placeholder="Deixe em branco para usar somente o PDF anexado. Ex.: foco em exercícios práticos."
-                        value={aiPrompt}
-                        onChange={(e) => setAiPrompt(e.target.value)}
-                        className="input-glow py-2 px-3 text-xs h-20 w-full bg-[#0d1326] border border-white/10 rounded-xl resize-none text-white font-medium"
-                      />
-                    </div>
-
-                    {/* URL ou Link do YouTube */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
-                        URL ou Vídeo do YouTube (Opcional)
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="Ex: https://youtube.com/watch?v=... ou https://wikipedia.org/..."
-                        value={aiUrl}
-                        onChange={(e) => setAiUrl(e.target.value)}
-                        className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
-                      />
-                    </div>
-
-                    {/* Upload de Arquivo PDF */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
-                        Documento PDF de Contexto (Opcional)
-                      </label>
-                      <div className="flex flex-col gap-2">
-                        {aiFile ? (
-                          <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center text-xs text-white">
-                            <div className="flex items-center gap-2 truncate">
-                              <FileText className="w-4 h-4 text-[hsl(var(--secondary))] flex-shrink-0" />
-                              <span className="truncate font-semibold text-white">{aiFile.name}</span>
-                              <span className="text-[10px] text-[hsl(var(--text-muted))]">({Math.round(aiFile.size / 1024)} KB)</span>
-                            </div>
-                            <button
-                              onClick={() => { setAiFile(null); sfx.playClick(); }}
-                              className="text-red-400 hover:text-red-300 font-bold p-1 text-sm"
-                              title="Remover arquivo"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="border border-dashed border-white/15 hover:border-[hsl(var(--secondary))]/50 bg-white/[0.01] hover:bg-[hsl(var(--secondary))]/5 transition rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center group">
-                            <Upload className="w-5 h-5 text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--secondary))] transition-colors" />
-                            <span className="text-[11px] font-bold text-[hsl(var(--text-secondary))]">Fazer upload de PDF</span>
-                            <span className="text-[9px] text-[hsl(var(--text-muted))]">Processamento 100% local e seguro</span>
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0] || null;
-                                if (file) {
-                                  setAiFile(file);
-                                  sfx.playClick();
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Quantidade de Questões */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-extrabold text-[hsl(var(--text-secondary))] uppercase">
-                        Quantidade de Questões (1 a 25)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="25"
-                        value={aiQuantity}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          if (!isNaN(val)) {
-                            setAiQuantity(Math.min(25, Math.max(1, val)));
-                          } else {
-                            setAiQuantity(1);
-                          }
-                        }}
-                        className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl text-white font-medium"
-                      />
-                    </div>
-
-                    {/* AI Error Display */}
-                    {aiError && (
-                      <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-[11px] text-red-300 leading-relaxed">
-                        {aiError}
-                      </div>
-                    )}
-
-                    {/* Gerar Button */}
-                    <button
-                      onClick={generateQuestionWithAI}
-                      disabled={aiLoading || !geminiApiKey || !managerQCatId}
-                      className={`group w-full py-3.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2.5 ${
-                        aiLoading
-                          ? 'bg-[hsl(var(--secondary))]/50 text-white cursor-not-allowed'
-                          : 'bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--secondary))] hover:from-[hsl(var(--primary))]/90 hover:to-[hsl(var(--secondary))]/90 text-white shadow-lg shadow-purple-900/30 active:scale-[0.98]'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {aiLoading ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Processando com Gemini...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                          {aiQuantity > 1 ? `Gerar ${aiQuantity} Questões` : 'Gerar Questão'}
-                        </>
-                      )}
-                    </button>
-                    {aiDrafts.length > 0 && <div className="flex flex-col gap-3 rounded-xl border border-amber-400/30 bg-amber-500/5 p-3">
-                      <div className="ai-drafts-header">
-                        <strong className="text-xs text-amber-200">Rascunhos pendentes de revisão ({aiDrafts.length})</strong>
-                        <button type="button" className="ai-drafts-add-all" onClick={() => void handleAddAllAiDraftsToBank()} disabled={aiSavingAllDrafts || aiSavingDraftIds.length > 0}>
+                  {aiDrafts.length > 0 && (
+                    <div className="flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50/70 p-3.5">
+                      <div className="ai-drafts-header flex justify-between items-center">
+                        <strong className="text-xs font-bold text-amber-900">Rascunhos pendentes ({aiDrafts.length})</strong>
+                        <button
+                          type="button"
+                          className="ai-drafts-add-all text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                          onClick={() => void handleAddAllAiDraftsToBank()}
+                          disabled={aiSavingAllDrafts || aiSavingDraftIds.length > 0}
+                        >
                           {aiSavingAllDrafts ? 'Adicionando...' : <><Check className="w-3.5 h-3.5" /> Adicionar todas ao banco</>}
                         </button>
                       </div>
-                      {aiDrafts.map(draft => <div key={draft.id} className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs text-white">
-                        <p className="font-semibold mb-2">{draft.question_text}</p>
-                        {draft.alternatives.map((alternative, index) => <p key={index} className={alternative.isCorrect ? 'text-emerald-300' : 'text-slate-300'}>{'ABCD'[index]}. {alternative.text}{alternative.isCorrect ? ' ✓' : ''}</p>)}
-                        {draft.explanation && <p className="mt-2 text-violet-200">Explicação: {draft.explanation}</p>}
-                        <div className="flex gap-3 mt-3">
-                          <button type="button" className="text-emerald-300" disabled={aiSavingAllDrafts || aiSavingDraftIds.includes(draft.id)} onClick={() => void handleAddAiDraftToBank(draft)}>
-                            {aiSavingDraftIds.includes(draft.id) ? 'Adicionando...' : 'Adicionar ao banco'}
-                          </button>
-                          <button type="button" className="text-violet-300" onClick={() => {
-                            setEditingAiDraftId(draft.id); setEditingQuestionId(null); setManagerTab('manual');
-                            setManagerQCatId(draft.category_id); setManagerQText(draft.question_text);
-                            setManagerQTimeLimit(draft.time_limit || 20); setManagerQAlts(draft.alternatives);
-                            setManagerQExplanation(draft.explanation || ''); setManagerQReference(''); setManagerQDifficulty('medium'); setManagerQTags('');
-                          }}>Revisar no formulário</button>
-                          <button type="button" className="text-red-300" onClick={() => setAiDrafts(prev => prev.filter(item => item.id !== draft.id))}>Descartar</button>
+                      {aiDrafts.map((draft) => (
+                        <div key={draft.id} className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-800 shadow-sm">
+                          <p className="font-bold text-slate-900 mb-2">{draft.question_text}</p>
+                          {draft.alternatives.map((alternative, index) => (
+                            <p key={index} className={`py-0.5 ${alternative.isCorrect ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}>
+                              {'ABCD'[index]}. {alternative.text}{alternative.isCorrect ? ' ✓' : ''}
+                            </p>
+                          ))}
+                          {draft.explanation && <p className="mt-2 text-purple-700 font-medium bg-purple-50 p-2 rounded-lg">Explicação: {draft.explanation}</p>}
+                          <div className="flex gap-3 mt-3 pt-2 border-t border-slate-100 font-bold">
+                            <button
+                              type="button"
+                              className="text-emerald-600 hover:text-emerald-700"
+                              disabled={aiSavingAllDrafts || aiSavingDraftIds.includes(draft.id)}
+                              onClick={() => void handleAddAiDraftToBank(draft)}
+                            >
+                              {aiSavingDraftIds.includes(draft.id) ? 'Adicionando...' : 'Adicionar ao banco'}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-purple-600 hover:text-purple-700"
+                              onClick={() => {
+                                setEditingAiDraftId(draft.id); setEditingQuestionId(null); setManagerTab('manual');
+                                setManagerQCatId(draft.category_id); setManagerQText(draft.question_text);
+                                setManagerQTimeLimit(draft.time_limit || 20); setManagerQAlts(draft.alternatives);
+                                setManagerQExplanation(draft.explanation || ''); setManagerQReference(''); setManagerQDifficulty('medium'); setManagerQTags('');
+                              }}
+                            >
+                              Revisar no formulário
+                            </button>
+                            <button
+                              type="button"
+                              className="text-red-500 hover:text-red-700"
+                              onClick={() => setAiDrafts(prev => prev.filter(item => item.id !== draft.id))}
+                            >
+                              Descartar
+                            </button>
+                          </div>
                         </div>
-                      </div>)}
-                    </div>}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -5095,10 +5192,10 @@ Garanta que:
             <div className="question-library w-full lg:w-7/12 flex flex-col gap-4 pl-0 lg:pl-4 overflow-hidden">
               <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
-                  <span className="text-xs font-bold text-[hsl(var(--secondary))] tracking-widest uppercase">
+                  <span className="text-xs font-black text-purple-600 tracking-wider uppercase">
                     Banco de Dados
                   </span>
-                  <h3 className="text-xl font-extrabold text-white mt-1">
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
                     Questões Cadastradas ({questions.length})
                   </h3>
                 </div>
@@ -5107,7 +5204,7 @@ Garanta que:
                 <select
                   value={managerSelectedCatFilter}
                   onChange={(e) => setManagerSelectedCatFilter(e.target.value)}
-                  className="input-glow py-1.5 px-3 text-xs bg-[#0d1326] border border-white/10 rounded-xl w-fit"
+                  className="py-2 px-3 text-xs bg-white border border-slate-300 rounded-xl w-fit font-semibold text-slate-700 shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
                 >
                   <option value="">Todas Categorias</option>
                   {categories.map((c) => (
@@ -5119,9 +5216,21 @@ Garanta que:
               </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
-                <button type="button" onClick={handleExportQuestionBank} className="btn-secondary-glow px-3 py-2">Exportar acervo JSON</button>
-                <label className="btn-secondary-glow px-3 py-2 cursor-pointer">Importar acervo JSON
-                  <input type="file" accept=".json,application/json" className="hidden" onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }} />
+                <button
+                  type="button"
+                  onClick={handleExportQuestionBank}
+                  className="px-3 py-2 bg-white border border-slate-300 hover:border-purple-400 hover:bg-purple-50 text-slate-700 font-bold rounded-xl shadow-sm transition"
+                >
+                  Exportar acervo JSON
+                </button>
+                <label className="px-3 py-2 bg-white border border-slate-300 hover:border-purple-400 hover:bg-purple-50 text-slate-700 font-bold rounded-xl shadow-sm transition cursor-pointer">
+                  Importar acervo JSON
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="hidden"
+                    onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportQuestionBank(file); event.target.value = ''; }}
+                  />
                 </label>
               </div>
 
@@ -5131,7 +5240,7 @@ Garanta que:
                 placeholder="Pesquisar pergunta pelo enunciado..."
                 value={managerSearchTerm}
                 onChange={(e) => setManagerSearchTerm(e.target.value)}
-                className="input-glow py-2 px-3 text-xs w-full bg-[#0d1326] border border-white/10 rounded-xl"
+                className="py-2.5 px-3 text-xs w-full bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 font-medium shadow-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
               />
 
               {/* Lista Scrollable */}
@@ -5151,10 +5260,10 @@ Garanta que:
                     return (
                       <div
                         key={q.id}
-                        className={`p-4 bg-[rgba(255,255,255,0.02)] border rounded-xl flex flex-col gap-3 transition-all ${
+                        className={`p-4 rounded-2xl border flex flex-col gap-3 transition-all ${
                           editingQuestionId === q.id
-                            ? 'border-[hsl(var(--primary))] bg-[hsla(var(--primary),0.02)]'
-                            : 'border-white/5 hover:border-white/10 hover:bg-white/[0.03]'
+                            ? 'border-purple-500 bg-purple-50/50 shadow-md ring-2 ring-purple-400/20'
+                            : 'border-slate-200 bg-white hover:border-purple-300 hover:shadow-md'
                         }`}
                       >
                         {/* Enunciado e Categoria */}
@@ -5163,15 +5272,17 @@ Garanta que:
                             <div className="flex items-center gap-2">
                               <span
                                 className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: cat?.color || 'gray' }}
+                                style={{ backgroundColor: cat?.color || '#94a3b8' }}
                               />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--text-secondary))]">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
                                 {cat?.name || 'Sem Categoria'}
                               </span>
-                              <span className="text-[10px] text-violet-300">{q.difficulty === 'easy' ? 'Fácil' : q.difficulty === 'hard' ? 'Difícil' : 'Média'}</span>
+                              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                                {q.difficulty === 'easy' ? 'Fácil' : q.difficulty === 'hard' ? 'Difícil' : 'Média'}
+                              </span>
                             </div>
-                            {!!q.tags?.length && <span className="text-[10px] text-sky-300">{q.tags.join(' · ')}</span>}
-                            <p className="text-sm font-semibold text-white leading-relaxed">
+                            {!!q.tags?.length && <span className="text-[10px] text-blue-600 font-medium">{q.tags.join(' · ')}</span>}
+                            <p className="text-sm font-bold text-slate-900 leading-relaxed">
                               {q.question_text}
                             </p>
                           </div>
@@ -5183,11 +5294,11 @@ Garanta que:
                                 setEditingQuestionId(q.id);
                                 setEditingAiDraftId(null);
                                 setManagerQText(q.question_text);
-                            setManagerQTimeLimit(q.time_limit || 20);
-                            setManagerQExplanation(q.explanation || '');
-                            setManagerQReference(q.reference_url || '');
-                            setManagerQDifficulty(q.difficulty || 'medium');
-                            setManagerQTags((q.tags || []).join(', '));
+                                setManagerQTimeLimit(q.time_limit || 20);
+                                setManagerQExplanation(q.explanation || '');
+                                setManagerQReference(q.reference_url || '');
+                                setManagerQDifficulty(q.difficulty || 'medium');
+                                setManagerQTags((q.tags || []).join(', '));
                                 setManagerQCatId(q.category_id);
                                 setManagerQAlts(q.alternatives.map(alt => ({
                                   text: alt.text,
@@ -5196,42 +5307,49 @@ Garanta que:
                                 setManagerTab('manual');
                                 sfx.playClick();
                               }}
-                              className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 text-[hsl(var(--text-muted))] transition"
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 transition"
                               title="Editar Pergunta"
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleManagerDeleteQuestion(q.id)}
-                              className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 hover:text-red-400 text-[hsl(var(--text-muted))] transition"
+                              className="p-2 rounded-xl bg-slate-100 hover:bg-red-100 hover:text-red-600 text-slate-600 transition"
                               title="Excluir Pergunta"
                             >
-                              <Trash className="w-3.5 h-3.5" />
+                              <Trash className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
 
                         {/* Alternativas compactas */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                          {q.alternatives.map((alt, idx) => (
-                            <div
-                              key={idx}
-                              className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium ${
-                                alt.isCorrect
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-white/5 text-[hsl(var(--text-secondary))] border border-transparent'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  alt.isCorrect ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                          {q.alternatives.map((alt, idx) => {
+                            const badgeColors = ['#e21b3c', '#1368ce', '#d89e00', '#26890c'];
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex items-center gap-2 p-2 rounded-xl text-xs font-medium ${
+                                  alt.isCorrect
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300/80 font-bold'
+                                    : 'bg-slate-50 text-slate-700 border border-slate-100'
                                 }`}
-                              />
-                              <span className="truncate" title={alt.text}>
-                                {alt.text}
-                              </span>
-                            </div>
-                          ))}
+                              >
+                                <span
+                                  className="w-4 h-4 rounded text-[9px] font-black text-white flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: badgeColors[idx] || '#64748b' }}
+                                >
+                                  {'ABCD'[idx]}
+                                </span>
+                                <span className="truncate" title={alt.text}>
+                                  {alt.text}
+                                </span>
+                                {alt.isCorrect && (
+                                  <span className="text-emerald-600 font-bold ml-auto text-[10px]">✓</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -5246,7 +5364,7 @@ Garanta que:
                     : true;
                   return matchesSearch && matchesCategory;
                 }).length === 0 && (
-                  <div className="text-center p-8 border border-dashed border-white/10 rounded-xl text-[hsl(var(--text-muted))] text-sm">
+                  <div className="text-center p-8 border border-dashed border-slate-200 rounded-2xl text-slate-400 text-sm">
                     Nenhuma pergunta encontrada para os filtros selecionados.
                   </div>
                 )}
