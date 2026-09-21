@@ -2371,35 +2371,11 @@ Garanta que:
   // ─── Modo Local: renderizar componente dedicado ──────────────────────────
   if (appMode === 'local') {
     return (
-      <div className="w-full min-h-screen flex flex-col">
-        {/* Header */}
-        <div className="max-w-[1200px] w-full mx-auto px-6">
-          <header className="flex justify-between items-center py-4 border-b border-[hsl(var(--border-color))] mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                if (authUser) {
-                  setAppMode('online');
-                  setScreen('operator-dashboard');
-                } else {
-                  setAppMode('portal');
-                }
-                sfx.playClick();
-              }}
-              className="flex items-center gap-3 text-left p-1.5 -ml-1.5 rounded-2xl hover:bg-white/[0.04] active:scale-[0.98] transition group cursor-pointer border border-transparent hover:border-white/10"
-              title="Voltar à tela anterior"
-            >
-              <img src="/logo.png" alt="Quizziando Logo" className="animate-bounce-gentle group-hover:scale-105 transition-transform" style={{ height: '44px', width: 'auto', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.45))' }} />
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-[hsl(var(--text-primary))] to-[hsl(var(--secondary))] bg-clip-text text-transparent group-hover:opacity-90">
-                  Quizziando
-                </h1>
-                <span className="text-xs text-[hsl(var(--text-muted))] uppercase tracking-wider font-semibold flex items-center gap-1 group-hover:text-emerald-300 transition-colors">
-                  <Monitor style={{ width: 12, height: 12 }} /> Modo Local
-                </span>
-              </div>
-            </button>
-            <div className="flex items-center gap-2 sm:gap-3">
+      <div className="w-full min-h-screen flex flex-col" style={{ backgroundColor: '#f8fafc' }}>
+        {/* Header Limpo Modo Local */}
+        <div style={{ width: '100%', background: '#ffffff', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', marginBottom: '24px' }}>
+          <div className="max-w-[1430px] w-full mx-auto px-6">
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -2411,23 +2387,73 @@ Garanta que:
                   }
                   sfx.playClick();
                 }}
-                className="flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-emerald-500/40 text-slate-300 hover:text-white text-xs font-bold transition-all shadow-sm active:scale-95 group cursor-pointer"
-                title="Voltar à tela anterior"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', background: 'none', border: 'none',
+                  cursor: 'pointer', textAlign: 'left', padding: '4px', borderRadius: '12px'
+                }}
+                title="Voltar ao Painel"
               >
-                <ArrowLeft className="w-4 h-4 text-emerald-400 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="hidden sm:inline">Voltar</span>
+                <img src="/logo.png" alt="Quizziando Logo" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h1 style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', margin: 0, fontFamily: "'Outfit', sans-serif" }}>
+                      Quizziando
+                    </h1>
+                    <span style={{
+                      fontSize: '11px', fontWeight: 800, color: '#059669', background: '#ecfdf5',
+                      border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '999px',
+                      textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '4px'
+                    }}>
+                      <Monitor style={{ width: 12, height: 12 }} /> Modo Local (Offline)
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                    Arena Presencial sem Internet
+                  </span>
+                </div>
               </button>
-              <button
-                onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
-                className="p-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.05)] text-[hsl(var(--text-secondary))]"
-                title={soundEnabled ? 'Silenciar' : 'Ativar som'}
-              >
-                {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-              </button>
-            </div>
-          </header>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (authUser) {
+                      setAppMode('online');
+                      setScreen('operator-dashboard');
+                    } else {
+                      setAppMode('portal');
+                    }
+                    sfx.playClick();
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px', borderRadius: '12px',
+                    background: '#f1f5f9', border: '1px solid #e2e8f0',
+                    color: '#334155', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Voltar à tela anterior"
+                >
+                  <ArrowLeft style={{ width: 16, height: 16 }} />
+                  <span>Voltar</span>
+                </button>
+
+                <button
+                  onClick={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
+                  style={{
+                    padding: '8px', borderRadius: '12px',
+                    background: '#f1f5f9', border: '1px solid #e2e8f0',
+                    color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                  title={soundEnabled ? 'Silenciar' : 'Ativar som'}
+                >
+                  {soundEnabled ? <Volume2 style={{ width: 18, height: 18 }} /> : <VolumeX style={{ width: 18, height: 18 }} />}
+                </button>
+              </div>
+            </header>
+          </div>
         </div>
-        <main className="flex-grow flex flex-col justify-center">
+        <main className="flex-grow flex flex-col justify-center" style={{ paddingBottom: '32px' }}>
           <LocalGameMode
             onBack={() => {
               if (authUser) {

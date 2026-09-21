@@ -931,21 +931,32 @@ export default function LocalGameMode({
   if (localScreen === 'setup') {
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        style={{ maxWidth: 1430, margin: '0 auto', width: '100%', padding: '0 24px' }}>
-        <div className="glass-card flex flex-col gap-10" style={{ padding: '48px' }}>
+        style={{ maxWidth: 1240, margin: '0 auto', width: '100%', padding: '0 24px' }}>
+        <div style={{
+          background: '#ffffff',
+          borderRadius: '28px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 20px 40px -10px rgba(15,23,42,0.07)',
+          padding: '40px 44px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '32px'
+        }}>
 
           {/* Cabeçalho */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 26 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <button onClick={onBack}
-                style={{ padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', color: 'rgba(148,163,184,0.9)', display: 'flex', transition: 'all 0.2s' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}>
-                <ArrowLeft style={{ width: 24, height: 24 }} />
+                style={{ padding: '10px 12px', borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', transition: 'all 0.2s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; }}
+                title="Voltar"
+              >
+                <ArrowLeft style={{ width: 20, height: 20 }} />
               </button>
               <div>
-                <h2 style={{ fontSize: 34, fontWeight: 900, color: 'white', margin: 0 }}>🖥️ Modo Local</h2>
-                <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.6)', margin: '6px 0 0' }}>Dois times · Resposta oral · Sem internet</p>
+                <h2 style={{ fontSize: 28, fontWeight: 900, color: '#0f172a', margin: 0, fontFamily: "'Outfit', sans-serif" }}>🖥️ Arena Modo Local</h2>
+                <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0', fontWeight: 500 }}>Dois times · Resposta oral · Sem necessidade de internet</p>
               </div>
             </div>
             
@@ -953,38 +964,38 @@ export default function LocalGameMode({
               onClick={() => { setShowSyncOptions(open => !open); setSyncMessage(null); }}
               title="Escolher como sincronizar categorias e perguntas da nuvem"
               style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '12px 22px', borderRadius: 12,
-                background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
-                color: '#60A5FA', fontSize: 18, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 18px', borderRadius: 12,
+                background: '#eff6ff', border: '1px solid #bfdbfe',
+                color: '#2563eb', fontSize: 14, fontWeight: 700, cursor: 'pointer',
                 transition: 'all 0.2s'
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#dbeafe'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#eff6ff'; }}
             >
-              <Upload style={{ width: 20, height: 20, transform: 'rotate(180deg)' }} />
+              <Upload style={{ width: 18, height: 18, transform: 'rotate(180deg)' }} />
               Sincronizar
             </button>
           </div>
 
           {showSyncOptions && (
-            <div style={{ marginTop: 20, padding: 20, borderRadius: 14, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.28)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+            <div style={{ padding: 18, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
               <div style={{ flex: '1 1 260px' }}>
-                <strong style={{ color: 'white', display: 'block', marginBottom: 4 }}>Como deseja sincronizar?</strong>
-                <span style={{ color: 'rgba(203,213,225,0.8)', fontSize: 14 }}>Mesclar preserva itens apenas locais. Substituir troca todo o acervo e cria um backup restaurável.</span>
+                <strong style={{ color: '#0f172a', display: 'block', marginBottom: 4, fontSize: 15 }}>Como deseja sincronizar?</strong>
+                <span style={{ color: '#64748b', fontSize: 13 }}>Mesclar preserva itens apenas locais. Substituir troca todo o acervo e cria um backup restaurável.</span>
               </div>
-              <button onClick={() => handleSyncWithCloud('merge')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#BFDBFE', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.45)', fontWeight: 700 }}>Mesclar nuvem</button>
-              <button onClick={() => handleSyncWithCloud('replace')} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 700 }}>Substituir e criar backup</button>
+              <button onClick={() => handleSyncWithCloud('merge')} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', fontWeight: 700, fontSize: 13 }}>Mesclar nuvem</button>
+              <button onClick={() => handleSyncWithCloud('replace')} style={{ padding: '9px 14px', borderRadius: 10, cursor: 'pointer', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', fontWeight: 700, fontSize: 13 }}>Substituir e criar backup</button>
             </div>
           )}
 
-          <section aria-label="Preparação offline" style={{ padding: 18, borderRadius: 14,
-            background: offlineReady ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)',
-            border: `1px solid ${offlineReady ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.35)'}`,
+          <section aria-label="Preparação offline" style={{ padding: 18, borderRadius: 16,
+            background: offlineReady ? '#f0fdf4' : '#fffbeb',
+            border: `1.5px solid ${offlineReady ? '#86efac' : '#fde68a'}`,
             display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 14 }}>
             <div style={{ flex: '1 1 280px' }}>
-              <strong style={{ color: 'white', display: 'block', marginBottom: 5 }}>Jogar sem internet</strong>
-              <p role="status" style={{ margin: 0, color: offlineReady ? '#A7F3D0' : '#FDE68A', fontSize: 14 }}>
+              <strong style={{ color: offlineReady ? '#166534' : '#92400e', display: 'block', marginBottom: 4, fontSize: 15 }}>Jogar sem internet</strong>
+              <p role="status" style={{ margin: 0, color: offlineReady ? '#15803d' : '#b45309', fontSize: 13, fontWeight: 500 }}>
                 {offlinePreparing ? 'Baixando e conferindo o aplicativo...' : offlineReady
                   ? `Pronto para jogar offline: ${selectedOfflineQuestions.length} perguntas para ${totalRounds} rodadas; ${offlineAssets?.cached} arquivos conferidos.`
                   : !offlineBankValid ? 'Acervo local ausente ou inválido. Sincronize ou importe perguntas.'
@@ -992,96 +1003,105 @@ export default function LocalGameMode({
                     ? `${selectedOfflineQuestions.length} perguntas disponíveis para ${totalRounds} rodadas. Ajuste a seleção ou sincronize o acervo.`
                     : offlineAssets?.reason || 'Os arquivos do aplicativo ainda não foram preparados.'}
               </p>
-              {offlineNotice && <p style={{ margin: '6px 0 0', color: '#CBD5E1', fontSize: 12 }}>{offlineNotice}</p>}
+              {offlineNotice && <p style={{ margin: '6px 0 0', color: '#64748b', fontSize: 12 }}>{offlineNotice}</p>}
             </div>
             <button type="button" onClick={() => void handlePrepareOffline()} disabled={offlinePreparing}
-              style={{ padding: '10px 16px', borderRadius: 10, cursor: offlinePreparing ? 'wait' : 'pointer',
-                color: 'white', background: 'linear-gradient(135deg,#7C3AED,#EC4899)', border: 'none', fontWeight: 800 }}>
+              style={{ padding: '10px 18px', borderRadius: 10, cursor: offlinePreparing ? 'wait' : 'pointer',
+                color: 'white', background: 'linear-gradient(135deg, #7C3AED, #2563EB)', border: 'none', fontWeight: 800, fontSize: 13, boxShadow: '0 4px 12px rgba(124,58,237,0.25)' }}>
               {offlinePreparing ? 'Preparando...' : 'Preparar para jogar sem internet'}
             </button>
           </section>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => downloadQuestionBank(createQuestionBank(allCategories, allQuestions))} style={{ padding: '10px 14px', borderRadius: 10, color: '#C4B5FD', background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.35)', cursor: 'pointer' }}>Exportar acervo JSON</button>
-            <label style={{ padding: '10px 14px', borderRadius: 10, color: '#93C5FD', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(96,165,250,0.35)', cursor: 'pointer' }}>Importar acervo JSON
+            <button type="button" onClick={() => downloadQuestionBank(createQuestionBank(allCategories, allQuestions))} style={{ padding: '9px 16px', borderRadius: 10, color: '#475569', background: '#f8fafc', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Exportar acervo JSON</button>
+            <label style={{ padding: '9px 16px', borderRadius: 10, color: '#475569', background: '#f8fafc', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Importar acervo JSON
               <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={event => { const file = event.target.files?.[0]; if (file) void handleImportLocalBank(file); event.target.value = ''; }} />
             </label>
           </div>
 
           {(localBackupAvailable || syncMessage) && (
-            <div role="status" style={{ marginTop: 14, padding: '12px 16px', borderRadius: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: '#D1FAE5' }}>
-              <span style={{ flex: '1 1 280px', fontSize: 14 }}>{syncMessage || 'Há um backup disponível da última substituição.'}</span>
-              {localBackupAvailable && <button onClick={handleRestoreBackup} style={{ padding: '8px 12px', borderRadius: 9, cursor: 'pointer', color: '#A7F3D0', background: 'rgba(16,185,129,0.16)', border: '1px solid rgba(16,185,129,0.4)', fontWeight: 700 }}>Restaurar backup</button>}
+            <div role="status" style={{ padding: '12px 16px', borderRadius: 12, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46' }}>
+              <span style={{ flex: '1 1 280px', fontSize: 13, fontWeight: 600 }}>{syncMessage || 'Há um backup disponível da última substituição.'}</span>
+              {localBackupAvailable && <button onClick={handleRestoreBackup} style={{ padding: '7px 14px', borderRadius: 8, cursor: 'pointer', color: 'white', background: '#10b981', border: 'none', fontWeight: 700, fontSize: 13 }}>Restaurar backup</button>}
             </div>
           )}
 
           {dbError && (
-            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '16px 20px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <AlertCircle style={{ width: 22, height: 22, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
-              <p style={{ margin: 0, fontSize: 15, color: '#EF4444', lineHeight: 1.5 }}>{dbError}</p>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <AlertCircle style={{ width: 20, height: 20, color: '#dc2626', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ margin: 0, fontSize: 14, color: '#dc2626', lineHeight: 1.5, fontWeight: 600 }}>{dbError}</p>
             </div>
           )}
 
           {savedGame && (
-            <div style={{ marginTop: 18, padding: 18, borderRadius: 14, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.4)', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+            <div style={{ padding: 18, borderRadius: 16, background: '#f5f3ff', border: '1.5px solid #ddd6fe', display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
               <div style={{ flex: '1 1 300px' }}>
-                <strong style={{ color: 'white', display: 'block' }}>Partida em andamento encontrada</strong>
-                <span style={{ color: 'rgba(221,214,254,0.85)', fontSize: 14 }}>Rodada {savedGame.currentRound} de {savedGame.totalRounds} · salva em {new Date(savedGame.savedAt).toLocaleString('pt-BR')}.</span>
+                <strong style={{ color: '#4338ca', display: 'block', fontSize: 15 }}>Partida em andamento encontrada</strong>
+                <span style={{ color: '#6b21a8', fontSize: 13 }}>Rodada {savedGame.currentRound} de {savedGame.totalRounds} · salva em {new Date(savedGame.savedAt).toLocaleString('pt-BR')}.</span>
               </div>
-              <button onClick={resumeSavedGame} className="btn-glow" style={{ padding: '10px 16px', fontWeight: 800 }}>Retomar partida</button>
-              <button onClick={discardSavedGame} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#CBD5E1', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)' }}>Descartar</button>
+              <button onClick={resumeSavedGame} style={{ padding: '10px 18px', fontWeight: 800, color: 'white', background: 'linear-gradient(135deg, #7C3AED, #6D28D9)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 14 }}>Retomar partida</button>
+              <button onClick={discardSavedGame} style={{ padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#64748b', background: '#ffffff', border: '1px solid #cbd5e1', fontSize: 13 }}>Descartar</button>
             </div>
           )}
 
-          <section style={{ padding: 18, borderRadius: 14, background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(167,139,250,0.25)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <strong style={{ color: 'white' }}>Quizzes salvos neste navegador</strong>
+          <section style={{ padding: 18, borderRadius: 16, background: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <strong style={{ color: '#1e293b', fontSize: 14 }}>Quizzes salvos neste navegador</strong>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input className="input-glow" value={newQuizName} onChange={event => setNewQuizName(event.target.value)} maxLength={80} placeholder="Nome do quiz" aria-label="Nome do quiz para salvar" style={{ flex: '1 1 220px' }} />
-              <button type="button" onClick={handleSaveQuiz} className="btn-glow" style={{ padding: '10px 16px' }}>Salvar seleção e regras</button>
+              <input value={newQuizName} onChange={event => setNewQuizName(event.target.value)} maxLength={80} placeholder="Nome do quiz" aria-label="Nome do quiz para salvar" style={{ flex: '1 1 220px', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
+              <button type="button" onClick={handleSaveQuiz} style={{ padding: '10px 18px', borderRadius: 10, background: '#7C3AED', color: 'white', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Salvar seleção e regras</button>
             </div>
-            {savedQuizzes.map(quiz => <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#e2e8f0', fontSize: 14 }}>
-              <span style={{ flex: 1 }}>{quiz.name}</span>
-              <button type="button" onClick={() => handleLoadQuiz(quiz)} style={{ color: '#c4b5fd' }}>Carregar</button>
-              <button type="button" onClick={() => { const next = deleteSavedQuiz(quiz.id); setSavedQuizzes(next); onSavedQuizzesChange?.(next); }} style={{ color: '#fca5a5' }} aria-label={`Excluir ${quiz.name}`}>Excluir</button>
+            {savedQuizzes.map(quiz => <div key={quiz.id} style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#334155', fontSize: 14 }}>
+              <span style={{ flex: 1, fontWeight: 600 }}>{quiz.name}</span>
+              <button type="button" onClick={() => handleLoadQuiz(quiz)} style={{ color: '#7C3AED', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>Carregar</button>
+              <button type="button" onClick={() => { const next = deleteSavedQuiz(quiz.id); setSavedQuizzes(next); onSavedQuizzesChange?.(next); }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }} aria-label={`Excluir ${quiz.name}`}>Excluir</button>
             </div>)}
-            {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} style={{ color: '#7dd3fc', alignSelf: 'flex-start' }}>Incluir todas as perguntas atuais</button>}
+            {selectedQuestionIds && <button type="button" onClick={() => setSelectedQuestionIds(null)} style={{ color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer', alignSelf: 'flex-start', fontSize: 13, fontWeight: 700 }}>Incluir todas as perguntas atuais</button>}
           </section>
 
-          <section style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
-            <label style={{ color: '#CBD5E1', fontSize: 14, flex: '1 1 180px' }}>Dificuldade
-              <select className="input-glow" value={difficultyFilter} onChange={event => setDifficultyFilter(event.target.value as typeof difficultyFilter)} style={{ display: 'block', width: '100%', marginTop: 6 }}>
+          <section style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'end' }}>
+            <label style={{ color: '#475569', fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', flex: '1 1 180px' }}>Dificuldade
+              <select value={difficultyFilter} onChange={event => setDifficultyFilter(event.target.value as typeof difficultyFilter)} style={{ display: 'block', width: '100%', marginTop: 6, background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#0f172a', outline: 'none' }}>
                 <option value="all">Todas</option><option value="easy">Fácil</option><option value="medium">Média</option><option value="hard">Difícil</option>
               </select>
             </label>
-            <label style={{ color: '#CBD5E1', fontSize: 14, flex: '1 1 220px' }}>Etiqueta
-              <input className="input-glow" value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" style={{ display: 'block', width: '100%', marginTop: 6 }} />
+            <label style={{ color: '#475569', fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', flex: '1 1 220px' }}>Etiqueta
+              <input value={tagFilter} onChange={event => setTagFilter(event.target.value)} placeholder="Assunto ou público" style={{ display: 'block', width: '100%', marginTop: 6, background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
             </label>
           </section>
 
           {/* Grid de duas colunas responsivo */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))',
-            gap: 52,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+            gap: 40,
             alignItems: 'start'
           }}>
             
             {/* Coluna 1: Configurações do Jogo */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
               {/* Nomes dos times */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
                   Nomes das Equipes
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   {[0, 1].map(i => (
-                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <label style={{ fontSize: 14, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        {i === 0 ? '🔴' : '🔵'} {i === 0 ? 'Time A' : 'Time B'}
+                    <div key={i} style={{
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                      background: i === 0 ? '#fef2f2' : '#eff6ff',
+                      border: `1.5px solid ${i === 0 ? '#fecaca' : '#bfdbfe'}`,
+                      borderRadius: 16, padding: '16px'
+                    }}>
+                      <label style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? '#dc2626' : '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {i === 0 ? '🔴 Time A' : '🔵 Time B'}
                       </label>
                       <input
-                        type="text" maxLength={20} className="input-glow"
-                        style={{ textAlign: 'center', fontWeight: 700, borderColor: TEAM_COLORS[i] + '44', padding: '16px', fontSize: 20 }}
+                        type="text" maxLength={20}
+                        style={{
+                          textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px',
+                          background: '#ffffff', border: `1.5px solid ${i === 0 ? '#f87171' : '#60a5fa'}`,
+                          borderRadius: 12, color: '#0f172a', outline: 'none'
+                        }}
                         value={playerNames[i]}
                         onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
                         placeholder={i === 0 ? 'Time A' : 'Time B'}
@@ -1092,20 +1112,20 @@ export default function LocalGameMode({
               </div>
 
               {/* Rodadas */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Número de Rodadas
                 </label>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {[2, 6, 10, 16].map(n => (
                     <button key={n}
                       onClick={() => { setTotalRounds(n); setIsCustomRounds(false); sfx.playClick(); }}
                       style={{
-                        flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 20,
-                        background: !isCustomRounds && totalRounds === n ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                        border: !isCustomRounds && totalRounds === n ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                        color: !isCustomRounds && totalRounds === n ? 'white' : 'rgba(148,163,184,0.7)',
-                        cursor: 'pointer', boxShadow: !isCustomRounds && totalRounds === n ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                        flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
+                        background: !isCustomRounds && totalRounds === n ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                        border: !isCustomRounds && totalRounds === n ? 'none' : '1.5px solid #e2e8f0',
+                        color: !isCustomRounds && totalRounds === n ? 'white' : '#334155',
+                        cursor: 'pointer', boxShadow: !isCustomRounds && totalRounds === n ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
                         transition: 'all 0.2s'
                       }}>
                       {n}
@@ -1114,11 +1134,11 @@ export default function LocalGameMode({
                   <button
                     onClick={() => { setIsCustomRounds(true); sfx.playClick(); }}
                     style={{
-                      flex: '2', padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
-                      background: isCustomRounds ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                      border: isCustomRounds ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                      color: isCustomRounds ? 'white' : 'rgba(148,163,184,0.7)',
-                      cursor: 'pointer', boxShadow: isCustomRounds ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      flex: '2', padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
+                      background: isCustomRounds ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                      border: isCustomRounds ? 'none' : '1.5px solid #e2e8f0',
+                      color: isCustomRounds ? 'white' : '#334155',
+                      cursor: 'pointer', boxShadow: isCustomRounds ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
                       transition: 'all 0.2s'
                     }}>
                     Personalizado
@@ -1136,11 +1156,10 @@ export default function LocalGameMode({
                         const val = parseInt(e.target.value) || 2;
                         setTotalRounds(val % 2 !== 0 ? val + 1 : val);
                       }}
-                      className="input-glow"
-                      style={{ width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 20, padding: '16px' }}
+                      style={{ width: '100%', textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 12, color: '#0f172a', outline: 'none' }}
                       placeholder="Digite o número de rodadas (par)..."
                     />
-                    <p style={{ fontSize: 14, color: 'rgba(148,163,184,0.6)', marginTop: 10, textAlign: 'center', lineHeight: 1.4 }}>
+                    <p style={{ fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center', lineHeight: 1.4 }}>
                       O número de rodadas deve ser par para que as duas equipes tenham exatamente o mesmo número de turnos.
                     </p>
                   </div>
@@ -1148,19 +1167,19 @@ export default function LocalGameMode({
               </div>
 
               {/* Modo de Jogo */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Modo de Jogo
                 </label>
-                <div style={{ display: 'flex', gap: 16 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
                   <button
                     onClick={() => { setHasObstacles(false); sfx.playClick(); }}
                     style={{
-                      flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
-                      background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                      border: !hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                      color: !hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
-                      cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
+                      background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                      border: !hasObstacles ? 'none' : '1.5px solid #e2e8f0',
+                      color: !hasObstacles ? 'white' : '#334155',
+                      cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
                       transition: 'all 0.2s'
                     }}>
                     Sem obstáculos
@@ -1168,73 +1187,71 @@ export default function LocalGameMode({
                   <button
                     onClick={() => { setHasObstacles(true); sfx.playClick(); }}
                     style={{
-                      flex: 1, padding: '16px 6px', borderRadius: 12, fontWeight: 800, fontSize: 18,
-                      background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : 'rgba(255,255,255,0.04)',
-                      border: hasObstacles ? '1px solid #7C3AED' : '1px solid rgba(255,255,255,0.06)',
-                      color: hasObstacles ? 'white' : 'rgba(148,163,184,0.7)',
-                      cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 20px rgba(124,58,237,0.35)' : 'none',
+                      flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
+                      background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                      border: hasObstacles ? 'none' : '1.5px solid #e2e8f0',
+                      color: hasObstacles ? 'white' : '#334155',
+                      cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
                       transition: 'all 0.2s'
                     }}>
                     Com obstáculos
                   </button>
                 </div>
               </div>
-              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
                   Pontos por acerto
-                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} className="input-glow" />
+                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
                   Pontos no repasse
-                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} className="input-glow" />
+                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 7, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
                   Tempo por tentativa (s)
-                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} className="input-glow" />
+                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }} />
                 </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 9, color: 'rgba(203,213,225,0.85)', fontWeight: 700 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
                   Empate
-                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} className="input-glow">
+                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none' }}>
                     <option value="shared">Vitória compartilhada</option>
                     <option value="extra">Pergunta extra</option>
                   </select>
                 </label>
               </div>
 
-              <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#DCFCE7' : '#CBD5E1', background: quickMode ? 'rgba(34,197,94,0.16)' : 'rgba(255,255,255,0.05)', border: `1px solid ${quickMode ? 'rgba(34,197,94,0.45)' : 'rgba(255,255,255,0.13)'}`, fontWeight: 800 }}>
-                {quickMode ? 'Modo rápido ativado' : 'Ativar modo rápido'}
+              <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#065f46' : '#475569', background: quickMode ? '#ecfdf5' : '#f8fafc', border: `1.5px solid ${quickMode ? '#86efac' : '#e2e8f0'}`, fontWeight: 800, fontSize: 13 }}>
+                {quickMode ? '✓ Modo rápido ativado' : 'Ativar modo rápido'}
               </button>
+            </div>
 
             {/* Coluna 2: Categorias e Regras */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
               {/* Categorias */}
               {allCategories.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: 16, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       Categorias ({selectedCatIds.length}/{allCategories.length})
                     </label>
                     <button onClick={() => setSelectedCatIds(s => s.length === allCategories.length ? [] : allCategories.map(c => c.id))}
-                      style={{ fontSize: 15, color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, transition: 'color 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = '#C084FC'; }}
-                      onMouseLeave={e => { e.currentTarget.style.color = '#A78BFA'; }}>
+                      style={{ fontSize: 14, color: '#7C3AED', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, transition: 'color 0.2s' }}>
                       {selectedCatIds.length === allCategories.length ? 'Desmarcar todas' : 'Selecionar todas'}
                     </button>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 260, overflowY: 'auto', paddingRight: 8 }}>
                     {allCategories.map(cat => {
                       const sel = selectedCatIds.includes(cat.id);
                       return (
                         <button key={cat.id}
                           onClick={() => { setSelectedCatIds(prev => sel ? prev.filter(id => id !== cat.id) : [...prev, cat.id]); sfx.playClick(); }}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '10px 18px', borderRadius: 999, fontWeight: 700, fontSize: 15,
-                            background: sel ? `${cat.color}22` : 'rgba(255,255,255,0.03)',
-                            border: sel ? `1.5px solid ${cat.color}99` : '1.5px solid rgba(255,255,255,0.06)',
-                            color: sel ? cat.color : 'rgba(148,163,184,0.5)',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 16px', borderRadius: 999, fontWeight: 700, fontSize: 14,
+                            background: sel ? `${cat.color}15` : '#f8fafc',
+                            border: sel ? `2px solid ${cat.color}` : '1.5px solid #e2e8f0',
+                            color: sel ? cat.color : '#64748b',
                             cursor: 'pointer', transition: 'all 0.18s'
                           }}>
                           <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color, display: 'inline-block' }} />
@@ -1246,20 +1263,19 @@ export default function LocalGameMode({
                   
                   {/* Total de questões disponíveis */}
                   <div style={{
-                    marginTop: 14,
-                    fontSize: 15,
-                    color: 'rgba(148,163,184,0.7)',
+                    fontSize: 14,
+                    color: '#475569',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    background: 'rgba(255,255,255,0.02)',
+                    background: '#f8fafc',
                     padding: '10px 16px',
-                    borderRadius: 10,
-                    border: '1px solid rgba(255,255,255,0.04)',
+                    borderRadius: 12,
+                    border: '1px solid #e2e8f0',
                     alignSelf: 'flex-start'
                   }}>
-                    <span>📝 Questões disponíveis para o jogo:</span>
-                    <strong style={{ color: '#FBBF24', fontSize: 17, fontWeight: 900 }}>
+                    <span>📝 Questões disponíveis no acervo:</span>
+                    <strong style={{ color: '#0f172a', fontSize: 16, fontWeight: 900 }}>
                       {allQuestions.filter(q => selectedCatIds.includes(q.category_id) && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)).length}
                     </strong>
                   </div>
@@ -1267,11 +1283,11 @@ export default function LocalGameMode({
               )}
 
               {/* Regras */}
-              <div style={{ padding: '20px 26px', background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.12)', borderRadius: 20 }}>
-                <p style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 800, color: 'rgba(199,210,254,0.95)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ padding: '20px 24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20 }}>
+                <p style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
                   ℹ️ Regras do Modo Local
                 </p>
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 15, color: 'rgba(148,163,184,0.85)', lineHeight: 1.9 }}>
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: '#475569', lineHeight: 1.8 }}>
                   <li>Um <strong>sorteio</strong> decide qual time começa a rodada 1</li>
                   <li>O time da vez responde <strong>em voz alta</strong> dentro do tempo</li>
                   <li>Se <strong>errar ou o tempo acabar</strong>, o outro time tem a mesma chance</li>
@@ -1284,9 +1300,20 @@ export default function LocalGameMode({
           </div>
 
           {/* Botão de Jogar (Rodapé) */}
-          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 32, marginTop: 16 }}>
-            <button onClick={startGame} className="btn-glow justify-center" style={{ fontSize: 24, fontWeight: 800, padding: '22px 64px', width: '100%', maxWidth: 520, borderRadius: 16 }}>
-              <Play style={{ width: 28, height: 28 }} /> Iniciar Jogo
+          <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #f1f5f9', paddingTop: 28, marginTop: 10 }}>
+            <button onClick={startGame}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                fontSize: 20, fontWeight: 900, padding: '18px 48px', width: '100%', maxWidth: 460,
+                borderRadius: 16, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white', border: 'none', cursor: 'pointer',
+                boxShadow: '0 8px 24px -4px rgba(16,185,129,0.45)',
+                textTransform: 'uppercase', letterSpacing: '0.05em', transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.06)')}
+              onMouseLeave={e => (e.currentTarget.style.filter = 'none')}
+            >
+              <Play style={{ width: 24, height: 24, fill: 'white' }} /> Iniciar Jogo
             </button>
           </div>
         </div>
