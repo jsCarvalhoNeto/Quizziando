@@ -27,6 +27,7 @@ import EditQuizModal from './components/teacher/EditQuizModal';
 import GameLobbyView from './components/game/GameLobbyView';
 import WelcomeView from './components/game/WelcomeView';
 import { motion, AnimatePresence } from 'framer-motion';
+import KahootCountdown from './components/KahootCountdown';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -2128,7 +2129,7 @@ Garanta que:
           await publishRoomState({ round_state: 'question-reveal' });
 
           // Passo 4: Abre as alternativas para os competidores responderem
-          later(3000, async () => {
+          later(3500, async () => {
             sfx.playGameSound();
             await publishRoomState({ round_state: 'question' });
             setPlayerAnswered(null);
@@ -4202,20 +4203,34 @@ Garanta que:
                   </div>
 
                   {/* Enunciado Premium Destacado */}
-                  <div className={`p-6 md:p-12 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden transition-all duration-500 ${roundState === 'question-reveal' ? 'my-auto flex-1 flex flex-col justify-center' : ''}`}>
+                  <div className={`p-6 md:p-10 rounded-2xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.06] shadow-inner backdrop-blur-sm relative overflow-hidden transition-all duration-500`}>
                     <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                     <h3 
-                      className={`font-extrabold text-white text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 ${roundState === 'question-reveal' ? '' : 'text-3xl md:text-4xl leading-relaxed'}`}
+                      className="font-extrabold text-white text-center drop-shadow-[0_2px_8px_rgba(124,58,237,0.25)] select-none transition-all duration-500 text-3xl md:text-5xl leading-relaxed"
                       style={{ 
-                        fontSize: roundState === 'question-reveal' ? '60px' : undefined,
-                        lineHeight: roundState === 'question-reveal' ? '1.2' : undefined,
-                        padding: roundState === 'question-reveal' ? '0 3rem' : undefined,
                         width: '100%'
                       }}
                     >
                       {currentQuestion.question_text}
                     </h3>
                   </div>
+
+                  {/* Animação Estilo Kahoot (3, 2, 1) antes de mostrar as alternativas */}
+                  {roundState === 'question-reveal' && (
+                    <div className="my-auto flex-1 flex flex-col items-center justify-center py-6">
+                      <KahootCountdown
+                        seconds={3}
+                        soundEnabled={sfx.enabled}
+                        onComplete={async () => {
+                          if (role === 'operator') {
+                            sfx.playGameSound();
+                            await publishRoomState({ round_state: 'question' });
+                            setPlayerAnswered(null);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
 
                   {/* Alternativas — Estilo Kahoot com cores vibrantes */}
                   {roundState !== 'question-reveal' && (

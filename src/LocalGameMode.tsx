@@ -21,6 +21,7 @@ import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './l
 import { localCategoryPool } from './lib/gameRules';
 import { parseLocalGameSnapshot, type LocalPlayer, type RoundPhase, type SavedLocalGame } from './lib/localGameSnapshot';
 import { getOfflineAssetsStatus, prepareOfflineAssets, type OfflineAssetsStatus } from './lib/offline';
+import { KahootCountdown } from './components/KahootCountdown';
 
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
@@ -244,6 +245,7 @@ export default function LocalGameMode({
   const [roundStarterIndex, setRoundStarterIndex] = useState(0);
   const [firstFailed, setFirstFailed]       = useState(false);
   const [phase, setPhase]                   = useState<RoundPhase>('idle');
+  const [isCountingDown, setIsCountingDown] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<LocalCategory | null>(null);
   const [currentQuestion, setCurrentQuestion]   = useState<LocalQuestion | null>(null);
   const [usedQuestionIds, setUsedQuestionIds]   = useState<string[]>([]);
@@ -688,6 +690,7 @@ export default function LocalGameMode({
     setFirstFailed(false);
     resetUsedQuestions();
     setPhase('idle');
+    setIsCountingDown(false);
     setRouletteAngle(0);
     discardSavedGame();
     setLocalScreen('game');
@@ -721,8 +724,9 @@ export default function LocalGameMode({
     setCurrentQuestion(chosenQuestion);
     setFirstFailed(false);
     setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
-    setPhase('question-first');
-    setTimerActive(true);
+    setPhase('question-reveal');
+    setIsCountingDown(true);
+    setTimerActive(false);
     sfx.playClick();
   }, [allQuestions, selectedCatIds, selectedQuestionIds, difficultyFilter, tagFilter, allCategories, turnTimeLimit, phase]);
 
@@ -806,6 +810,7 @@ export default function LocalGameMode({
           setFirstFailed(false);
           setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
           setPhase('question-reveal');
+          setIsCountingDown(false);
           setTimerActive(false);
         }, transitionMs(3800));
       }, transitionMs(2000));
@@ -2025,29 +2030,65 @@ export default function LocalGameMode({
             {/* QUESTION REVEAL */}
             {phase === 'question-reveal' && currentQuestion && (
               <motion.div key="question-reveal"
-                initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 200 }}
-                style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 40, maxWidth: 1200 }}>
-                <p style={{ fontSize: 20, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+                initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 20 }}
+                style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, maxWidth: 1200, width: '100%' }}>
+                
+                {selectedCategory && (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 24px',
+                    borderRadius: 999,
+                    background: `${selectedCategory.color}25`,
+                    border: `1.5px solid ${selectedCategory.color}66`,
+                    color: selectedCategory.color,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                  }}>
+                    {selectedCategory.name}
+                  </div>
+                )}
+
+                <p style={{ fontSize: 18, fontWeight: 700, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>
                   Atenção para a pergunta
                 </p>
-                <h2 style={{ fontSize: 64, fontWeight: 900, color: 'white', lineHeight: 1.3, margin: 0 }}>
+                
+                <h2 style={{ fontSize: 'clamp(32px, 4.5vw, 56px)', fontWeight: 900, color: 'white', lineHeight: 1.25, margin: 0, textShadow: '0 4px 24px rgba(0,0,0,0.5)' }}>
                   {currentQuestion.question_text}
                 </h2>
-                <button
-                  onClick={() => {
-                    setPhase('question-first');
-                    setTimerActive(true);
-                  }}
-                  style={{
-                    padding: '24px 48px', borderRadius: 24,
-                    background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-                    border: '2px solid rgba(59,130,246,0.4)',
-                    boxShadow: '0 8px 32px rgba(37,99,235,0.3)',
-                    color: 'white', fontWeight: 900, fontSize: 24, cursor: 'pointer', marginTop: 24
-                  }}>
-                  Revelar Alternativas e Iniciar Tempo
-                </button>
+
+                {isCountingDown ? (
+                  <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <KahootCountdown
+                      seconds={3}
+                      soundEnabled={soundEnabled}
+                      onComplete={() => {
+                        setIsCountingDown(false);
+                        setPhase('question-first');
+                        setTimerActive(true);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsCountingDown(true);
+                    }}
+                    style={{
+                      padding: '22px 48px', borderRadius: 24,
+                      background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+                      border: '2px solid rgba(59,130,246,0.4)',
+                      boxShadow: '0 8px 32px rgba(37,99,235,0.3)',
+                      color: 'white', fontWeight: 900, fontSize: 24, cursor: 'pointer', marginTop: 16,
+                      transition: 'all 0.2s ease',
+                    }}>
+                    Revelar Alternativas e Iniciar Tempo
+                  </button>
+                )}
               </motion.div>
             )}
 

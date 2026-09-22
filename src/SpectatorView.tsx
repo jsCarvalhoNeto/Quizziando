@@ -3,6 +3,7 @@ import { supabase } from './lib/supabaseClient';
 import { remainingSeconds } from './lib/gameRules';
 import type { OnlineRoom } from './lib/onlineGame';
 import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode } from 'lucide-react';
+import KahootCountdown from './components/KahootCountdown';
 
 interface SpectatorPlayer {
   id: string;
@@ -439,16 +440,24 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
               </h2>
             </div>
 
+            {/* Contagem regressiva estilo Kahoot durante question-reveal */}
+            {room.round_state === 'question-reveal' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', padding: '30px 0' }}>
+                <KahootCountdown seconds={3} soundEnabled={true} />
+              </div>
+            )}
+
             {/* Grid 2x2 das Alternativas Kahoot */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '20px',
-              }}
-            >
-              {room.current_question.alternatives.map((alt, index) => {
-                const kTheme = KAHOOT_COLORS[index] || KAHOOT_COLORS[0];
+            {room.round_state !== 'question-reveal' && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '20px',
+                }}
+              >
+                {room.current_question.alternatives.map((alt, index) => {
+                  const kTheme = KAHOOT_COLORS[index] || KAHOOT_COLORS[0];
                 const isAnsweredState = room.round_state === 'answered';
                 const isCorrect = alt.isCorrect;
 
@@ -513,6 +522,7 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                 );
               })}
             </div>
+            )}
 
             {/* Explicação da Resposta */}
             {room.round_state === 'answered' && room.current_question.explanation && (

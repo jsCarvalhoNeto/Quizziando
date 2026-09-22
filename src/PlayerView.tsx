@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient';
 import { getAvatarUrl } from './lib/avatars';
 import { gameRpc, newPlayerToken, readPlayerSession, savePlayerSession, type OnlineRoom, type PlayerSnapshot, type PlayerSession } from './lib/onlineGame';
 import { remainingSeconds } from './lib/gameRules';
+import KahootCountdown from './components/KahootCountdown';
 
 // ==========================================
 // 🎨 CORES DAS ALTERNATIVAS (A/B/C/D)
@@ -484,12 +485,15 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
           <div style={{ alignSelf: 'flex-end', marginBottom: 'auto' }}>
             <ConnectedBadge connected={connected} />
           </div>
-          <div style={{ fontSize: 11, color: '#A0AEC0', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#A0AEC0', marginBottom: 12 }}>
             Rodada {roomState.current_round} de {roomState.rounds}
           </div>
-          <h3 style={{ color: 'white', fontSize: 32, fontWeight: 900, lineHeight: 1.4, textAlign: 'center', marginBottom: 'auto' }}>
+          <h3 style={{ color: 'white', fontSize: 'clamp(22px, 5vw, 30px)', fontWeight: 900, lineHeight: 1.3, textAlign: 'center', marginBottom: 20 }}>
             {roomState.current_question.question_text}
           </h3>
+          <div style={{ marginTop: 'auto', marginBottom: 'auto', display: 'flex', justifyContent: 'center' }}>
+            <KahootCountdown seconds={3} soundEnabled={true} />
+          </div>
         </div>
       </div>
     );
