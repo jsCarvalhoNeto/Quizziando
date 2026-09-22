@@ -29,7 +29,6 @@ import {
   ExternalLink,
   BookOpen,
   Loader2,
-  Sliders,
   Clock
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
@@ -65,7 +64,7 @@ interface TeacherDashboardProps {
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
   onRecoverRoom: (roomCode: string) => void;
   onCloseRoom: (roomCode: string) => void;
   onLaunchNewRoom: (mode: 'online' | 'hybrid' | 'local') => void;
@@ -121,7 +120,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onSaveRouletteQuiz,
   onCreateFolder,
   onOpenQuestionManager,
-  onOpenSettings,
   onRecoverRoom,
   onCloseRoom,
   onLaunchNewRoom,
@@ -1352,10 +1350,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   )}
                 </div>
 
-                {/* Rodapé do Menu: Atalho para o Modal Completo de Configurações */}
+                {/* Rodapé do Menu: Status e Versão */}
                 <div 
                   style={{
-                    padding: '10px 20px',
+                    padding: '12px 20px',
                     borderTop: '1px solid #f1f5f9',
                     backgroundColor: '#f8fafc',
                     display: 'flex',
@@ -1363,32 +1361,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     justifyContent: 'space-between',
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSettingsMenu(false);
-                      onOpenSettings();
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#46178f',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 0',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-                  >
-                    <Sliders style={{ width: '13px', height: '13px' }} />
-                    <span>Abrir Configurações Detalhadas (Modal)</span>
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                      Preferências salvas automaticamente
+                    </span>
+                  </div>
 
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700 }}>
                     Quizziando v2.0
                   </span>
                 </div>
