@@ -315,6 +315,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({
   // ─── Visualização em Grade Estilo Kahoot! ──────────────────────────────────
   return (
     <div 
+      className="quiz-card-group"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -384,10 +385,11 @@ export const QuizCard: React.FC<QuizCardProps> = ({
           <span>{totalQuestions} {totalQuestions === 1 ? 'questão' : 'questões'}</span>
         </div>
 
-        {/* Botão de Favorito Rápido no Canto Superior Direito */}
+        {/* Botão de Favorito Rápido no Canto Superior Direito (Oculto até hover ou se favoritado) */}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(quiz.id); }}
+          className={`quiz-card-favorite-btn ${quiz.isFavorite ? 'is-favorite' : ''}`}
           style={{
             position: 'absolute',
             top: '10px',
@@ -404,7 +406,6 @@ export const QuizCard: React.FC<QuizCardProps> = ({
             justifyContent: 'center',
             zIndex: 10,
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-            transition: 'all 0.15s ease',
           }}
           title={quiz.isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
         >

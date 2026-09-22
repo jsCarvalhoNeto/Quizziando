@@ -946,3 +946,29 @@ input:-webkit-autofill:active {
   margin: 0 auto;
 }
 
+/* ==========================================
+   ⭐ BOTÃO DE FAVORITO DO CARD (HOVER EFFECT)
+   Oculto por padrão para limpar o visual do card,
+   aparece suavemente ao passar o mouse sobre o card
+   ou quando o quiz já estiver marcado como favorito.
+   ========================================== */
+.quiz-card-favorite-btn {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.88);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.quiz-card-group:hover .quiz-card-favorite-btn,
+.quiz-card-favorite-btn:hover,
+.quiz-card-favorite-btn:focus-visible,
+.quiz-card-favorite-btn.is-favorite {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.quiz-card-group:hover .quiz-card-favorite-btn:hover {
+  transform: scale(1.08);
+}
+

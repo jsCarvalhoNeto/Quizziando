@@ -840,6 +840,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             return (
               <div
                 key={cat.id}
+                className="quiz-card-group"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -906,10 +907,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     {isSelectedForRoulette && <Check style={{ width: '16px', height: '16px', strokeWidth: 3 }} />}
                   </button>
 
-                  {/* Botão de Favorito no Canto Superior Direito */}
+                  {/* Botão de Favorito no Canto Superior Direito (Oculto até passar o mouse no card ou se favoritado) */}
                   <button
                     type="button"
                     onClick={(e) => handleToggleFavoriteCategory(cat.id, e)}
+                    className={`quiz-card-favorite-btn ${isCatFavorite ? 'is-favorite' : ''}`}
                     style={{
                       position: 'absolute',
                       top: '10px',
@@ -926,7 +928,6 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                       cursor: 'pointer',
                       zIndex: 10,
                       boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      transition: 'all 0.15s ease',
                     }}
                     title={isCatFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                   >
