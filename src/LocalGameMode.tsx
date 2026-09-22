@@ -6,7 +6,7 @@ import {
   Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X,
-  Hand, Users, UserPlus, Zap
+  Hand, Users, Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,12 +30,6 @@ const ANSWER_COLORS = [
   { index: 1, label: 'B', bg: '#3182CE', bgHover: '#2B6CB0', glow: 'rgba(49,130,206,0.4)', icon: '◆', name: 'Azul'     },
   { index: 2, label: 'C', bg: '#D69E2E', bgHover: '#B7791F', glow: 'rgba(214,158,46,0.4)', icon: '●', name: 'Amarelo'  },
   { index: 3, label: 'D', bg: '#38A169', bgHover: '#276749', glow: 'rgba(56,161,105,0.4)', name: 'Verde',   icon: '■'  },
-];
-
-// Cores dos participantes no modo individual
-const PARTICIPANT_COLORS = [
-  '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#16a34a',
-  '#d97706', '#4f46e5', '#059669', '#e11d48', '#0891b2'
 ];
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -218,13 +212,6 @@ export default function LocalGameMode({
   const [localBackupAvailable, setLocalBackupAvailable] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState(['Time A', 'Time B']);
-  const [individualParticipants, setIndividualParticipants] = useState<string[]>([
-    'Aluno 1',
-    'Aluno 2',
-    'Aluno 3',
-  ]);
-  const [newParticipantInput, setNewParticipantInput] = useState('');
-  const [activeParticipantIndex, setActiveParticipantIndex] = useState<number | null>(null);
 
   const [totalRounds, setTotalRounds] = useState(6);
   const [isCustomRounds, setIsCustomRounds] = useState(false);
@@ -686,9 +673,7 @@ export default function LocalGameMode({
     setDbError(null);
 
     if (playMode === 'individual') {
-      const names = individualParticipants.map(p => p.trim()).filter(Boolean);
-      const finalNames = names.length > 0 ? names : ['Participante 1', 'Participante 2'];
-      setPlayers(finalNames.map(name => ({ name, score: 0, roundResults: [] })));
+      setPlayers([{ name: 'Auditório', score: 0, roundResults: [] }]);
       setRoundStarterIndex(0);
     } else {
       const starter = Math.random() < 0.5 ? 0 : 1;
@@ -704,7 +689,6 @@ export default function LocalGameMode({
     resetUsedQuestions();
     setPhase('idle');
     setRouletteAngle(0);
-    setActiveParticipantIndex(null);
     discardSavedGame();
     setLocalScreen('game');
     sfx.playClick();
@@ -739,7 +723,6 @@ export default function LocalGameMode({
     setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
     setPhase('question-first');
     setTimerActive(true);
-    setActiveParticipantIndex(null);
     sfx.playClick();
   }, [allQuestions, selectedCatIds, selectedQuestionIds, difficultyFilter, tagFilter, allCategories, turnTimeLimit, phase]);
 
@@ -861,8 +844,6 @@ export default function LocalGameMode({
 
     const isCorrect = !!selectedAlt.isCorrect;
     const correctAlt = currentQuestion?.alternatives.find(a => a.isCorrect);
-    const participantIdx = activeParticipantIndex;
-    const participantName = participantIdx !== null && players[participantIdx] ? players[participantIdx].name : undefined;
 
     setTimerActive(false);
 
@@ -874,12 +855,7 @@ export default function LocalGameMode({
 
     setPlayers(prev => {
       const next = [...prev];
-      if (participantIdx !== null && next[participantIdx]) {
-        next[participantIdx] = {
-          ...next[participantIdx],
-          roundResults: [...next[participantIdx].roundResults, { answered: true, correct: isCorrect }]
-        };
-      } else if (next.length > 0 && next[0]) {
+      if (next.length > 0 && next[0]) {
         next[0] = {
           ...next[0],
           roundResults: [...next[0].roundResults, { answered: true, correct: isCorrect }]
@@ -889,9 +865,8 @@ export default function LocalGameMode({
     });
 
     setRoundResult({
-      scorer: isCorrect ? (participantIdx !== null ? participantIdx : 0) : null,
+      scorer: isCorrect ? 0 : null,
       correct: isCorrect,
-      participantName,
       correctText: correctAlt?.text || selectedAlt.text
     });
     setPhase('round-result');
@@ -901,15 +876,22 @@ export default function LocalGameMode({
     if (phase !== 'question-first') return;
     setTimerActive(false);
     sfx.playTimeout();
+    setPlayers(prev => {
+      const next = [...prev];
+      if (next.length > 0 && next[0]) {
+        next[0] = {
+          ...next[0],
+          roundResults: [...next[0].roundResults, { answered: true, correct: false }]
+        };
+      }
+      return next;
+    });
     setRoundResult({
       scorer: null,
       correct: false,
       correctText: currentQuestion?.alternatives.find(a => a.isCorrect)?.text || ''
     });
     setPhase('round-result');
-    roundCompletionTimerRef.current = setTimeout(() => {
-      advanceRound();
-    }, transitionMs(4500));
   };
 
   const advanceRound = () => {
@@ -918,7 +900,6 @@ export default function LocalGameMode({
       roundCompletionTimerRef.current = null;
     }
     setRoundResult(null);
-    setActiveParticipantIndex(null);
     setFirstFailed(false);
 
     if (currentRound >= totalRounds) {
@@ -1396,142 +1377,25 @@ export default function LocalGameMode({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
               
               {playMode === 'individual' ? (
-                /* Gerenciador de Participantes Individuais */
+                /* Modo Auditório / Telão */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', boxSizing: 'border-box' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Hand style={{ width: 16, height: 16, color: '#0284c7' }} /> Participantes da Sala ({individualParticipants.length})
-                    </h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIndividualParticipants(['Aluno 1', 'Aluno 2', 'Aluno 3']);
-                        sfx.playClick();
-                      }}
-                      style={{ fontSize: 12, color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
-                    >
-                      Padrão (3 alunos)
-                    </button>
-                  </div>
-
-                  {/* Input para adicionar participante */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      type="text"
-                      maxLength={30}
-                      value={newParticipantInput}
-                      onChange={e => setNewParticipantInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          const val = newParticipantInput.trim();
-                          if (val && !individualParticipants.includes(val)) {
-                            setIndividualParticipants(prev => [...prev, val]);
-                            setNewParticipantInput('');
-                            sfx.playClick();
-                          }
-                        }
-                      }}
-                      placeholder="Nome do aluno / participante..."
-                      style={{
-                        flex: 1,
-                        padding: '12px 14px',
-                        background: '#ffffff',
-                        border: '1.5px solid #cbd5e1',
-                        borderRadius: 12,
-                        fontSize: 14,
-                        color: '#0f172a',
-                        outline: 'none'
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const val = newParticipantInput.trim();
-                        if (val && !individualParticipants.includes(val)) {
-                          setIndividualParticipants(prev => [...prev, val]);
-                          setNewParticipantInput('');
-                          sfx.playClick();
-                        }
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '12px 18px',
-                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 12,
-                        fontWeight: 800,
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
-                      }}
-                    >
-                      <UserPlus style={{ width: 16, height: 16 }} /> Adicionar
-                    </button>
-                  </div>
-
-                  {/* Lista de Participantes */}
                   <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    maxHeight: 180,
-                    overflowY: 'auto',
-                    padding: '8px',
-                    background: '#f8fafc',
-                    borderRadius: 14,
-                    border: '1px solid #e2e8f0'
+                    padding: '20px', borderRadius: 16,
+                    background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(56, 189, 248, 0.04))',
+                    border: '1.5px solid rgba(2, 132, 199, 0.25)',
+                    display: 'flex', flexDirection: 'column', gap: 8
                   }}>
-                    {individualParticipants.map((name, idx) => {
-                      const color = PARTICIPANT_COLORS[idx % PARTICIPANT_COLORS.length];
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '6px 12px',
-                            background: '#ffffff',
-                            border: `1.5px solid ${color}44`,
-                            borderRadius: 999,
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: '#1e293b'
-                          }}
-                        >
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                          <span>{name}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIndividualParticipants(prev => prev.filter((_, i) => i !== idx));
-                              sfx.playClick();
-                            }}
-                            title="Remover"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#94a3b8',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              padding: 0
-                            }}
-                          >
-                            <X style={{ width: 14, height: 14 }} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {individualParticipants.length === 0 && (
-                      <span style={{ color: '#94a3b8', fontSize: 13, padding: '6px' }}>
-                        Nenhum aluno cadastrado. Adicione alunos ou novos poderão entrar durante o jogo!
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                        <Hand style={{ width: 20, height: 20 }} />
+                      </div>
+                      <span style={{ fontSize: 16, fontWeight: 900, color: '#0c4a6e' }}>
+                        Modo Auditório / Telão
                       </span>
-                    )}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+                      Perfeito para salas de aula e auditórios. Qualquer participante pode responder levantando a mão ou falando a opção. O apresentador clica na alternativa dita, o gabarito é revelado na hora e a próxima pergunta aparece em tela cheia!
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -1767,152 +1631,125 @@ export default function LocalGameMode({
     const correctAnswer = currentQuestion?.alternatives.find(a => a.isCorrect);
 
     return (
-      <div style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'row', background: '#0f0e17' }}>
+      <div style={{ width: '100%', minHeight: '100vh', display: 'flex', flexDirection: playMode === 'individual' ? 'column' : 'row', background: '#0f0e17' }}>
 
-        {/* ── Lateral Esquerda (Placar e Status) ── */}
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start',
-          padding: '32px 24px', background: 'rgba(0,0,0,0.3)',
-          borderRight: '1px solid rgba(255,255,255,0.06)', gap: 32, flexShrink: 0,
-          width: 260, overflowY: 'auto'
-        }}>
-          {/* Controles + Rodada (Topo) */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button onClick={onBack} title="Início"
-                style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(148,163,184,0.7)', display: 'flex' }}>
-                <Home style={{ width: 14, height: 14 }} />
-              </button>
-              <button onClick={onToggleSound} title="Som"
-                style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(148,163,184,0.7)', display: 'flex' }}>
-                {soundEnabled ? <Volume2 style={{ width: 14, height: 14 }} /> : <VolumeX style={{ width: 14, height: 14 }} />}
-              </button>
-              <button onClick={() => { setShowSettingsModal(true); sfx.playClick(); }} title="Configurações"
-                style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: showSettingsModal ? '#7C3AED' : 'rgba(148,163,184,0.7)', display: 'flex' }}>
-                <Settings style={{ width: 14, height: 14 }} />
-              </button>
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rodada</span>
-            <span style={{ fontSize: 36, fontWeight: 900, color: '#FBBF24', lineHeight: 1 }}>
-              {currentRound}<span style={{ fontSize: 16, color: 'rgba(251,191,36,0.5)' }}>/{totalRounds}</span>
-            </span>
-            <div style={{ width: '100%', height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: 4 }}>
-              <div style={{ height: '100%', background: 'linear-gradient(90deg,#7C3AED,#EC4899)', borderRadius: 999, width: `${progressPct}%`, transition: 'width 0.5s' }} />
-            </div>
-          </div>
-
-          {/* Participantes Modo Individual ou Equipes */}
-          {playMode === 'individual' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
-              {/* Resumo Pedagógico da Turma */}
-              <div style={{
-                padding: '14px', borderRadius: 14,
-                background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)',
-                display: 'flex', flexDirection: 'column', gap: 8
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Aproveitamento
-                  </span>
-                  {(() => {
-                    const totalAns = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
-                    const totalCor = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
-                    const pct = totalAns > 0 ? Math.round((totalCor / totalAns) * 100) : 0;
-                    return (
-                      <span style={{ fontSize: 14, fontWeight: 900, color: pct >= 70 ? '#34d399' : '#facc15' }}>
-                        {pct}%
-                      </span>
-                    );
-                  })()}
-                </div>
-                {(() => {
-                  const totalAns = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
-                  const totalCor = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
-                  return (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                      <span>Acertos: <strong>{totalCor}</strong></span>
-                      <span>Respondidas: <strong>{totalAns}</strong></span>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Lista de Chamada de Alunos */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Alunos ({players.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const name = prompt('Nome do aluno a adicionar:');
-                    if (name && name.trim()) {
-                      const trimmed = name.trim();
-                      setPlayers(prev => [...prev, { name: trimmed, score: 0, roundResults: [] }]);
-                      sfx.playClick();
-                    }
-                  }}
-                  title="Adicionar aluno"
-                  style={{
-                    fontSize: 11, fontWeight: 800, color: '#38bdf8', background: 'rgba(56,189,248,0.12)',
-                    border: '1px solid rgba(56,189,248,0.25)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer'
-                  }}
-                >
-                  + Aluno
+        {/* ── HEADER SUPERIOR (Apenas no Modo Individual / Auditório) ── */}
+        {playMode === 'individual' && (
+          <header style={{
+            width: '100%',
+            padding: '14px 28px',
+            background: 'rgba(15, 14, 23, 0.9)',
+            backdropFilter: 'blur(16px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 40,
+            flexShrink: 0
+          }}>
+            {/* Esquerda: Botões de navegação e áudio + badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={onBack} title="Início"
+                  style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'rgba(241,245,249,0.85)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700 }}>
+                  <Home style={{ width: 15, height: 15 }} />
+                  <span>Início</span>
+                </button>
+                <button onClick={onToggleSound} title="Som"
+                  style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'rgba(241,245,249,0.85)', display: 'flex' }}>
+                  {soundEnabled ? <Volume2 style={{ width: 16, height: 16 }} /> : <VolumeX style={{ width: 16, height: 16 }} />}
+                </button>
+                <button onClick={() => { setShowSettingsModal(true); sfx.playClick(); }} title="Configurações"
+                  style={{ padding: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: showSettingsModal ? '#7C3AED' : 'rgba(241,245,249,0.85)', display: 'flex' }}>
+                  <Settings style={{ width: 16, height: 16 }} />
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', paddingRight: 4 }}>
-                {players.map((p, originalIndex) => {
-                  const isResponding = activeParticipantIndex === originalIndex;
-                  const color = PARTICIPANT_COLORS[originalIndex % PARTICIPANT_COLORS.length];
-                  const pCorrect = p.roundResults.filter(r => r.correct).length;
-
-                  return (
-                    <div
-                      key={p.name + originalIndex}
-                      onClick={() => {
-                        setActiveParticipantIndex(prev => prev === originalIndex ? null : originalIndex);
-                        sfx.playClick();
-                      }}
-                      style={{
-                        padding: '10px 12px', borderRadius: 10,
-                        background: isResponding ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.03)',
-                        border: isResponding ? '1.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.06)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        gap: 8, cursor: 'pointer', transition: 'all 0.15s'
-                      }}
-                      title="Clique para selecionar quem vai responder"
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                        <div style={{
-                          width: 24, height: 24, borderRadius: '50%', background: color,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 900, color: 'white', flexShrink: 0
-                        }}>
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                            {p.name}
-                          </span>
-                          {isResponding && (
-                            <span style={{ fontSize: 10, color: '#38bdf8', fontWeight: 800 }}>
-                              ● Respondendo
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', fontWeight: 600 }}>
-                        {pCorrect > 0 ? `${pCorrect} ✓` : '—'}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 14px', borderRadius: 999,
+                background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.25)',
+                color: '#38bdf8', fontSize: 13, fontWeight: 800, letterSpacing: '0.04em'
+              }}>
+                <Hand style={{ width: 15, height: 15 }} />
+                <span>Modo Auditório · Telão</span>
               </div>
             </div>
-          ) : (
-            /* Equipes */
+
+            {/* Centro: Indicador de Rodada + Barra de Progresso */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                  Pergunta
+                </span>
+                <span style={{ fontSize: 28, fontWeight: 900, color: '#FBBF24', lineHeight: 1, fontFamily: 'monospace' }}>
+                  {currentRound}
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'rgba(251,191,36,0.6)' }}>
+                  / {totalRounds}
+                </span>
+              </div>
+              <div style={{ width: 220, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', background: 'linear-gradient(90deg,#7C3AED,#EC4899)', borderRadius: 999, width: `${progressPct}%`, transition: 'width 0.5s' }} />
+              </div>
+            </div>
+
+            {/* Direita: Botão "Ninguém soube responder" na fase da questão */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {(phase === 'question-first' || phase === 'question-second') && (
+                <button
+                  type="button"
+                  onClick={handleNoOneAnswered}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 16px', borderRadius: 10,
+                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.35)',
+                    color: '#fca5a5', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                  title="Ninguém no auditório soube responder (mostrar gabarito correto)"
+                >
+                  <span>✕ Ninguém soube responder</span>
+                </button>
+              )}
+            </div>
+          </header>
+        )}
+
+        {/* ── Lateral Esquerda (Apenas no Modo Equipes) ── */}
+        {playMode === 'teams' && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start',
+            padding: '32px 24px', background: 'rgba(0,0,0,0.3)',
+            borderRight: '1px solid rgba(255,255,255,0.06)', gap: 32, flexShrink: 0,
+            width: 260, overflowY: 'auto'
+          }}>
+            {/* Controles + Rodada (Topo) */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <button onClick={onBack} title="Início"
+                  style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(148,163,184,0.7)', display: 'flex' }}>
+                  <Home style={{ width: 14, height: 14 }} />
+                </button>
+                <button onClick={onToggleSound} title="Som"
+                  style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(148,163,184,0.7)', display: 'flex' }}>
+                  {soundEnabled ? <Volume2 style={{ width: 14, height: 14 }} /> : <VolumeX style={{ width: 14, height: 14 }} />}
+                </button>
+                <button onClick={() => { setShowSettingsModal(true); sfx.playClick(); }} title="Configurações"
+                  style={{ padding: 7, borderRadius: 8, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: showSettingsModal ? '#7C3AED' : 'rgba(148,163,184,0.7)', display: 'flex' }}>
+                  <Settings style={{ width: 14, height: 14 }} />
+                </button>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Rodada</span>
+              <span style={{ fontSize: 36, fontWeight: 900, color: '#FBBF24', lineHeight: 1 }}>
+                {currentRound}<span style={{ fontSize: 16, color: 'rgba(251,191,36,0.5)' }}>/{totalRounds}</span>
+              </span>
+              <div style={{ width: '100%', height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: 4 }}>
+                <div style={{ height: '100%', background: 'linear-gradient(90deg,#7C3AED,#EC4899)', borderRadius: 999, width: `${progressPct}%`, transition: 'width 0.5s' }} />
+              </div>
+            </div>
+
+            {/* Equipes */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {([0, 1] as const).map((i) => {
                 const isActive = respIdx === i && phase !== 'round-result' && phase !== 'finished';
@@ -1949,12 +1786,18 @@ export default function LocalGameMode({
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', width: '100%' }}>
           {/* ── Área principal ── */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', position: 'relative', overflow: 'hidden', backgroundImage: (bgImage && (phase === 'idle' || phase === 'spinning')) ? `url(${bgImage})` : undefined, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+          <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: playMode === 'individual' ? '28px 36px' : '16px 20px',
+            position: 'relative', overflow: 'hidden',
+            backgroundImage: (bgImage && (phase === 'idle' || phase === 'spinning')) ? `url(${bgImage})` : undefined,
+            backgroundSize: 'cover', backgroundPosition: 'center'
+          }}>
 
           {dbError && <p role="alert" style={{ color: '#FCA5A5', fontWeight: 700, textAlign: 'center' }}>{dbError}</p>}
 
@@ -2212,17 +2055,23 @@ export default function LocalGameMode({
             {(phase === 'question-first' || phase === 'question-second') && currentQuestion && (
               <motion.div key="question"
                 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
-                style={{ width: '100%', maxWidth: 1500, display: 'flex', flexDirection: 'column', gap: 0, marginTop: '-50px' }}>
+                style={{
+                  width: '100%',
+                  maxWidth: playMode === 'individual' ? 1600 : 1450,
+                  display: 'flex', flexDirection: 'column', gap: 0,
+                  marginTop: playMode === 'individual' ? 0 : '-50px'
+                }}>
 
                 {/* Barra superior: categoria + timer + segunda chance */}
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '18px 26px', background: 'rgba(0,0,0,0.2)', borderRadius: '16px 16px 0 0',
-                  border: '1px solid rgba(255,255,255,0.06)', borderBottom: 'none'
+                  padding: playMode === 'individual' ? '22px 32px' : '18px 26px',
+                  background: 'rgba(0,0,0,0.3)', borderRadius: '16px 16px 0 0',
+                  border: '1px solid rgba(255,255,255,0.08)', borderBottom: 'none'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 14, height: 14, borderRadius: '50%', background: selectedCategory?.color || '#7C3AED', display: 'inline-block' }} />
-                    <span style={{ fontSize: 16, fontWeight: 700, color: selectedCategory?.color || '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ width: 16, height: 16, borderRadius: '50%', background: selectedCategory?.color || '#7C3AED', display: 'inline-block' }} />
+                    <span style={{ fontSize: playMode === 'individual' ? 20 : 16, fontWeight: 800, color: selectedCategory?.color || '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {selectedCategory?.name}
                     </span>
                     {phase === 'question-second' && (
@@ -2233,16 +2082,16 @@ export default function LocalGameMode({
                     )}
                   </div>
                   {/* Timer circular */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Clock style={{ width: 20, height: 20, color: 'rgba(148,163,184,0.6)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <Clock style={{ width: 22, height: 22, color: 'rgba(148,163,184,0.6)' }} />
                     <motion.span
                       key={timeLeft}
                       initial={{ scale: timeLeft <= 5 ? 1.3 : 1 }} animate={{ scale: 1 }}
-                      style={{ fontSize: 40, fontWeight: 900, color: timerCol, fontFamily: 'monospace', minWidth: 68, textAlign: 'right' }}>
+                      style={{ fontSize: 44, fontWeight: 900, color: timerCol, fontFamily: 'monospace', minWidth: 72, textAlign: 'right' }}>
                       {timeLeft}s
                     </motion.span>
                     <button onClick={toggleTimer}
-                      style={{ padding: '7px 11px', borderRadius: 8, cursor: 'pointer', color: 'white', background: timerActive ? 'rgba(245,158,11,0.22)' : 'rgba(16,185,129,0.2)', border: `1px solid ${timerActive ? 'rgba(245,158,11,0.5)' : 'rgba(16,185,129,0.5)'}`, fontWeight: 800 }}>
+                      style={{ padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: 'white', background: timerActive ? 'rgba(245,158,11,0.22)' : 'rgba(16,185,129,0.2)', border: `1px solid ${timerActive ? 'rgba(245,158,11,0.5)' : 'rgba(16,185,129,0.5)'}`, fontWeight: 800, fontSize: 13 }}>
                       {timerActive ? 'Pausar' : 'Retomar'}
                     </button>
                   </div>
@@ -2256,107 +2105,8 @@ export default function LocalGameMode({
                     style={{ height: '100%', background: `linear-gradient(90deg, ${timerCol}, ${timerCol}bb)` }} />
                 </div>
 
-                {/* Banner do participante/equipe respondendo */}
-                {playMode === 'individual' ? (
-                  /* Painel do Condutor: Mão Levantada */
-                  <div style={{
-                    padding: '16px 24px',
-                    background: 'rgba(2, 132, 199, 0.12)',
-                    border: '1.5px solid rgba(2, 132, 199, 0.35)',
-                    borderTop: 'none', borderBottom: 'none',
-                    display: 'flex', flexDirection: 'column', gap: 12
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Hand style={{ width: 20, height: 20, color: '#38bdf8' }} />
-                        <span style={{ fontSize: 14, fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Quem levantou a mão para responder?
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const name = prompt('Nome do novo aluno / participante:');
-                            if (name && name.trim()) {
-                              const trimmed = name.trim();
-                              setPlayers(prev => [...prev, { name: trimmed, score: 0, roundResults: [] }]);
-                              setActiveParticipantIndex(players.length);
-                              sfx.playClick();
-                            }
-                          }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '6px 12px', borderRadius: 8,
-                            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-                            color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer'
-                          }}
-                        >
-                          <UserPlus style={{ width: 14, height: 14 }} /> + Aluno
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleNoOneAnswered}
-                          style={{
-                            padding: '6px 14px', borderRadius: 8,
-                            background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
-                            color: '#f87171', fontSize: 12, fontWeight: 800, cursor: 'pointer'
-                          }}
-                          title="Encerrar esta pergunta sem pontuar ninguém e mostrar a resposta correta"
-                        >
-                          Ninguém soube responder
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Chips de seleção do participante */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {players.map((p, pIdx) => {
-                        const isSelected = activeParticipantIndex === pIdx;
-                        const color = PARTICIPANT_COLORS[pIdx % PARTICIPANT_COLORS.length];
-
-                        return (
-                          <button
-                            key={p.name + pIdx}
-                            type="button"
-                            onClick={() => {
-                              setActiveParticipantIndex(isSelected ? null : pIdx);
-                              sfx.playClick();
-                            }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 8,
-                              padding: '8px 16px', borderRadius: 999,
-                              fontSize: 13, fontWeight: 800,
-                              cursor: 'pointer',
-                              border: isSelected ? `2.5px solid ${color}` : `1.5px solid rgba(255,255,255,0.15)`,
-                              background: isSelected ? `${color}35` : 'rgba(255,255,255,0.05)',
-                              color: isSelected ? 'white' : 'rgba(255,255,255,0.85)',
-                              boxShadow: isSelected ? `0 0 16px ${color}60` : 'none',
-                              transform: isSelected ? 'scale(1.05)' : 'none',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                            <span>{p.name}</span>
-                            {isSelected && <Hand style={{ width: 14, height: 14, color }} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {activeParticipantIndex !== null ? (
-                      <div style={{ fontSize: 13, color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>👉 Aluno(a) <strong>{players[activeParticipantIndex]?.name}</strong> respondendo. Clique na alternativa dita por ele(a):</span>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 12, color: 'rgba(148,163,184,0.7)' }}>
-                        * Selecione quem vai responder (opcional) e clique diretamente na alternativa dita pelo aluno.
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Banner do time respondendo (Equipes) */
+                {/* Banner do time respondendo (Apenas no Modo Equipes) */}
+                {playMode === 'teams' && (
                   <div style={{
                     padding: '18px 26px',
                     background: TEAM_BG[respIdx],
@@ -2373,11 +2123,12 @@ export default function LocalGameMode({
 
                 {/* Pergunta */}
                 <div style={{
-                  padding: '46px 38px', background: 'rgba(10,9,20,0.7)',
+                  padding: playMode === 'individual' ? '56px 48px' : '46px 38px',
+                  background: 'rgba(10,9,20,0.75)',
                   border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', borderBottom: 'none',
                   textAlign: 'center'
                 }}>
-                  <p style={{ margin: 0, fontSize: 42, fontWeight: 800, color: 'white', lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, fontSize: playMode === 'individual' ? 46 : 42, fontWeight: 800, color: 'white', lineHeight: 1.45 }}>
                     {currentQuestion.question_text}
                   </p>
                 </div>
@@ -2402,7 +2153,8 @@ export default function LocalGameMode({
                           }
                         }}
                         style={{
-                          padding: '42px 36px', display: 'flex', alignItems: 'center', gap: 18,
+                          padding: playMode === 'individual' ? '48px 40px' : '42px 36px',
+                          display: 'flex', alignItems: 'center', gap: 20,
                           background: `linear-gradient(135deg, ${col.bg} 0%, ${col.bgHover} 100%)`,
                           borderRight: col.index === 0 || col.index === 2 ? '1px solid rgba(0,0,0,0.2)' : 'none',
                           borderBottom: col.index === 0 || col.index === 1 ? '1px solid rgba(0,0,0,0.2)' : 'none',
@@ -2413,11 +2165,11 @@ export default function LocalGameMode({
                           width: '100%',
                           transition: 'all 0.2s'
                         }}>
-                        <span style={{ fontSize: 38, fontWeight: 900, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
+                        <span style={{ fontSize: playMode === 'individual' ? 44 : 38, fontWeight: 900, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
                           {col.label}
                         </span>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontSize: 23, fontWeight: 700, color: 'white', lineHeight: 1.4 }}>
+                          <span style={{ fontSize: playMode === 'individual' ? 28 : 23, fontWeight: 700, color: 'white', lineHeight: 1.4 }}>
                             {alt?.text || '—'}
                           </span>
                         </div>
@@ -2462,16 +2214,11 @@ export default function LocalGameMode({
                         <h3 style={{ margin: '14px 0 6px', fontSize: 56, fontWeight: 900, color: '#34d399' }}>
                           Resposta Correta!
                         </h3>
-                        {roundResult.participantName && (
-                          <p style={{ margin: 0, fontSize: 22, color: '#38bdf8', fontWeight: 700 }}>
-                            Respondido por: {roundResult.participantName}
-                          </p>
-                        )}
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20 }}>
+                        <div style={{ padding: '24px 36px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20, maxWidth: 900, width: '100%' }}>
                           <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>Alternativa Correta</p>
-                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                          <p style={{ margin: 0, fontSize: 26, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
                         </div>
                       )}
                     </>
@@ -2489,16 +2236,11 @@ export default function LocalGameMode({
                         <h3 style={{ margin: '14px 0 6px', fontSize: 56, fontWeight: 900, color: '#f87171' }}>
                           Resposta Incorreta
                         </h3>
-                        {roundResult.participantName && (
-                          <p style={{ margin: 0, fontSize: 20, color: 'rgba(148,163,184,0.8)' }}>
-                            {roundResult.participantName} indicou esta opção
-                          </p>
-                        )}
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20 }}>
+                        <div style={{ padding: '24px 36px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20, maxWidth: 900, width: '100%' }}>
                           <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>A resposta correta era</p>
-                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                          <p style={{ margin: 0, fontSize: 26, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
                         </div>
                       )}
                     </>
@@ -2575,64 +2317,47 @@ export default function LocalGameMode({
           </AnimatePresence>
           </div>
 
-          {/* ── Histórico de rodadas (Lateral Direita) ── */}
-          <div style={{
-            display: 'flex', flexDirection: 'row', gap: 32, padding: '32px 24px', justifyContent: 'center',
-            borderLeft: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)', flexShrink: 0,
-            overflowX: 'auto', overflowY: 'auto'
-          }}>
-            {Array.from({ length: Math.ceil(totalRounds / 10) }).map((_, colIndex) => {
-              const startRound = colIndex * 10;
-              const endRound = Math.min(startRound + 10, totalRounds);
-              
-              return (
-                <div key={colIndex} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  {Array.from({ length: endRound - startRound }, (_, i) => {
-                    const r = startRound + i;
-                    if (playMode === 'individual') {
-                      const winnerPlayer = players.find(p => p.roundResults[r]?.correct);
-                      const anyAnswered = players.some(p => p.roundResults[r]?.answered);
-                      const isPastRound = r < currentRound;
+          {/* ── Histórico de rodadas (Apenas no Modo Equipes) ── */}
+          {playMode === 'teams' && (
+            <div style={{
+              display: 'flex', flexDirection: 'row', gap: 32, padding: '32px 24px', justifyContent: 'center',
+              borderLeft: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)', flexShrink: 0,
+              overflowX: 'auto', overflowY: 'auto'
+            }}>
+              {Array.from({ length: Math.ceil(totalRounds / 10) }).map((_, colIndex) => {
+                const startRound = colIndex * 10;
+                const endRound = Math.min(startRound + 10, totalRounds);
+                
+                return (
+                  <div key={colIndex} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {Array.from({ length: endRound - startRound }, (_, i) => {
+                      const r = startRound + i;
+                      const r0 = players[0]?.roundResults?.[r];
+                      const r1 = players[1]?.roundResults?.[r];
                       return (
                         <div key={r} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                           <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.6)', fontWeight: 800 }}>R{r + 1}</span>
-                          <div style={{
-                            minWidth: 28, height: 28, padding: '0 6px', borderRadius: 8,
-                            background: winnerPlayer ? '#10b981' : anyAnswered ? 'rgba(239,68,68,0.5)' : isPastRound ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
-                            border: `2px solid ${winnerPlayer ? '#34d399' : anyAnswered ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.06)'}`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 11, fontWeight: 900, color: 'white'
-                          }} title={winnerPlayer ? `R${r+1}: Acertado por ${winnerPlayer.name}` : anyAnswered ? `R${r+1}: Ninguém acertou` : `R${r+1}: Pendente`}>
-                            {winnerPlayer ? winnerPlayer.name.slice(0, 2).toUpperCase() : anyAnswered ? '✕' : isPastRound ? '—' : ''}
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {[r0, r1].map((res, ti) => (
+                              <div key={ti} style={{
+                                width: 24, height: 24, borderRadius: 6,
+                                background: !res ? 'rgba(255,255,255,0.06)'
+                                  : res.correct ? TEAM_COLORS[ti]
+                                  : res.answered ? 'rgba(239,68,68,0.5)'
+                                  : 'rgba(255,255,255,0.08)',
+                                border: `2px solid ${!res ? 'rgba(255,255,255,0.06)' : res.correct ? TEAM_COLORS[ti] : 'rgba(239,68,68,0.4)'}`,
+                                transition: 'all 0.3s'
+                              }} title={`Time ${ti === 0 ? 'A' : 'B'} R${r + 1}: ${!res ? 'Pendente' : res.correct ? 'Acertou' : 'Errou'}`} />
+                            ))}
                           </div>
                         </div>
                       );
-                    }
-                    const r0 = players[0]?.roundResults?.[r];
-                    const r1 = players[1]?.roundResults?.[r];
-                    return (
-                      <div key={r} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.6)', fontWeight: 800 }}>R{r + 1}</span>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          {[r0, r1].map((res, ti) => (
-                            <div key={ti} style={{
-                              width: 24, height: 24, borderRadius: 6,
-                              background: !res ? 'rgba(255,255,255,0.06)'
-                                : res.correct ? TEAM_COLORS[ti]
-                                : res.answered ? 'rgba(239,68,68,0.5)'
-                                : 'rgba(255,255,255,0.08)',
-                              border: `2px solid ${!res ? 'rgba(255,255,255,0.06)' : res.correct ? TEAM_COLORS[ti] : 'rgba(239,68,68,0.4)'}`,
-                              transition: 'all 0.3s'
-                            }} title={`Time ${ti === 0 ? 'A' : 'B'} R${r + 1}: ${!res ? 'Pendente' : res.correct ? 'Acertou' : 'Errou'}`} />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Modal de Configurações */}
@@ -2745,23 +2470,20 @@ export default function LocalGameMode({
       const rows = questionReport.filter(row => row.question?.category_id === category.id);
       return { category, answered: rows.reduce((sum, row) => sum + row.answered, 0), correct: rows.reduce((sum, row) => sum + row.correct, 0) };
     }).filter(item => item.answered > 0);
-    const totalIndividualAnswered = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
-    const totalIndividualCorrect = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
-    const individualPct = totalIndividualAnswered > 0 ? Math.round((totalIndividualCorrect / totalIndividualAnswered) * 100) : 0;
 
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
         <div className="glass-card p-16 flex flex-col gap-16">
           {playMode === 'individual' ? (
-            /* Cabeçalho Modo Individual (Medição de Conhecimento) */
+            /* Cabeçalho Modo Individual (Auditório) */
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 80, marginBottom: 16 }}>🎓</div>
               <h2 style={{ fontSize: 56, fontWeight: 900, color: 'white', margin: 0 }}>
-                Prática Finalizada!
+                Sessão Concluída!
               </h2>
               <p style={{ fontSize: 24, color: 'rgba(148,163,184,0.8)', marginTop: 12 }}>
-                Sessão de medição de conhecimento com {totalRounds} perguntas concluída.
+                Todas as {totalRounds} perguntas do quiz foram apresentadas ao auditório.
               </p>
             </div>
           ) : (
@@ -2779,87 +2501,19 @@ export default function LocalGameMode({
 
           {/* Conteúdo Central */}
           {playMode === 'individual' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-              {/* Cards de Métricas Gerais de Aprendizagem */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-                <div style={{
-                  padding: '28px', borderRadius: 20,
-                  background: 'rgba(56, 189, 248, 0.1)', border: '1.5px solid rgba(56, 189, 248, 0.3)',
-                  textAlign: 'center'
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Questões Respondidas
-                  </span>
-                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: 'white', fontFamily: 'monospace' }}>
-                    {totalRounds}
-                  </p>
-                </div>
-
-                <div style={{
-                  padding: '28px', borderRadius: 20,
-                  background: 'rgba(52, 211, 153, 0.1)', border: '1.5px solid rgba(52, 211, 153, 0.3)',
-                  textAlign: 'center'
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Total de Acertos
-                  </span>
-                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: '#34d399', fontFamily: 'monospace' }}>
-                    {totalIndividualCorrect}
-                  </p>
-                </div>
-
-                <div style={{
-                  padding: '28px', borderRadius: 20,
-                  background: individualPct >= 70 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(250, 204, 21, 0.1)',
-                  border: `1.5px solid ${individualPct >= 70 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`,
-                  textAlign: 'center'
-                }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: individualPct >= 70 ? '#34d399' : '#facc15', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Aproveitamento Geral
-                  </span>
-                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: individualPct >= 70 ? '#34d399' : '#facc15', fontFamily: 'monospace' }}>
-                    {individualPct}%
-                  </p>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center' }}>
+              <div style={{
+                padding: '32px 48px', borderRadius: 24,
+                background: 'rgba(56, 189, 248, 0.08)', border: '1.5px solid rgba(56, 189, 248, 0.25)',
+                textAlign: 'center', maxWidth: 480, width: '100%'
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Perguntas Apresentadas
+                </span>
+                <p style={{ margin: '8px 0 0', fontSize: 56, fontWeight: 900, color: 'white', fontFamily: 'monospace' }}>
+                  {totalRounds}
+                </p>
               </div>
-
-              {/* Tabela de Participação dos Alunos (Se houver participantes cadastrados) */}
-              {players.length > 0 && players.some(p => p.roundResults.length > 0) && (
-                <div style={{
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 20, padding: 24
-                }}>
-                  <h4 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span>👥</span> Participação e Desempenho dos Alunos
-                  </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-                    {players.map((p, pIdx) => {
-                      const ans = p.roundResults.filter(r => r.answered).length;
-                      const cor = p.roundResults.filter(r => r.correct).length;
-                      const pPct = ans > 0 ? Math.round((cor / ans) * 100) : 0;
-                      const color = PARTICIPANT_COLORS[pIdx % PARTICIPANT_COLORS.length];
-
-                      return (
-                        <div key={p.name + pIdx} style={{
-                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          padding: '14px 18px', borderRadius: 14,
-                          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: 'white' }}>
-                              {p.name.charAt(0).toUpperCase()}
-                            </div>
-                            <span style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{p.name}</span>
-                          </div>
-                          <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>
-                            {cor}/{ans} ({pPct}%)
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
