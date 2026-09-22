@@ -33,11 +33,25 @@ export function readSavedQuizzes(): SavedQuiz[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
     if (!Array.isArray(value)) return [];
-    return value.filter((quiz): quiz is SavedQuiz =>
+    let hasUpdates = false;
+    const todayIso = new Date().toISOString();
+    const result = value.filter((quiz): quiz is SavedQuiz =>
       quiz && typeof quiz === 'object' && typeof quiz.id === 'string' &&
       typeof quiz.name === 'string' && Array.isArray(quiz.categoryIds) &&
       Array.isArray(quiz.questionIds) && typeof quiz.rounds === 'number' &&
-      typeof quiz.timeLimit === 'number' && quiz.localRules && typeof quiz.localRules === 'object');
+      typeof quiz.timeLimit === 'number' && quiz.localRules && typeof quiz.localRules === 'object'
+    ).map(quiz => {
+      if (!quiz.savedAt) {
+        hasUpdates = true;
+        return { ...quiz, savedAt: todayIso };
+      }
+      return quiz;
+    });
+
+    if (hasUpdates) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+    }
+    return result;
   } catch { return []; }
 }
 

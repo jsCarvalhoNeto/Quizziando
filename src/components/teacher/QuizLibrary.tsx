@@ -26,7 +26,8 @@ import {
   Loader2,
   Database,
   Star,
-  Zap
+  Zap,
+  Calendar
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, sfx } from '../../App';
@@ -73,6 +74,24 @@ const BLOCK_GRADIENTS = [
   'linear-gradient(135deg, #e11d48 0%, #4f46e5 100%)',
   'linear-gradient(135deg, #0284c7 0%, #059669 100%)',
 ];
+
+// Formatação segura de data para exibição (com fallback da data de hoje para quizzes prévios)
+const formatQuizDate = (dateStr?: string) => {
+  if (!dateStr) {
+    return new Date().toLocaleDateString('pt-BR');
+  }
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return new Date().toLocaleDateString('pt-BR');
+    return d.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch {
+    return new Date().toLocaleDateString('pt-BR');
+  }
+};
 
 export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   quizzes,
@@ -1143,6 +1162,31 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             {/* Separador */}
                             <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
 
+                            {/* Metadado: Data de Criação do Quiz */}
+                            <div 
+                              style={{ 
+                                padding: '6px 10px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px',
+                                fontSize: '11px',
+                                color: '#475569',
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '6px',
+                                margin: '2px 0'
+                              }}
+                              title={`Data de criação: ${formatQuizDate(cat.created_at)}`}
+                            >
+                              <Calendar style={{ width: '13px', height: '13px', color: '#6366f1', flexShrink: 0 }} />
+                              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                                <span style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>Criado em</span>
+                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{formatQuizDate(cat.created_at)}</span>
+                              </div>
+                            </div>
+
+                            {/* Separador */}
+                            <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
+
                             {/* Opção Excluir Quiz */}
                             <button
                               type="button"
@@ -1177,18 +1221,38 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </div>
                   </div>
 
-                    {/* Pasta Associada com Bolinha de Cor */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                    {/* Pasta Associada com Bolinha de Cor e Data de Criação */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                        <span 
+                          style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: folder?.color || cat.color || '#46178f',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {folder ? folder.name : 'Geral (Sem Pasta)'}
+                        </span>
+                      </div>
+
+                      {/* Metadado de Data de Criação no Card */}
                       <span 
                         style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: folder?.color || cat.color || '#46178f',
+                          fontSize: '11px',
+                          color: '#94a3b8',
+                          fontWeight: 500,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          flexShrink: 0
                         }}
-                      />
-                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                        {folder ? folder.name : 'Geral (Sem Pasta)'}
+                        title={`Criado em: ${formatQuizDate(cat.created_at)}`}
+                      >
+                        <Calendar style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
+                        {formatQuizDate(cat.created_at)}
                       </span>
                     </div>
                   </div>

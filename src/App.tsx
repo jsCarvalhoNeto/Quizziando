@@ -258,6 +258,7 @@ export interface Category {
   color: string;
   icon: string;
   folder_id?: string | null;
+  created_at?: string;
 }
 
 export interface Question {
@@ -307,11 +308,11 @@ export interface GamePlayer {
 // 💡 BANCO DE DADOS LOCAL DE DEMONSTRAÇÃO
 // ==========================================
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'Tecnologia', color: '#10B981', icon: 'Zap' },
-  { id: '2', name: 'Ciências', color: '#3B82F6', icon: 'Compass' },
-  { id: '3', name: 'Geografia', color: '#F59E0B', icon: 'Crown' },
-  { id: '4', name: 'História', color: '#EF4444', icon: 'Trophy' },
-  { id: '5', name: 'Esportes', color: '#8B5CF6', icon: 'Sparkles' },
+  { id: '1', name: 'Tecnologia', color: '#10B981', icon: 'Zap', created_at: new Date().toISOString() },
+  { id: '2', name: 'Ciências', color: '#3B82F6', icon: 'Compass', created_at: new Date().toISOString() },
+  { id: '3', name: 'Geografia', color: '#F59E0B', icon: 'Crown', created_at: new Date().toISOString() },
+  { id: '4', name: 'História', color: '#EF4444', icon: 'Trophy', created_at: new Date().toISOString() },
+  { id: '5', name: 'Esportes', color: '#8B5CF6', icon: 'Sparkles', created_at: new Date().toISOString() },
 ];
 
 const DEFAULT_QUESTIONS: Question[] = [
@@ -507,7 +508,8 @@ export default function App() {
             name: trimmedName,
             color: '#7c3aed',
             icon: 'HelpCircle',
-            folder_id: sq.folderId || null
+            folder_id: sq.folderId || null,
+            created_at: sq.savedAt || new Date().toISOString()
           });
         }
       });
@@ -549,15 +551,29 @@ export default function App() {
             .from('categories')
             .select('*');
           if (catData && catData.length > 0) {
+            const todayIso = new Date().toISOString();
             const mappedCats = catData.map(c => ({
               id: c.id,
               name: c.name,
               color: c.color,
               icon: c.icon,
-              folder_id: c.folder_id
+              folder_id: c.folder_id,
+              created_at: c.created_at || todayIso
             }));
             setCategories(mappedCats);
             setSelectedCategoryIds(mappedCats.slice(0, 14).map(c => c.id));
+
+            // Para os quizzes já criados sem data de criação no Supabase, atualizar com a data de hoje
+            const catsWithoutDate = catData.filter(c => !c.created_at);
+            if (catsWithoutDate.length > 0) {
+              catsWithoutDate.forEach(async (c) => {
+                try {
+                  await supabase.from('categories').update({ created_at: todayIso }).eq('id', c.id);
+                } catch (e) {
+                  console.error('Erro ao atualizar data de criação no Supabase:', e);
+                }
+              });
+            }
           } else {
             setCategories([]);
             setSelectedCategoryIds([]);
@@ -1547,12 +1563,14 @@ Garanta que:
 
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
+    const todayIso = new Date().toISOString();
     let newCat: Category = {
       id: Math.random().toString(),
       name: newCatName.trim(),
       color: newCatColor,
       icon: 'HelpCircle',
-      folder_id: null
+      folder_id: null,
+      created_at: todayIso
     };
 
     if (useRealSupabase) {
@@ -1566,7 +1584,8 @@ Garanta que:
               name: newCat.name,
               color: newCat.color,
               icon: newCat.icon,
-              created_by: userId
+              created_by: userId,
+              created_at: todayIso
             })
             .select()
             .single();
@@ -1577,7 +1596,8 @@ Garanta que:
               name: data.name,
               color: data.color,
               icon: data.icon,
-              folder_id: data.folder_id
+              folder_id: data.folder_id,
+              created_at: data.created_at || todayIso
             };
           }
         }
@@ -2520,14 +2540,16 @@ Garanta que:
     const trimmedName = quizData.name.trim();
     if (!trimmedName) return;
 
-    // 1. Criar e registrar a nova Categoria correspondente a este Quiz
+    // 1. Criar e registrar a nova Categoria correspondente a este Quiz com a data de criação
     const newCategoryId = crypto.randomUUID();
+    const todayIso = new Date().toISOString();
     let newCategory: Category = {
       id: newCategoryId,
       name: trimmedName,
       color: '#7c3aed',
       icon: 'HelpCircle',
-      folder_id: quizData.folderId || null
+      folder_id: quizData.folderId || null,
+      created_at: todayIso
     };
 
     if (useRealSupabase) {
@@ -2543,7 +2565,8 @@ Garanta que:
               color: newCategory.color,
               icon: newCategory.icon,
               folder_id: newCategory.folder_id,
-              created_by: userId
+              created_by: userId,
+              created_at: todayIso
             })
             .select()
             .single();
@@ -2554,7 +2577,8 @@ Garanta que:
               name: data.name,
               color: data.color,
               icon: data.icon,
-              folder_id: data.folder_id
+              folder_id: data.folder_id,
+              created_at: data.created_at || todayIso
             };
           } else if (error) {
             console.error('Erro ao inserir categoria do quiz no Supabase:', error);

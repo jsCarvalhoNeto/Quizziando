@@ -4,7 +4,8 @@ import {
   Search, 
   Plus, 
   Layers,
-  FileText
+  FileText,
+  Calendar
 } from 'lucide-react';
 import type { Question } from '../../App';
 
@@ -207,6 +208,24 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                     className="qm-input"
                     style={{ fontWeight: 600 }}
                   />
+                </div>
+
+                {/* Data de Criação (Metadado automático registrado) */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 12px',
+                  backgroundColor: '#f0fdf4',
+                  borderRadius: '8px',
+                  border: '1px solid #bbf7d0',
+                  fontSize: '12px',
+                  color: '#166534'
+                }}>
+                  <Calendar style={{ width: '15px', height: '15px', color: '#16a34a', flexShrink: 0 }} />
+                  <span>
+                    Data de Criação: <strong style={{ color: '#14532d' }}>{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</strong> (Automática)
+                  </span>
                 </div>
 
                 {/* Pasta de Destino */}
