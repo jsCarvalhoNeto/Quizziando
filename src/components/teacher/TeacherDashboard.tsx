@@ -313,7 +313,10 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <span>Criar Questões</span>
           </button>
 
-          {/* Botão e Menu Popover de Configurações */}
+          {/* Divisor Vertical */}
+          <div style={{ height: '28px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
+
+          {/* Menu Dropdown do Usuário (Perfil, Configurações & Conta) */}
           <div style={{ position: 'relative' }} ref={settingsMenuRef}>
             <button
               type="button"
@@ -322,39 +325,67 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 sfx.playClick();
               }}
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '8px',
-                backgroundColor: showSettingsMenu ? '#ede9fe' : '#f8fafc',
-                border: `1px solid ${showSettingsMenu ? '#8b5cf6' : '#e2e8f0'}`,
-                color: showSettingsMenu ? '#6d28d9' : '#64748b',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
+                gap: '10px',
+                padding: '4px 10px 4px 6px',
+                borderRadius: '10px',
+                backgroundColor: showSettingsMenu ? '#f3e8ff' : '#ffffff',
+                border: `1px solid ${showSettingsMenu ? '#c4b5fd' : '#e2e8f0'}`,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
-                boxShadow: showSettingsMenu ? '0 0 0 3px rgba(139, 92, 246, 0.15)' : 'none',
+                boxShadow: showSettingsMenu ? '0 0 0 3px rgba(139, 92, 246, 0.12)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
               }}
               onMouseEnter={(e) => {
                 if (!showSettingsMenu) {
-                  e.currentTarget.style.backgroundColor = '#f1f5f9';
-                  e.currentTarget.style.color = '#1e293b';
+                  e.currentTarget.style.backgroundColor = '#f8fafc';
+                  e.currentTarget.style.borderColor = '#cbd5e1';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!showSettingsMenu) {
-                  e.currentTarget.style.backgroundColor = '#f8fafc';
-                  e.currentTarget.style.color = '#64748b';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
                 }
               }}
-              title="Configurações e Inteligência Artificial"
+              title="Perfil, Configurações e Conta"
             >
-              <Settings 
+              {/* Avatar do Usuário */}
+              <div 
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '50%',
+                  backgroundColor: '#46178f',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '14px',
+                  boxShadow: '0 2px 5px rgba(70, 23, 143, 0.25)',
+                }}
+              >
+                {teacherEmail.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Informações do Professor */}
+              <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {teacherEmail.split('@')[0]}
+                </span>
+                <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>Professor</span>
+              </div>
+
+              {/* Indicador de Dropdown */}
+              <ChevronDown 
                 style={{ 
-                  width: '18px', 
-                  height: '18px', 
-                  transform: showSettingsMenu ? 'rotate(45deg)' : 'none', 
-                  transition: 'transform 0.25s ease' 
+                  width: '15px', 
+                  height: '15px', 
+                  color: showSettingsMenu ? '#6d28d9' : '#94a3b8',
+                  transform: showSettingsMenu ? 'rotate(180deg)' : 'none',
+                  transition: 'transform 0.2s ease, color 0.15s ease',
+                  marginLeft: '2px',
                 }} 
               />
             </button>
@@ -1365,60 +1396,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             )}
           </div>
 
-          {/* Divisor */}
-          <div style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
 
-          {/* Perfil e Sair */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div 
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                backgroundColor: '#46178f',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                fontSize: '14px',
-              }}
-              title={teacherEmail}
-            >
-              {teacherEmail.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {teacherEmail.split('@')[0]}
-              </span>
-              <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>Professor</span>
-            </div>
-            <button
-              type="button"
-              onClick={onLogout}
-              style={{
-                padding: '6px',
-                borderRadius: '6px',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#ef4444';
-                e.currentTarget.style.backgroundColor = '#fee2e2';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#94a3b8';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title="Sair do painel"
-            >
-              <LogOut style={{ width: '16px', height: '16px' }} />
-            </button>
-          </div>
         </div>
       </header>
 
@@ -1772,6 +1750,45 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 <span>Local (2 Times)</span>
               </button>
             </div>
+
+            {/* Divisor */}
+            <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
+
+            {/* Atalho Configurações na Sidebar */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowSettingsMenu(true);
+                sfx.playClick();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#475569',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f1f5f9';
+                e.currentTarget.style.color = '#46178f';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = '#475569';
+              }}
+              title="Abrir Configurações do Quizziando"
+            >
+              <Settings style={{ width: '16px', height: '16px', color: '#64748b' }} />
+              <span>Configurações</span>
+            </button>
           </div>
 
           {/* Dica Pedagógica no Rodapé da Sidebar */}
