@@ -29,7 +29,7 @@ import {
   Zap
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
-import { type Category, type Question } from '../../App';
+import { type Category, type Question, sfx } from '../../App';
 import QuizCard from './QuizCard';
 
 interface FolderItem {
@@ -83,7 +83,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   currentFolderName,
   onSelectFolder,
   onCreateFolderClick,
-  onPlayCategory,
+  onPlayCategory: _onPlayCategory,
   onEditCategory,
   onPlayQuiz,
   onEditQuiz,
@@ -251,6 +251,28 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     }
     setPlaySessionType('classic');
     setShowRouletteModeModal(true);
+  };
+
+  // Iniciar jogo direto no Modo Clássico para um quiz/card individual (sem necessidade de seleção prévia)
+  const handlePlayCardClassic = (category: Category) => {
+    setSelectedQuizIds([category.id]);
+    setSelectionWarning('');
+    setPlaySessionType('classic');
+    setShowRouletteModeModal(true);
+    sfx.playClick();
+  };
+
+  // Iniciar jogo para um Quiz Salvo customizado
+  const handlePlaySavedQuizClassic = (quiz: SavedQuiz) => {
+    if (quiz.categoryIds && quiz.categoryIds.length > 0) {
+      setSelectedQuizIds(quiz.categoryIds);
+      setSelectionWarning('');
+      setPlaySessionType(quiz.quizFormat === 'roulette' ? 'roulette' : 'classic');
+      setShowRouletteModeModal(true);
+      sfx.playClick();
+    } else {
+      onPlayQuiz(quiz);
+    }
   };
 
   // Confirmar início do jogo com Roleta (abre modal de escolha de modo)
@@ -979,7 +1001,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                               type="button"
                               onClick={() => {
                                 setOpenMenuCatId(null);
-                                onPlayCategory(cat);
+                                handlePlayCardClassic(cat);
                               }}
                               style={{
                                 width: '100%',
@@ -1000,7 +1022,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                             >
                               <Play style={{ width: '14px', height: '14px', fill: 'currentColor' }} />
-                              <span>Jogar Convencional</span>
+                              <span>Jogar Modo Clássico</span>
                             </button>
 
                             <button
@@ -1221,7 +1243,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => onPlayCategory(cat)}
+                        onClick={() => handlePlayCardClassic(cat)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1239,7 +1261,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                         }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0f59b3')}
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1368ce')}
-                        title="Jogar este quiz de forma direta e convencional"
+                        title="Jogar este quiz no Modo Clássico (estilo Kahoot)"
                       >
                         <Play style={{ width: '13px', height: '13px', fill: 'currentColor' }} />
                         <span>Jogar</span>
@@ -1262,7 +1284,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 <QuizCard
                   key={quiz.id}
                   quiz={quiz}
-                  onPlay={onPlayQuiz}
+                  onPlay={handlePlaySavedQuizClassic}
                   onEdit={onEditQuiz}
                   onDuplicate={onDuplicateQuiz}
                   onToggleFavorite={onToggleFavorite}
