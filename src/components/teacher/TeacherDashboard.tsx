@@ -150,7 +150,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
   // Estados do Menu Popover de Configurações no Painel
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'ai' | 'preferences' | 'themes' | 'account'>('ai');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'preferences' | 'ai' | 'themes' | 'account'>('preferences');
   const [showApiKey, setShowApiKey] = useState(false);
   const [customModelInput, setCustomModelInput] = useState('');
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -450,31 +450,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   >
                     <button
                       type="button"
-                      onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
-                      style={{
-                        flex: 1,
-                        padding: '6px 8px',
-                        borderRadius: '7px',
-                        border: 'none',
-                        backgroundColor: settingsActiveTab === 'ai' ? '#ffffff' : 'transparent',
-                        color: settingsActiveTab === 'ai' ? '#7c3aed' : '#64748b',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '5px',
-                        boxShadow: settingsActiveTab === 'ai' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <Sparkles style={{ width: '13px', height: '13px' }} />
-                      <span>IA Gemini</span>
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={() => { setSettingsActiveTab('preferences'); sfx.playClick(); }}
                       style={{
                         flex: 1,
@@ -496,6 +471,31 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     >
                       <Volume2 style={{ width: '13px', height: '13px' }} />
                       <span>Geral</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setSettingsActiveTab('ai'); sfx.playClick(); }}
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        borderRadius: '7px',
+                        border: 'none',
+                        backgroundColor: settingsActiveTab === 'ai' ? '#ffffff' : 'transparent',
+                        color: settingsActiveTab === 'ai' ? '#7c3aed' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '5px',
+                        boxShadow: settingsActiveTab === 'ai' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Sparkles style={{ width: '13px', height: '13px' }} />
+                      <span>IA Gemini</span>
                     </button>
 
                     <button
