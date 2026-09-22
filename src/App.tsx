@@ -1060,6 +1060,7 @@ Garanta que:
 
   // Estados de Partida Ativa
   const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette'>('classic');
+  const [localPlayMode, setLocalPlayMode] = useState<'teams' | 'individual'>('teams');
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
   const [gameTimeLimit, setGameTimeLimit] = useState(15);
@@ -2710,13 +2711,16 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleStartClassicGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
+  const handleStartClassicGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', playMode?: 'teams' | 'individual') => {
     if (categoryIds.length < 1) {
       alert('Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.');
       return;
     }
     setQuizFormat('classic');
     setSelectedCategoryIds(categoryIds);
+    if (playMode) {
+      setLocalPlayMode(playMode);
+    }
 
     // 1. Modo Local (Offline)
     if (mode === 'local') {
@@ -2786,13 +2790,16 @@ Garanta que:
     }
   };
 
-  const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
+  const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', playMode?: 'teams' | 'individual') => {
     if (categoryIds.length < 2 || categoryIds.length > 12) {
       alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
       return;
     }
     setQuizFormat('roulette');
     setSelectedCategoryIds(categoryIds);
+    if (playMode) {
+      setLocalPlayMode(playMode);
+    }
 
     // 1. Modo Local (Offline)
     if (mode === 'local') {
@@ -3202,6 +3209,8 @@ Garanta que:
               alternatives: q.alternatives
             }))}
             initialSelectedCategoryIds={selectedCategoryIds}
+            quizFormat={quizFormat}
+            initialPlayMode={localPlayMode}
             soundEnabled={soundEnabled}
             onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
           />

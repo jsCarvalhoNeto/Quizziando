@@ -5,7 +5,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
-  Settings, Upload, Image as ImageIcon, X
+  Settings, Upload, Image as ImageIcon, X,
+  Hand, Users, UserPlus, Zap
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,6 +32,12 @@ const ANSWER_COLORS = [
   { index: 3, label: 'D', bg: '#38A169', bgHover: '#276749', glow: 'rgba(56,161,105,0.4)', name: 'Verde',   icon: '■'  },
 ];
 
+// Cores dos participantes no modo individual
+const PARTICIPANT_COLORS = [
+  '#0284c7', '#7c3aed', '#db2777', '#ea580c', '#16a34a',
+  '#d97706', '#4f46e5', '#059669', '#e11d48', '#0891b2'
+];
+
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type LocalScreen = 'loading' | 'setup' | 'game' | 'podium';
@@ -48,6 +55,8 @@ interface Props {
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
   initialSelectedCategoryIds?: string[];
+  quizFormat?: 'classic' | 'roulette';
+  initialPlayMode?: 'teams' | 'individual';
   soundEnabled: boolean;
   onToggleSound: () => void;
 }
@@ -194,18 +203,29 @@ export default function LocalGameMode({
   supabaseCategories,
   supabaseQuestions,
   initialSelectedCategoryIds,
+  quizFormat = 'classic',
+  initialPlayMode = 'teams',
   soundEnabled,
   onToggleSound
 }: Props) {
   sfx.enabled = soundEnabled;
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
+  const [playMode, setPlayMode]       = useState<'teams' | 'individual'>(initialPlayMode || 'teams');
 
   const [dbError, setDbError]         = useState<string | null>(null);
   const [showSyncOptions, setShowSyncOptions] = useState(false);
   const [localBackupAvailable, setLocalBackupAvailable] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [playerNames, setPlayerNames] = useState(['Time A', 'Time B']);
+  const [individualParticipants, setIndividualParticipants] = useState<string[]>([
+    'Aluno 1',
+    'Aluno 2',
+    'Aluno 3',
+  ]);
+  const [newParticipantInput, setNewParticipantInput] = useState('');
+  const [activeParticipantIndex, setActiveParticipantIndex] = useState<number | null>(null);
+
   const [totalRounds, setTotalRounds] = useState(6);
   const [isCustomRounds, setIsCustomRounds] = useState(false);
   const [hasObstacles, setHasObstacles]     = useState(false);
@@ -228,7 +248,7 @@ export default function LocalGameMode({
   const [offlinePreparing, setOfflinePreparing] = useState(false);
   const [offlineNotice, setOfflineNotice] = useState('');
 
-  const [players, setPlayers] = useState<[LocalPlayer, LocalPlayer]>([
+  const [players, setPlayers] = useState<LocalPlayer[]>([
     { name: 'Time A', score: 0, roundResults: [] },
     { name: 'Time B', score: 0, roundResults: [] },
   ]);
@@ -302,7 +322,12 @@ export default function LocalGameMode({
     };
   }, [isSpinning]);
 
-  const [roundResult, setRoundResult] = useState<{ scorer: number | null; correct: boolean } | null>(null);
+  const [roundResult, setRoundResult] = useState<{
+    scorer: number | null;
+    correct: boolean;
+    participantName?: string;
+    correctText?: string;
+  } | null>(null);
   const [savedGame, setSavedGame] = useState<SavedLocalGame | null>(null);
   const [lastDecision, setLastDecision] = useState<Pick<SavedLocalGame, 'players' | 'firstFailed' | 'phase' | 'timeLeft'> | null>(null);
   const roundCompletionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -659,21 +684,64 @@ export default function LocalGameMode({
     }
 
     setDbError(null);
-    const starter = Math.random() < 0.5 ? 0 : 1;
-    setPlayers([
-      { name: playerNames[0].trim() || 'Time A', score: 0, roundResults: [] },
-      { name: playerNames[1].trim() || 'Time B', score: 0, roundResults: [] },
-    ]);
+
+    if (playMode === 'individual') {
+      const names = individualParticipants.map(p => p.trim()).filter(Boolean);
+      const finalNames = names.length > 0 ? names : ['Participante 1', 'Participante 2'];
+      setPlayers(finalNames.map(name => ({ name, score: 0, roundResults: [] })));
+      setRoundStarterIndex(0);
+    } else {
+      const starter = Math.random() < 0.5 ? 0 : 1;
+      setPlayers([
+        { name: playerNames[0].trim() || 'Time A', score: 0, roundResults: [] },
+        { name: playerNames[1].trim() || 'Time B', score: 0, roundResults: [] },
+      ]);
+      setRoundStarterIndex(starter);
+    }
+
     setCurrentRound(1);
-    setRoundStarterIndex(starter);
     setFirstFailed(false);
     resetUsedQuestions();
     setPhase('idle');
     setRouletteAngle(0);
+    setActiveParticipantIndex(null);
     discardSavedGame();
     setLocalScreen('game');
     sfx.playClick();
   };
+
+  const handleStartClassicQuestion = useCallback(() => {
+    if (phase !== 'idle') return;
+    const matchingQuestions = allQuestions.filter(question =>
+      selectedCatIds.includes(question.category_id) &&
+      matchesLocalQuestion(question, selectedQuestionIds, difficultyFilter, tagFilter) &&
+      !usedQuestionIdsRef.current.includes(question.id)
+    );
+    if (!matchingQuestions.length) {
+      resetUsedQuestions();
+    }
+    const pool = matchingQuestions.length > 0 ? matchingQuestions : allQuestions.filter(q => selectedCatIds.includes(q.category_id));
+    const chosenQuestion = pickRandom(pool);
+    if (!chosenQuestion) {
+      setDbError('Nenhuma pergunta encontrada para os quizzes selecionados.');
+      return;
+    }
+    markQuestionUsed(chosenQuestion.id);
+    const cat: LocalCategory = allCategories.find(c => c.id === chosenQuestion.category_id) || {
+      id: chosenQuestion.category_id,
+      name: 'Quiz Clássico',
+      color: '#10b981',
+      icon: 'help-circle'
+    };
+    setSelectedCategory(cat);
+    setCurrentQuestion(chosenQuestion);
+    setFirstFailed(false);
+    setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
+    setPhase('question-first');
+    setTimerActive(true);
+    setActiveParticipantIndex(null);
+    sfx.playClick();
+  }, [allQuestions, selectedCatIds, selectedQuestionIds, difficultyFilter, tagFilter, allCategories, turnTimeLimit, phase]);
 
   const handleSpin = useCallback(() => {
     if (isSpinning || phase !== 'idle') return;
@@ -729,8 +797,10 @@ export default function LocalGameMode({
           if ((chosen as any).isObstacle) {
             if ((chosen as any).type === 'perde-tudo') {
               setPlayers(prev => {
-                const p = [...prev] as [LocalPlayer, LocalPlayer];
-                p[roundStarterIndex] = { ...p[roundStarterIndex], score: 0 };
+                const p = [...prev];
+                if (p[roundStarterIndex]) {
+                  p[roundStarterIndex] = { ...p[roundStarterIndex], score: 0 };
+                }
                 return p;
               });
             }
@@ -783,27 +853,119 @@ export default function LocalGameMode({
     }
   };
 
+  const handleJudgeIndividual = (altIndex: number) => {
+    if (phase !== 'question-first') return;
+
+    const selectedAlt = currentQuestion?.alternatives[altIndex];
+    if (!selectedAlt) return;
+
+    const isCorrect = !!selectedAlt.isCorrect;
+    const correctAlt = currentQuestion?.alternatives.find(a => a.isCorrect);
+    const participantIdx = activeParticipantIndex;
+    const participantName = participantIdx !== null && players[participantIdx] ? players[participantIdx].name : undefined;
+
+    setTimerActive(false);
+
+    if (isCorrect) {
+      sfx.playCorrect();
+    } else {
+      sfx.playWrong();
+    }
+
+    setPlayers(prev => {
+      const next = [...prev];
+      if (participantIdx !== null && next[participantIdx]) {
+        next[participantIdx] = {
+          ...next[participantIdx],
+          roundResults: [...next[participantIdx].roundResults, { answered: true, correct: isCorrect }]
+        };
+      } else if (next.length > 0 && next[0]) {
+        next[0] = {
+          ...next[0],
+          roundResults: [...next[0].roundResults, { answered: true, correct: isCorrect }]
+        };
+      }
+      return next;
+    });
+
+    setRoundResult({
+      scorer: isCorrect ? (participantIdx !== null ? participantIdx : 0) : null,
+      correct: isCorrect,
+      participantName,
+      correctText: correctAlt?.text || selectedAlt.text
+    });
+    setPhase('round-result');
+  };
+
+  const handleNoOneAnswered = () => {
+    if (phase !== 'question-first') return;
+    setTimerActive(false);
+    sfx.playTimeout();
+    setRoundResult({
+      scorer: null,
+      correct: false,
+      correctText: currentQuestion?.alternatives.find(a => a.isCorrect)?.text || ''
+    });
+    setPhase('round-result');
+    roundCompletionTimerRef.current = setTimeout(() => {
+      advanceRound();
+    }, transitionMs(4500));
+  };
+
+  const advanceRound = () => {
+    if (roundCompletionTimerRef.current) {
+      clearTimeout(roundCompletionTimerRef.current);
+      roundCompletionTimerRef.current = null;
+    }
+    setRoundResult(null);
+    setActiveParticipantIndex(null);
+    setFirstFailed(false);
+
+    if (currentRound >= totalRounds) {
+      setPhase('finished');
+      setLocalScreen('podium');
+      sfx.stopGameSound();
+      sfx.playVictory();
+      setTimeout(() => {
+        const end = Date.now() + 4000;
+        const frame = () => {
+          confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+          confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+          if (Date.now() < end) requestAnimationFrame(frame);
+        };
+        frame();
+        confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+      }, 300);
+    } else {
+      setCurrentRound(r => r + 1);
+      setCurrentQuestion(null);
+      setSelectedCategory(null);
+      setPhase('idle');
+    }
+  };
+
   const finishRound = (scorerIndex: number | null) => {
     setTimerActive(false);
     setPhase('round-result');
     const awardedPoints = firstFailed ? pointsOnPass : pointsPerCorrect;
     const projectedTie = scorerIndex === null
-      ? players[0].score === players[1].score
-      : players[0].score + (scorerIndex === 0 ? awardedPoints : 0) === players[1].score + (scorerIndex === 1 ? awardedPoints : 0);
+      ? (players[0]?.score === players[1]?.score)
+      : ((players[0]?.score || 0) + (scorerIndex === 0 ? awardedPoints : 0) === (players[1]?.score || 0) + (scorerIndex === 1 ? awardedPoints : 0));
 
     setPlayers(prev => {
-      const updated: [LocalPlayer, LocalPlayer] = [
-        { ...prev[0], roundResults: [...prev[0].roundResults] },
-        { ...prev[1], roundResults: [...prev[1].roundResults] },
-      ];
-      if (scorerIndex !== null) {
-        updated[scorerIndex].score += firstFailed ? pointsOnPass : pointsPerCorrect;
-        updated[scorerIndex].roundResults.push({ answered: true, correct: true });
-        updated[scorerIndex === 0 ? 1 : 0].roundResults.push({ answered: false, correct: null });
-      } else {
-        updated[roundStarterIndex].roundResults.push({ answered: true, correct: false });
-        const other = roundStarterIndex === 0 ? 1 : 0;
-        updated[other].roundResults.push({ answered: firstFailed, correct: firstFailed ? false : null });
+      const updated = [...prev];
+      if (updated[0] && updated[1]) {
+        updated[0] = { ...updated[0], roundResults: [...updated[0].roundResults] };
+        updated[1] = { ...updated[1], roundResults: [...updated[1].roundResults] };
+        if (scorerIndex !== null) {
+          updated[scorerIndex].score += firstFailed ? pointsOnPass : pointsPerCorrect;
+          updated[scorerIndex].roundResults.push({ answered: true, correct: true });
+          updated[scorerIndex === 0 ? 1 : 0].roundResults.push({ answered: false, correct: null });
+        } else {
+          updated[roundStarterIndex].roundResults.push({ answered: true, correct: false });
+          const other = roundStarterIndex === 0 ? 1 : 0;
+          updated[other].roundResults.push({ answered: firstFailed, correct: firstFailed ? false : null });
+        }
       }
       return updated;
     });
@@ -814,7 +976,7 @@ export default function LocalGameMode({
       roundCompletionTimerRef.current = null;
       setRoundResult(null);
       if (currentRound >= totalRounds) {
-        if (projectedTie && tiePolicy === 'extra') {
+        if (projectedTie && tiePolicy === 'extra' && playMode === 'teams') {
           setTotalRounds(rounds => rounds + 1);
           setCurrentRound(round => round + 1);
           setRoundStarterIndex(index => (index === 0 ? 1 : 0));
@@ -872,11 +1034,11 @@ export default function LocalGameMode({
   const resetGame = () => {
     if (roundCompletionTimerRef.current) clearTimeout(roundCompletionTimerRef.current);
     roundCompletionTimerRef.current = null;
-    setLocalScreen('setup');
+    sfx.stopAll();
     setPhase('idle');
-    setCurrentQuestion(null);
-    setSelectedCategory(null);
+    setCurrentRound(1);
     resetUsedQuestions();
+    setLocalScreen('setup');
     setRoundResult(null);
     setTimerActive(false);
     setFirstFailed(false);
@@ -888,11 +1050,11 @@ export default function LocalGameMode({
   // ─── Cálculos ─────────────────────────────────────────────────────────────
 
   const sorted    = [...players].sort((a, b) => b.score - a.score);
-  const winner    = sorted[0];
-  const loser     = sorted[1];
-  const isTie     = winner.score === loser.score;
+  const winner    = sorted[0] || { name: 'Vencedor', score: 0, roundResults: [] };
+  const loser     = sorted[1] || sorted[0] || { name: 'Segundo', score: 0, roundResults: [] };
+  const isTie     = sorted.length > 1 && winner.score === loser.score;
   const wheelCatsBase = allCategories.filter(c => selectedCatIds.includes(c.id) && allQuestions.some(q => q.category_id === c.id && matchesLocalQuestion(q, selectedQuestionIds, difficultyFilter, tagFilter)));
-  const wheelCats = hasObstacles
+  const wheelCats = (hasObstacles && playMode === 'teams')
     ? [
         ...wheelCatsBase,
         { id: 'obs-perde', name: 'Perde Tudo', color: '#111111', created_at: '', isObstacle: true, type: 'perde-tudo' } as any,
@@ -1124,6 +1286,102 @@ export default function LocalGameMode({
             );
           })()}
 
+          {/* Seletor de Modo: Equipes vs Individual */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            background: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '20px',
+            padding: '20px',
+            width: '100%',
+            boxSizing: 'border-box'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <span style={{ fontSize: 14, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  🎮 Formato da Partida Offline
+                </span>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+                  Escolha como os alunos e participantes competirão na sala.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 12, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => { setPlayMode('teams'); sfx.playClick(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  border: playMode === 'teams' ? '2.5px solid #059669' : '1.5px solid #e2e8f0',
+                  background: playMode === 'teams' ? '#ecfdf5' : '#ffffff',
+                  boxShadow: playMode === 'teams' ? '0 4px 14px rgba(5, 150, 105, 0.15)' : 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: playMode === 'teams' ? 'linear-gradient(135deg, #059669, #047857)' : '#f1f5f9',
+                  color: playMode === 'teams' ? 'white' : '#64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  <Users style={{ width: 24, height: 24 }} />
+                </div>
+                <div>
+                  <strong style={{ display: 'block', fontSize: 15, color: playMode === 'teams' ? '#065f46' : '#1e293b' }}>
+                    Disputa por Equipes
+                  </strong>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    2 Times disputando com turnos e repasse
+                  </span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setPlayMode('individual'); sfx.playClick(); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '16px 20px',
+                  borderRadius: '16px',
+                  border: playMode === 'individual' ? '2.5px solid #0284c7' : '1.5px solid #e2e8f0',
+                  background: playMode === 'individual' ? '#f0f9ff' : '#ffffff',
+                  boxShadow: playMode === 'individual' ? '0 4px 14px rgba(2, 132, 199, 0.15)' : 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  background: playMode === 'individual' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#f1f5f9',
+                  color: playMode === 'individual' ? 'white' : '#64748b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  <Hand style={{ width: 24, height: 24 }} />
+                </div>
+                <div>
+                  <strong style={{ display: 'block', fontSize: 15, color: playMode === 'individual' ? '#0369a1' : '#1e293b' }}>
+                    Individual (Medição de Conhecimento)
+                  </strong>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    Sem pontos ou ranking. Resposta na hora e aprendizado
+                  </span>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Grid de duas colunas responsivo com minWidth: 0 */}
           <div style={{
             display: 'grid',
@@ -1134,62 +1392,223 @@ export default function LocalGameMode({
             boxSizing: 'border-box'
           }}>
             
-            {/* Coluna 1: Configurações do Jogo & Equipes */}
+            {/* Coluna 1: Participantes / Equipes & Pontuação */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
-              {/* Nomes dos times */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
-                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
-                  Nomes das Equipes
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', boxSizing: 'border-box' }}>
-                  {[0, 1].map(i => (
-                    <div key={i} style={{
-                      display: 'flex', flexDirection: 'column', gap: 8,
-                      background: i === 0 ? '#fef2f2' : '#eff6ff',
-                      border: `1.5px solid ${i === 0 ? '#fecaca' : '#bfdbfe'}`,
-                      borderRadius: 16, padding: '16px', boxSizing: 'border-box'
-                    }}>
-                      <label style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? '#dc2626' : '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        {i === 0 ? '🔴 Time A' : '🔵 Time B'}
-                      </label>
-                      <input
-                        type="text" maxLength={20}
-                        style={{
-                          textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px',
-                          background: '#ffffff', border: `1.5px solid ${i === 0 ? '#f87171' : '#60a5fa'}`,
-                          borderRadius: 12, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box'
-                        }}
-                        value={playerNames[i]}
-                        onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
-                        placeholder={i === 0 ? 'Time A' : 'Time B'}
-                      />
-                    </div>
-                  ))}
+              
+              {playMode === 'individual' ? (
+                /* Gerenciador de Participantes Individuais */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Hand style={{ width: 16, height: 16, color: '#0284c7' }} /> Participantes da Sala ({individualParticipants.length})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIndividualParticipants(['Aluno 1', 'Aluno 2', 'Aluno 3']);
+                        sfx.playClick();
+                      }}
+                      style={{ fontSize: 12, color: '#0284c7', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      Padrão (3 alunos)
+                    </button>
+                  </div>
+
+                  {/* Input para adicionar participante */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      value={newParticipantInput}
+                      onChange={e => setNewParticipantInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = newParticipantInput.trim();
+                          if (val && !individualParticipants.includes(val)) {
+                            setIndividualParticipants(prev => [...prev, val]);
+                            setNewParticipantInput('');
+                            sfx.playClick();
+                          }
+                        }
+                      }}
+                      placeholder="Nome do aluno / participante..."
+                      style={{
+                        flex: 1,
+                        padding: '12px 14px',
+                        background: '#ffffff',
+                        border: '1.5px solid #cbd5e1',
+                        borderRadius: 12,
+                        fontSize: 14,
+                        color: '#0f172a',
+                        outline: 'none'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = newParticipantInput.trim();
+                        if (val && !individualParticipants.includes(val)) {
+                          setIndividualParticipants(prev => [...prev, val]);
+                          setNewParticipantInput('');
+                          sfx.playClick();
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '12px 18px',
+                        background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 12,
+                        fontWeight: 800,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)'
+                      }}
+                    >
+                      <UserPlus style={{ width: 16, height: 16 }} /> Adicionar
+                    </button>
+                  </div>
+
+                  {/* Lista de Participantes */}
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    maxHeight: 180,
+                    overflowY: 'auto',
+                    padding: '8px',
+                    background: '#f8fafc',
+                    borderRadius: 14,
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {individualParticipants.map((name, idx) => {
+                      const color = PARTICIPANT_COLORS[idx % PARTICIPANT_COLORS.length];
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '6px 12px',
+                            background: '#ffffff',
+                            border: `1.5px solid ${color}44`,
+                            borderRadius: 999,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: '#1e293b'
+                          }}
+                        >
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                          <span>{name}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIndividualParticipants(prev => prev.filter((_, i) => i !== idx));
+                              sfx.playClick();
+                            }}
+                            title="Remover"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#94a3b8',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: 0
+                            }}
+                          >
+                            <X style={{ width: 14, height: 14 }} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {individualParticipants.length === 0 && (
+                      <span style={{ color: '#94a3b8', fontSize: 13, padding: '6px' }}>
+                        Nenhum aluno cadastrado. Adicione alunos ou novos poderão entrar durante o jogo!
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* Nomes dos times */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                    Nomes das Equipes
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, width: '100%', boxSizing: 'border-box' }}>
+                    {[0, 1].map(i => (
+                      <div key={i} style={{
+                        display: 'flex', flexDirection: 'column', gap: 8,
+                        background: i === 0 ? '#fef2f2' : '#eff6ff',
+                        border: `1.5px solid ${i === 0 ? '#fecaca' : '#bfdbfe'}`,
+                        borderRadius: 16, padding: '16px', boxSizing: 'border-box'
+                      }}>
+                        <label style={{ fontSize: 13, fontWeight: 800, color: i === 0 ? '#dc2626' : '#2563eb', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                          {i === 0 ? '🔴 Time A' : '🔵 Time B'}
+                        </label>
+                        <input
+                          type="text" maxLength={20}
+                          style={{
+                            textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px',
+                            background: '#ffffff', border: `1.5px solid ${i === 0 ? '#f87171' : '#60a5fa'}`,
+                            borderRadius: 12, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box'
+                          }}
+                          value={playerNames[i]}
+                          onChange={e => setPlayerNames(prev => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                          placeholder={i === 0 ? 'Time A' : 'Time B'}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Modo de Jogo & Pontuação */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, width: '100%', boxSizing: 'border-box' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Pontos por acerto
-                  <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Pontos no repasse
-                  <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Tempo por tentativa (s)
-                  <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
-                  Empate
-                  <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }}>
-                    <option value="shared">Vitória compartilhada</option>
-                    <option value="extra">Pergunta extra</option>
-                  </select>
-                </label>
-              </div>
+              {playMode === 'teams' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, width: '100%', boxSizing: 'border-box' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                    Pontos por acerto
+                    <input type="number" min={10} max={1000} step={10} value={pointsPerCorrect} onChange={event => setPointsPerCorrect(Math.max(10, Number(event.target.value) || 10))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                    Pontos no repasse
+                    <input type="number" min={0} max={1000} step={10} value={pointsOnPass} onChange={event => setPointsOnPass(Math.max(0, Number(event.target.value) || 0))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                    Tempo por pergunta (s)
+                    <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                    Critério de empate
+                    <select value={tiePolicy} onChange={event => setTiePolicy(event.target.value as 'shared' | 'extra')} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }}>
+                      <option value="shared">Compartilhado</option>
+                      <option value="extra">Pergunta extra</option>
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{
+                    padding: '16px', borderRadius: 14,
+                    background: '#f0f9ff', border: '1.5px solid #bae6fd',
+                    display: 'flex', alignItems: 'center', gap: 12
+                  }}>
+                    <div style={{ fontSize: 24 }}>💡</div>
+                    <div style={{ fontSize: 13, color: '#0369a1', lineHeight: 1.4 }}>
+                      <strong>Modo Sem Pontuação ou Ranking:</strong> O foco é medir o conhecimento individual. O aluno responde, o condutor marca a alternativa e o gabarito com explicação é revelado imediatamente!
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+                    Tempo por pergunta (s)
+                    <input type="number" min={5} max={180} value={turnTimeLimit} onChange={event => setTurnTimeLimit(Math.max(5, Math.min(180, Number(event.target.value) || 5)))} style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 10, padding: '9px 12px', fontSize: 14, color: '#0f172a', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                </div>
+              )}
 
               <button onClick={() => setQuickMode(value => !value)} style={{ padding: '12px 16px', borderRadius: 10, cursor: 'pointer', color: quickMode ? '#065f46' : '#475569', background: quickMode ? '#ecfdf5' : '#f8fafc', border: `1.5px solid ${quickMode ? '#86efac' : '#e2e8f0'}`, fontWeight: 800, fontSize: 13, width: '100%', boxSizing: 'border-box' }}>
                 {quickMode ? '✓ Modo rápido ativado' : 'Ativar modo rápido'}
@@ -1201,10 +1620,10 @@ export default function LocalGameMode({
               {/* Rodadas */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
                 <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Número de Rodadas
+                  Número de Rodadas (Perguntas)
                 </label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%', boxSizing: 'border-box' }}>
-                  {[2, 6, 10, 16].map(n => (
+                  {(playMode === 'individual' ? [3, 5, 10, 15] : [2, 6, 10, 16]).map(n => (
                     <button key={n}
                       onClick={() => { setTotalRounds(n); setIsCustomRounds(false); sfx.playClick(); }}
                       style={{
@@ -1235,69 +1654,84 @@ export default function LocalGameMode({
                   <div style={{ marginTop: 6, width: '100%', boxSizing: 'border-box' }}>
                     <input
                       type="number"
-                      min={2}
+                      min={1}
                       max={100}
-                      step={2}
+                      step={1}
                       value={totalRounds}
                       onChange={(e) => {
-                        const val = parseInt(e.target.value) || 2;
-                        setTotalRounds(val % 2 !== 0 ? val + 1 : val);
+                        const val = parseInt(e.target.value) || 1;
+                        setTotalRounds(playMode === 'teams' ? (val % 2 !== 0 ? val + 1 : val) : val);
                       }}
                       style={{ width: '100%', textAlign: 'center', fontWeight: 800, fontSize: 18, padding: '12px', background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: 12, color: '#0f172a', outline: 'none', boxSizing: 'border-box' }}
-                      placeholder="Digite o número de rodadas (par)..."
+                      placeholder="Digite o número de rodadas..."
                     />
-                    <p style={{ fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center', lineHeight: 1.4 }}>
-                      O número de rodadas deve ser par para que as duas equipes tenham exatamente o mesmo número de turnos.
-                    </p>
+                    {playMode === 'teams' && (
+                      <p style={{ fontSize: 13, color: '#64748b', marginTop: 8, textAlign: 'center', lineHeight: 1.4 }}>
+                        No modo em equipes, o número deve ser par para igualdade de turnos.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Modo de Jogo */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
-                <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Modo de Jogo
-                </label>
-                <div style={{ display: 'flex', gap: 12, width: '100%', boxSizing: 'border-box' }}>
-                  <button
-                    onClick={() => { setHasObstacles(false); sfx.playClick(); }}
-                    style={{
-                      flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
-                      background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
-                      border: !hasObstacles ? 'none' : '1.5px solid #e2e8f0',
-                      color: !hasObstacles ? 'white' : '#334155',
-                      cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
-                      transition: 'all 0.2s'
-                    }}>
-                    Sem obstáculos
-                  </button>
-                  <button
-                    onClick={() => { setHasObstacles(true); sfx.playClick(); }}
-                    style={{
-                      flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
-                      background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
-                      border: hasObstacles ? 'none' : '1.5px solid #e2e8f0',
-                      color: hasObstacles ? 'white' : '#334155',
-                      cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
-                      transition: 'all 0.2s'
-                    }}>
-                    Com obstáculos
-                  </button>
+              {/* Modo de Jogo / Obstáculos na Roleta */}
+              {quizFormat === 'roulette' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', boxSizing: 'border-box' }}>
+                  <label style={{ fontSize: 14, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Obstáculos na Roleta
+                  </label>
+                  <div style={{ display: 'flex', gap: 12, width: '100%', boxSizing: 'border-box' }}>
+                    <button
+                      onClick={() => { setHasObstacles(false); sfx.playClick(); }}
+                      style={{
+                        flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
+                        background: !hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                        border: !hasObstacles ? 'none' : '1.5px solid #e2e8f0',
+                        color: !hasObstacles ? 'white' : '#334155',
+                        cursor: 'pointer', boxShadow: !hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
+                        transition: 'all 0.2s'
+                      }}>
+                      Sem obstáculos
+                    </button>
+                    <button
+                      onClick={() => { setHasObstacles(true); sfx.playClick(); }}
+                      style={{
+                        flex: 1, padding: '12px 6px', borderRadius: 12, fontWeight: 800, fontSize: 15,
+                        background: hasObstacles ? 'linear-gradient(135deg, #7C3AED, #6D28D9)' : '#f8fafc',
+                        border: hasObstacles ? 'none' : '1.5px solid #e2e8f0',
+                        color: hasObstacles ? 'white' : '#334155',
+                        cursor: 'pointer', boxShadow: hasObstacles ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
+                        transition: 'all 0.2s'
+                      }}>
+                      Com obstáculos
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Regras */}
               <div style={{ padding: '20px 24px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 20, width: '100%', boxSizing: 'border-box' }}>
                 <p style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  ℹ️ Regras do Modo Local
+                  ℹ️ Regras: {playMode === 'individual' ? 'Modo Individual (Mão Levantada)' : 'Disputa por Equipes'}
                 </p>
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: '#475569', lineHeight: 1.8 }}>
-                  <li>Um <strong>sorteio</strong> decide qual time começa a rodada 1</li>
-                  <li>O time da vez responde <strong>em voz alta</strong> dentro do tempo</li>
-                  <li>Se <strong>errar ou o tempo acabar</strong>, o outro time tem a mesma chance</li>
-                  <li>Acerto = <strong>100 pontos</strong>. Erro = 0 pontos</li>
-                  <li>A cada rodada, <strong>alterna</strong> quem começa respondendo</li>
-                </ul>
+                {playMode === 'individual' ? (
+                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: '#475569', lineHeight: 1.8 }}>
+                    <li>A pergunta é projetada no telão ({quizFormat === 'classic' ? 'direto nas perguntas' : 'com sorteio na roleta'})</li>
+                    <li>Quem souber a resposta <strong>levanta a mão na sala</strong></li>
+                    <li>O condutor seleciona a pessoa no painel e <strong>clica na alternativa que ela respondeu</strong></li>
+                    <li>Se <strong>acertar</strong>, ganha {pointsPerCorrect} pontos no ranking da sala</li>
+                    <li>Se <strong>errar</strong>, outro participante pode levantar a mão para tentar responder</li>
+                    <li>No final, há o <strong>Pódio Geral</strong> com os vencedores e ranking de todos</li>
+                  </ul>
+                ) : (
+                  <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: '#475569', lineHeight: 1.8 }}>
+                    <li>Um <strong>sorteio</strong> decide qual time começa a rodada 1</li>
+                    <li>O time da vez responde <strong>em voz alta</strong> dentro do tempo</li>
+                    <li>Se <strong>errar ou o tempo acabar</strong>, o outro time tem a chance de repasse</li>
+                    <li>Acerto = <strong>{pointsPerCorrect} pontos</strong>. Repasse = <strong>{pointsOnPass} pontos</strong></li>
+                    <li>A cada rodada, <strong>alterna</strong> quem começa respondendo</li>
+                  </ul>
+                )}
               </div>
             </div>
 
@@ -1367,43 +1801,155 @@ export default function LocalGameMode({
             </div>
           </div>
 
-          {/* Equipes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {([0, 1] as const).map((i) => {
-              const isActive = respIdx === i && phase !== 'round-result' && phase !== 'finished';
-              return (
-                <motion.div key={i}
-                  animate={{ 
-                    scale: isActive ? [1, 1.03, 1] : 1,
-                    opacity: isActive ? [1, 0.85, 1] : 1
+          {/* Participantes Modo Individual ou Equipes */}
+          {playMode === 'individual' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flex: 1, minHeight: 0 }}>
+              {/* Resumo Pedagógico da Turma */}
+              <div style={{
+                padding: '14px', borderRadius: 14,
+                background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)',
+                display: 'flex', flexDirection: 'column', gap: 8
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Aproveitamento
+                  </span>
+                  {(() => {
+                    const totalAns = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
+                    const totalCor = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
+                    const pct = totalAns > 0 ? Math.round((totalCor / totalAns) * 100) : 0;
+                    return (
+                      <span style={{ fontSize: 14, fontWeight: 900, color: pct >= 70 ? '#34d399' : '#facc15' }}>
+                        {pct}%
+                      </span>
+                    );
+                  })()}
+                </div>
+                {(() => {
+                  const totalAns = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
+                  const totalCor = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
+                      <span>Acertos: <strong>{totalCor}</strong></span>
+                      <span>Respondidas: <strong>{totalAns}</strong></span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Lista de Chamada de Alunos */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 4, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: 'rgba(148,163,184,0.7)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Alunos ({players.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = prompt('Nome do aluno a adicionar:');
+                    if (name && name.trim()) {
+                      const trimmed = name.trim();
+                      setPlayers(prev => [...prev, { name: trimmed, score: 0, roundResults: [] }]);
+                      sfx.playClick();
+                    }
                   }}
-                  transition={{ repeat: isActive ? Infinity : 0, duration: 1.5 }}
+                  title="Adicionar aluno"
                   style={{
-                    padding: '20px 16px', borderRadius: 16,
-                    background: isActive ? TEAM_BG[i] : 'rgba(255,255,255,0.03)',
-                    border: isActive ? `2px solid ${TEAM_COLORS[i]}60` : '1px solid rgba(255,255,255,0.06)',
-                    textAlign: 'center', position: 'relative', overflow: 'hidden',
-                    transition: 'all 0.35s'
-                  }}>
-                  {isActive && (
-                    <span style={{
-                      position: 'absolute', top: 12, right: 12,
-                      display: 'flex', alignItems: 'center', gap: 4
+                    fontSize: 11, fontWeight: 800, color: '#38bdf8', background: 'rgba(56,189,248,0.12)',
+                    border: '1px solid rgba(56,189,248,0.25)', borderRadius: 6, padding: '2px 8px', cursor: 'pointer'
+                  }}
+                >
+                  + Aluno
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', paddingRight: 4 }}>
+                {players.map((p, originalIndex) => {
+                  const isResponding = activeParticipantIndex === originalIndex;
+                  const color = PARTICIPANT_COLORS[originalIndex % PARTICIPANT_COLORS.length];
+                  const pCorrect = p.roundResults.filter(r => r.correct).length;
+
+                  return (
+                    <div
+                      key={p.name + originalIndex}
+                      onClick={() => {
+                        setActiveParticipantIndex(prev => prev === originalIndex ? null : originalIndex);
+                        sfx.playClick();
+                      }}
+                      style={{
+                        padding: '10px 12px', borderRadius: 10,
+                        background: isResponding ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255,255,255,0.03)',
+                        border: isResponding ? '1.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.06)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        gap: 8, cursor: 'pointer', transition: 'all 0.15s'
+                      }}
+                      title="Clique para selecionar quem vai responder"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                        <div style={{
+                          width: 24, height: 24, borderRadius: '50%', background: color,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 900, color: 'white', flexShrink: 0
+                        }}>
+                          {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                            {p.name}
+                          </span>
+                          {isResponding && (
+                            <span style={{ fontSize: 10, color: '#38bdf8', fontWeight: 800 }}>
+                              ● Respondendo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'rgba(148,163,184,0.6)', fontWeight: 600 }}>
+                        {pCorrect > 0 ? `${pCorrect} ✓` : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Equipes */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {([0, 1] as const).map((i) => {
+                const isActive = respIdx === i && phase !== 'round-result' && phase !== 'finished';
+                return (
+                  <motion.div key={i}
+                    animate={{ 
+                      scale: isActive ? [1, 1.03, 1] : 1,
+                      opacity: isActive ? [1, 0.85, 1] : 1
+                    }}
+                    transition={{ repeat: isActive ? Infinity : 0, duration: 1.5 }}
+                    style={{
+                      padding: '20px 16px', borderRadius: 16,
+                      background: isActive ? TEAM_BG[i] : 'rgba(255,255,255,0.03)',
+                      border: isActive ? `2px solid ${TEAM_COLORS[i]}60` : '1px solid rgba(255,255,255,0.06)',
+                      textAlign: 'center', position: 'relative', overflow: 'hidden',
+                      transition: 'all 0.35s'
                     }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: TEAM_COLORS[i], animation: 'pulse 1s infinite', display: 'inline-block' }} />
-                      <span style={{ fontSize: 9, fontWeight: 800, color: TEAM_COLORS[i] }}>VEZ</span>
-                    </span>
-                  )}
-                  <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                    {players[i].name}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 40, fontWeight: 900, color: isActive ? TEAM_COLORS[i] : 'rgba(255,255,255,0.4)', fontFamily: 'monospace', lineHeight: 1 }}>
-                    {players[i].score}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </div>
+                    {isActive && (
+                      <span style={{
+                        position: 'absolute', top: 12, right: 12,
+                        display: 'flex', alignItems: 'center', gap: 4
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: TEAM_COLORS[i], animation: 'pulse 1s infinite', display: 'inline-block' }} />
+                        <span style={{ fontSize: 9, fontWeight: 800, color: TEAM_COLORS[i] }}>VEZ</span>
+                      </span>
+                    )}
+                    <p style={{ margin: '0 0 8px 0', fontSize: 12, fontWeight: 800, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      {players[i]?.name || `Time ${i === 0 ? 'A' : 'B'}`}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 40, fontWeight: 900, color: isActive ? TEAM_COLORS[i] : 'rgba(255,255,255,0.4)', fontFamily: 'monospace', lineHeight: 1 }}>
+                      {players[i]?.score || 0}
+                    </p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -1414,124 +1960,191 @@ export default function LocalGameMode({
 
           <AnimatePresence mode="wait">
 
-            {/* IDLE + SPINNING — Roleta estilo online */}
+            {/* IDLE + SPINNING — Quiz Clássico ou Roleta */}
             {(phase === 'idle' || phase === 'spinning') && (
-              <motion.div key="roulette"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
-
-
-                {/* Roleta SVG — igual ao online em tamanho */}
-                <div style={{ position: 'relative', width: WS, height: WS }}>
-                  {/* Seta indicadora (direita, igual ao online) */}
+              quizFormat === 'classic' ? (
+                /* Card do Quiz Clássico (Direto nas perguntas) */
+                <motion.div key="classic-intro"
+                  initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  style={{
+                    width: '100%', maxWidth: 750, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', textAlign: 'center', gap: 24, padding: '48px 36px',
+                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 32, boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                    backdropFilter: 'blur(12px)'
+                  }}
+                >
                   <div style={{
-                    position: 'absolute', right: -18, top: '50%', transform: 'translateY(-50%)',
-                    zIndex: 20, width: 0, height: 0,
-                    borderTop: '14px solid transparent',
-                    borderBottom: '14px solid transparent',
-                    borderRight: '28px solid #A3E635',
-                    filter: 'drop-shadow(0 2px 8px rgba(163,230,53,0.6))',
-                    transformOrigin: 'right center',
-                    animation: isSpinning
-                      ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
-                      : 'pointer-idle 1.5s ease-in-out infinite'
-                  }} />
+                    width: 80, height: 80, borderRadius: 24,
+                    background: playMode === 'individual' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'linear-gradient(135deg, #10b981, #059669)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+                    boxShadow: playMode === 'individual' ? '0 8px 24px rgba(2, 132, 199, 0.4)' : '0 8px 24px rgba(16, 185, 129, 0.4)'
+                  }}>
+                    {playMode === 'individual' ? <Hand style={{ width: 40, height: 40 }} /> : <Zap style={{ width: 40, height: 40 }} />}
+                  </div>
 
-                  <div
-                    onClick={phase === 'idle' ? handleSpin : undefined}
-                    style={{
-                      width: WS, height: WS, borderRadius: '50%',
-                      boxShadow: '0 0 60px rgba(124,58,237,0.3), 0 12px 40px rgba(0,0,0,0.6)',
-                      transform: `rotate(${rouletteAngle}deg)`,
-                      transition: isSpinning ? 'transform 8s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'none',
-                      cursor: phase === 'idle' ? 'pointer' : 'default',
-                      position: 'relative'
+                  <div>
+                    <span style={{
+                      fontSize: 12, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em',
+                      color: playMode === 'individual' ? '#38bdf8' : '#34d399',
+                      background: playMode === 'individual' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(52, 211, 153, 0.12)',
+                      padding: '4px 14px', borderRadius: 999,
+                      border: playMode === 'individual' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(52, 211, 153, 0.3)'
                     }}>
-                    <svg width={WS} height={WS} viewBox={`0 0 ${WS} ${WS}`} style={{ position: 'absolute', top: 0, left: 0 }}>
-                      {wheelCats.map((cat, i) => {
-                        const sa  = (i * segAngle - 90) * (Math.PI / 180);
-                        const ea  = ((i + 1) * segAngle - 90) * (Math.PI / 180);
-                        const x1  = R + R * Math.cos(sa), y1 = R + R * Math.sin(sa);
-                        const x2  = R + R * Math.cos(ea), y2 = R + R * Math.sin(ea);
-                        const la  = segAngle > 180 ? 1 : 0;
-                        const ma  = (sa + ea) / 2;
-                        const tr  = R * 0.26;
-                        const tx  = R + tr * Math.cos(ma), ty = R + tr * Math.sin(ma);
-                        const ta  = ma * (180 / Math.PI);
-                        const fz  = segCount > 10 ? 14 : segCount > 6 ? 16 : 18;
-                        const textColor = cat.color.toUpperCase() === '#FFFFFF' ? '#000000' : 'white';
-                        return (
-                          <g key={cat.id}>
-                            <path d={`M ${R} ${R} L ${x1} ${y1} A ${R} ${R} 0 ${la} 1 ${x2} ${y2} Z`}
-                              fill={cat.color} stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
-                            <text x={tx} y={ty} fill={textColor} fontSize={fz} fontWeight="bold"
-                              textAnchor="start" dominantBaseline="middle"
-                              transform={`rotate(${ta}, ${tx}, ${ty})`}
-                              style={{ userSelect: 'none' }}>
-                              {cat.name}
-                            </text>
-                          </g>
-                        );
-                      })}
-                      <circle cx={R} cy={R} r={R - 4} fill="none" stroke="white" strokeWidth={8} />
-                      {Array.from({ length: 36 }).map((_, i) => {
-                        const angle = (i * 10) * (Math.PI / 180);
-                        const dotR = R - 12;
-                        const cx = R + dotR * Math.cos(angle);
-                        const cy = R + dotR * Math.sin(angle);
-                        return (
-                          <circle key={`dot-${i}`} cx={cx} cy={cy} r={3.5} fill="white"
-                            className="animate-pulse"
-                            style={{ animationDelay: `${Math.random() * 2}s`, animationDuration: `${0.8 + Math.random()}s` }} />
-                        );
-                      })}
-                      {wheelCats.length === 0 && <circle cx={R} cy={R} r={R - 3} fill="#374151" />}
-                    </svg>
+                      {playMode === 'individual' ? '🙋 Modo Individual · Mão Levantada' : '👥 Disputa por Equipes'}
+                    </span>
+                    <h2 style={{ fontSize: 38, fontWeight: 900, color: 'white', margin: '14px 0 8px', fontFamily: "'Outfit', sans-serif" }}>
+                      Preparados para a Pergunta {currentRound}?
+                    </h2>
+                    <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.8)', margin: 0, maxWidth: 520, lineHeight: 1.5 }}>
+                      {playMode === 'individual'
+                        ? 'A pergunta será exibida com as 4 opções no telão. Quem souber levanta a mão e o condutor pontua no painel.'
+                        : 'A pergunta será exibida no telão e o time da vez responderá em voz alta.'}
+                    </p>
+                  </div>
 
-                    {/* Botão central "RODAR" — estilo online */}
+                  <button
+                    type="button"
+                    onClick={handleStartClassicQuestion}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                      padding: '18px 44px', borderRadius: 18,
+                      background: playMode === 'individual' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : 'linear-gradient(135deg, #10b981, #059669)',
+                      color: 'white', fontWeight: 900, fontSize: 20, border: 'none', cursor: 'pointer',
+                      boxShadow: playMode === 'individual' ? '0 10px 30px rgba(2, 132, 199, 0.4)' : '0 10px 30px rgba(16, 185, 129, 0.4)',
+                      transition: 'all 0.2s', marginTop: 8
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)')}
+                    onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
+                  >
+                    <Play style={{ width: 22, height: 22, fill: 'white' }} />
+                    Mostrar Pergunta {currentRound}
+                  </button>
+                </motion.div>
+              ) : (
+                /* Roleta SVG de Categorias */
+                <motion.div key="roulette"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+
+                  {/* Roleta SVG */}
+                  <div style={{ position: 'relative', width: WS, height: WS }}>
+                    {/* Seta indicadora (direita) */}
+                    <div style={{
+                      position: 'absolute', right: -18, top: '50%', transform: 'translateY(-50%)',
+                      zIndex: 20, width: 0, height: 0,
+                      borderTop: '14px solid transparent',
+                      borderBottom: '14px solid transparent',
+                      borderRight: '28px solid #A3E635',
+                      filter: 'drop-shadow(0 2px 8px rgba(163,230,53,0.6))',
+                      transformOrigin: 'right center',
+                      animation: isSpinning
+                        ? (pinDuration ? `pointer-strike ${pinDuration}s linear infinite` : 'none')
+                        : 'pointer-idle 1.5s ease-in-out infinite'
+                    }} />
+
                     <div
-                      onClick={e => { e.stopPropagation(); if (phase === 'idle') handleSpin(); }}
+                      onClick={phase === 'idle' ? handleSpin : undefined}
                       style={{
-                        position: 'absolute', top: '50%', left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: WS * 0.22, height: WS * 0.22, borderRadius: '50%',
-                        background: 'radial-gradient(circle at 35% 35%, #6366f1, #4338ca)',
-                        border: '4px solid #3730a3',
-                        boxShadow: '0 6px 0 #2e1065, 0 8px 24px rgba(99,102,241,0.6)',
-                        zIndex: 20, display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
+                        width: WS, height: WS, borderRadius: '50%',
+                        boxShadow: '0 0 60px rgba(124,58,237,0.3), 0 12px 40px rgba(0,0,0,0.6)',
+                        transform: `rotate(${rouletteAngle}deg)`,
+                        transition: isSpinning ? 'transform 8s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'none',
                         cursor: phase === 'idle' ? 'pointer' : 'default',
-                        gap: 2,
-                        transition: 'transform 0.1s, box-shadow 0.1s'
+                        position: 'relative'
                       }}>
-                      <img src={logoCurso} alt="Logo Curso" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                      <svg width={WS} height={WS} viewBox={`0 0 ${WS} ${WS}`} style={{ position: 'absolute', top: 0, left: 0 }}>
+                        {wheelCats.map((cat, i) => {
+                          const sa  = (i * segAngle - 90) * (Math.PI / 180);
+                          const ea  = ((i + 1) * segAngle - 90) * (Math.PI / 180);
+                          const x1  = R + R * Math.cos(sa), y1 = R + R * Math.sin(sa);
+                          const x2  = R + R * Math.cos(ea), y2 = R + R * Math.sin(ea);
+                          const la  = segAngle > 180 ? 1 : 0;
+                          const ma  = (sa + ea) / 2;
+                          const tr  = R * 0.26;
+                          const tx  = R + tr * Math.cos(ma), ty = R + tr * Math.sin(ma);
+                          const ta  = ma * (180 / Math.PI);
+                          const fz  = segCount > 10 ? 14 : segCount > 6 ? 16 : 18;
+                          const textColor = cat.color.toUpperCase() === '#FFFFFF' ? '#000000' : 'white';
+                          return (
+                            <g key={cat.id}>
+                              <path d={`M ${R} ${R} L ${x1} ${y1} A ${R} ${R} 0 ${la} 1 ${x2} ${y2} Z`}
+                                fill={cat.color} stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
+                              <text x={tx} y={ty} fill={textColor} fontSize={fz} fontWeight="bold"
+                                textAnchor="start" dominantBaseline="middle"
+                                transform={`rotate(${ta}, ${tx}, ${ty})`}
+                                style={{ userSelect: 'none' }}>
+                                {cat.name}
+                              </text>
+                            </g>
+                          );
+                        })}
+                        <circle cx={R} cy={R} r={R - 4} fill="none" stroke="white" strokeWidth={8} />
+                        {Array.from({ length: 36 }).map((_, i) => {
+                          const angle = (i * 10) * (Math.PI / 180);
+                          const dotR = R - 12;
+                          const cx = R + dotR * Math.cos(angle);
+                          const cy = R + dotR * Math.sin(angle);
+                          return (
+                            <circle key={`dot-${i}`} cx={cx} cy={cy} r={3.5} fill="white"
+                              className="animate-pulse"
+                              style={{ animationDelay: `${Math.random() * 2}s`, animationDuration: `${0.8 + Math.random()}s` }} />
+                          );
+                        })}
+                        {wheelCats.length === 0 && <circle cx={R} cy={R} r={R - 3} fill="#374151" />}
+                      </svg>
+
+                      {/* Botão central "RODAR" */}
+                      <div
+                        onClick={e => { e.stopPropagation(); if (phase === 'idle') handleSpin(); }}
+                        style={{
+                          position: 'absolute', top: '50%', left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          width: WS * 0.22, height: WS * 0.22, borderRadius: '50%',
+                          background: 'radial-gradient(circle at 35% 35%, #6366f1, #4338ca)',
+                          border: '4px solid #3730a3',
+                          boxShadow: '0 6px 0 #2e1065, 0 8px 24px rgba(99,102,241,0.6)',
+                          zIndex: 20, display: 'flex', flexDirection: 'column',
+                          alignItems: 'center', justifyContent: 'center',
+                          cursor: phase === 'idle' ? 'pointer' : 'default',
+                          gap: 2,
+                          transition: 'transform 0.1s, box-shadow 0.1s'
+                        }}>
+                        <img src={logoCurso} alt="Logo Curso" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Título igual ao online - Movido para a parte de baixo */}
-                <div style={{
-                  background: 'linear-gradient(135deg, #5B21B6, #7C3AED)',
-                  borderRadius: 999, padding: '10px 32px',
-                  boxShadow: '0 4px 24px rgba(124,58,237,0.4)',
-                  marginTop: 24
-                }}>
-                  <span style={{ fontSize: 18, fontWeight: 900, color: 'white', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                    🎯 Roleta das Categorias
-                  </span>
-                </div>
+                  {/* Título abaixo da Roleta */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #5B21B6, #7C3AED)',
+                    borderRadius: 999, padding: '10px 32px',
+                    boxShadow: '0 4px 24px rgba(124,58,237,0.4)',
+                    marginTop: 24
+                  }}>
+                    <span style={{ fontSize: 18, fontWeight: 900, color: 'white', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                      🎯 Roleta das Categorias
+                    </span>
+                  </div>
 
-                <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.7)', margin: 0 }}>
-                  Começa: <span style={{ color: TEAM_LIGHT[roundStarterIndex], fontWeight: 800 }}>{players[roundStarterIndex].name}</span>
-                  {phase === 'idle' && <span style={{ color: 'rgba(148,163,184,0.4)', marginLeft: 6 }}>(se errar → {players[roundStarterIndex === 0 ? 1 : 0].name})</span>}
-                </p>
+                  {playMode === 'individual' ? (
+                    <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.7)', margin: 0 }}>
+                      Gire a Roleta para sortear o tema! Após a revelação, quem levantar a mão responde.
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: 16, color: 'rgba(148,163,184,0.7)', margin: 0 }}>
+                      Começa: <span style={{ color: TEAM_LIGHT[roundStarterIndex], fontWeight: 800 }}>{players[roundStarterIndex]?.name}</span>
+                      {phase === 'idle' && <span style={{ color: 'rgba(148,163,184,0.4)', marginLeft: 6 }}>(se errar → {players[roundStarterIndex === 0 ? 1 : 0]?.name})</span>}
+                    </p>
+                  )}
 
-                {isSpinning && (
-                  <p style={{ fontSize: 14, color: 'rgba(148,163,184,0.6)', animation: 'pulse 1s infinite' }}>
-                    ✨ Sorteando categoria...
-                  </p>
-                )}
-              </motion.div>
+                  {isSpinning && (
+                    <p style={{ fontSize: 14, color: 'rgba(148,163,184,0.6)', animation: 'pulse 1s infinite' }}>
+                      ✨ Sorteando categoria...
+                    </p>
+                  )}
+                </motion.div>
+              )
             )}
 
             {/* CATEGORY REVEAL */}
@@ -1565,6 +2178,7 @@ export default function LocalGameMode({
                 </p>
               </motion.div>
             )}
+
             {/* QUESTION REVEAL */}
             {phase === 'question-reveal' && currentQuestion && (
               <motion.div key="question-reveal"
@@ -1574,7 +2188,7 @@ export default function LocalGameMode({
                 <p style={{ fontSize: 20, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
                   Atenção para a pergunta
                 </p>
-                <h2 style={{ fontSize: 72, fontWeight: 900, color: 'white', lineHeight: 1.3, margin: 0 }}>
+                <h2 style={{ fontSize: 64, fontWeight: 900, color: 'white', lineHeight: 1.3, margin: 0 }}>
                   {currentQuestion.question_text}
                 </h2>
                 <button
@@ -1642,19 +2256,120 @@ export default function LocalGameMode({
                     style={{ height: '100%', background: `linear-gradient(90deg, ${timerCol}, ${timerCol}bb)` }} />
                 </div>
 
-                {/* Banner do time respondendo */}
-                <div style={{
-                  padding: '18px 26px',
-                  background: TEAM_BG[respIdx],
-                  border: `1px solid ${TEAM_COLORS[respIdx]}40`,
-                  borderTop: 'none', borderBottom: 'none',
-                  display: 'flex', alignItems: 'center', gap: 12
-                }}>
-                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: TEAM_COLORS[respIdx], animation: 'pulse 1s infinite', flexShrink: 0 }} />
-                  <span style={{ fontSize: 20, fontWeight: 800, color: TEAM_LIGHT[respIdx] }}>
-                    {players[respIdx].name} — responda em voz alta!
-                  </span>
-                </div>
+                {/* Banner do participante/equipe respondendo */}
+                {playMode === 'individual' ? (
+                  /* Painel do Condutor: Mão Levantada */
+                  <div style={{
+                    padding: '16px 24px',
+                    background: 'rgba(2, 132, 199, 0.12)',
+                    border: '1.5px solid rgba(2, 132, 199, 0.35)',
+                    borderTop: 'none', borderBottom: 'none',
+                    display: 'flex', flexDirection: 'column', gap: 12
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Hand style={{ width: 20, height: 20, color: '#38bdf8' }} />
+                        <span style={{ fontSize: 14, fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Quem levantou a mão para responder?
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = prompt('Nome do novo aluno / participante:');
+                            if (name && name.trim()) {
+                              const trimmed = name.trim();
+                              setPlayers(prev => [...prev, { name: trimmed, score: 0, roundResults: [] }]);
+                              setActiveParticipantIndex(players.length);
+                              sfx.playClick();
+                            }
+                          }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 8,
+                            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                            color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                          }}
+                        >
+                          <UserPlus style={{ width: 14, height: 14 }} /> + Aluno
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleNoOneAnswered}
+                          style={{
+                            padding: '6px 14px', borderRadius: 8,
+                            background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#f87171', fontSize: 12, fontWeight: 800, cursor: 'pointer'
+                          }}
+                          title="Encerrar esta pergunta sem pontuar ninguém e mostrar a resposta correta"
+                        >
+                          Ninguém soube responder
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chips de seleção do participante */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {players.map((p, pIdx) => {
+                        const isSelected = activeParticipantIndex === pIdx;
+                        const color = PARTICIPANT_COLORS[pIdx % PARTICIPANT_COLORS.length];
+
+                        return (
+                          <button
+                            key={p.name + pIdx}
+                            type="button"
+                            onClick={() => {
+                              setActiveParticipantIndex(isSelected ? null : pIdx);
+                              sfx.playClick();
+                            }}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 8,
+                              padding: '8px 16px', borderRadius: 999,
+                              fontSize: 13, fontWeight: 800,
+                              cursor: 'pointer',
+                              border: isSelected ? `2.5px solid ${color}` : `1.5px solid rgba(255,255,255,0.15)`,
+                              background: isSelected ? `${color}35` : 'rgba(255,255,255,0.05)',
+                              color: isSelected ? 'white' : 'rgba(255,255,255,0.85)',
+                              boxShadow: isSelected ? `0 0 16px ${color}60` : 'none',
+                              transform: isSelected ? 'scale(1.05)' : 'none',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                            <span>{p.name}</span>
+                            {isSelected && <Hand style={{ width: 14, height: 14, color }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {activeParticipantIndex !== null ? (
+                      <div style={{ fontSize: 13, color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>👉 Aluno(a) <strong>{players[activeParticipantIndex]?.name}</strong> respondendo. Clique na alternativa dita por ele(a):</span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'rgba(148,163,184,0.7)' }}>
+                        * Selecione quem vai responder (opcional) e clique diretamente na alternativa dita pelo aluno.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Banner do time respondendo (Equipes) */
+                  <div style={{
+                    padding: '18px 26px',
+                    background: TEAM_BG[respIdx],
+                    border: `1px solid ${TEAM_COLORS[respIdx]}40`,
+                    borderTop: 'none', borderBottom: 'none',
+                    display: 'flex', alignItems: 'center', gap: 12
+                  }}>
+                    <span style={{ width: 14, height: 14, borderRadius: '50%', background: TEAM_COLORS[respIdx], animation: 'pulse 1s infinite', flexShrink: 0 }} />
+                    <span style={{ fontSize: 20, fontWeight: 800, color: TEAM_LIGHT[respIdx] }}>
+                      {players[respIdx]?.name} — responda em voz alta!
+                    </span>
+                  </div>
+                )}
 
                 {/* Pergunta */}
                 <div style={{
@@ -1667,44 +2382,53 @@ export default function LocalGameMode({
                   </p>
                 </div>
 
-                {/* Alternativas — 4 blocos coloridos estilo online */}
+                {/* Alternativas — 4 blocos coloridos estilo Kahoot */}
                 <div style={{
                   display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
                   border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', borderRadius: '0 0 16px 16px', overflow: 'hidden'
                 }}>
                   {ANSWER_COLORS.map(col => {
                     const alt = currentQuestion.alternatives[col.index];
+
                     return (
                       <motion.button key={col.index}
                         whileHover={{ scale: 1.015, filter: 'brightness(1.08)' }}
                         whileTap={{ scale: 0.985 }}
-                        onClick={() => handleJudge(alt?.isCorrect || false)}
+                        onClick={() => {
+                          if (playMode === 'individual') {
+                            handleJudgeIndividual(col.index);
+                          } else {
+                            handleJudge(alt?.isCorrect || false);
+                          }
+                        }}
                         style={{
                           padding: '42px 36px', display: 'flex', alignItems: 'center', gap: 18,
                           background: `linear-gradient(135deg, ${col.bg} 0%, ${col.bgHover} 100%)`,
                           borderRight: col.index === 0 || col.index === 2 ? '1px solid rgba(0,0,0,0.2)' : 'none',
                           borderBottom: col.index === 0 || col.index === 1 ? '1px solid rgba(0,0,0,0.2)' : 'none',
                           position: 'relative',
-                          border: 'none',
                           cursor: 'pointer',
                           textAlign: 'left',
                           outline: 'none',
-                          width: '100%'
+                          width: '100%',
+                          transition: 'all 0.2s'
                         }}>
                         <span style={{ fontSize: 38, fontWeight: 900, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
                           {col.label}
                         </span>
-                        <span style={{ fontSize: 23, fontWeight: 700, color: 'white', lineHeight: 1.4 }}>
-                          {alt?.text || '—'}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontSize: 23, fontWeight: 700, color: 'white', lineHeight: 1.4 }}>
+                            {alt?.text || '—'}
+                          </span>
+                        </div>
                       </motion.button>
                     );
                   })}
                 </div>
 
-                {phase === 'question-first' && (
+                {playMode === 'teams' && phase === 'question-first' && (
                   <p style={{ margin: '8px 0 0', fontSize: 11, color: 'rgba(148,163,184,0.4)', textAlign: 'center' }}>
-                    Se errar ou o tempo acabar → <strong style={{ color: TEAM_LIGHT[roundStarterIndex === 0 ? 1 : 0] }}>{players[roundStarterIndex === 0 ? 1 : 0].name}</strong> terá a mesma chance
+                    Se errar ou o tempo acabar → <strong style={{ color: TEAM_LIGHT[roundStarterIndex === 0 ? 1 : 0] }}>{players[roundStarterIndex === 0 ? 1 : 0]?.name}</strong> terá a mesma chance
                   </p>
                 )}
               </motion.div>
@@ -1715,56 +2439,136 @@ export default function LocalGameMode({
               <motion.div key="round-result"
                 initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 220 }}
-                style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 36 }}>
+                style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 32, maxWidth: 900 }}>
 
                 <button onClick={undoLastDecision}
                   style={{ position: 'absolute', top: 24, right: 24, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FDE68A', background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.42)', fontWeight: 800 }}>
                   Desfazer decisão
                 </button>
 
-                {roundResult.scorer !== null ? (
-                  <>
-                    <div style={{ fontSize: 130 }}>🎉</div>
-                    <div>
-                      <p style={{ margin: '0 0 14px', fontSize: 23, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase' }}>Acertou!</p>
-                      <h3 style={{ margin: '0 0 10px', fontSize: 72, fontWeight: 900, color: TEAM_COLORS[roundResult.scorer] }}>
-                        {players[roundResult.scorer].name}
-                      </h3>
-                      <p style={{ margin: 0, fontSize: 54, fontWeight: 900, color: '#34D399' }}>+{firstFailed ? pointsOnPass : pointsPerCorrect} pontos</p>
-                    </div>
-                    {correctAnswer && (
-                      <div style={{ padding: '22px 36px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 20 }}>
-                        <p style={{ margin: '0 0 8px', fontSize: 20, color: 'rgba(52,211,153,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta</p>
-                        <p style={{ margin: 0, fontSize: 27, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                {playMode === 'individual' ? (
+                  /* Modo Individual (Medição de Conhecimento - Sem Pontos) */
+                  roundResult.correct ? (
+                    <>
+                      <div style={{ fontSize: 100 }}>🎉</div>
+                      <div>
+                        <span style={{
+                          padding: '6px 20px', borderRadius: 999,
+                          background: 'rgba(52, 211, 153, 0.15)', border: '1px solid rgba(52, 211, 153, 0.4)',
+                          color: '#34d399', fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.08em'
+                        }}>
+                          Gabarito Confirmado
+                        </span>
+                        <h3 style={{ margin: '14px 0 6px', fontSize: 56, fontWeight: 900, color: '#34d399' }}>
+                          Resposta Correta!
+                        </h3>
+                        {roundResult.participantName && (
+                          <p style={{ margin: 0, fontSize: 22, color: '#38bdf8', fontWeight: 700 }}>
+                            Respondido por: {roundResult.participantName}
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </>
+                      {correctAnswer && (
+                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20 }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>Alternativa Correta</p>
+                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 100 }}>💡</div>
+                      <div>
+                        <span style={{
+                          padding: '6px 20px', borderRadius: 999,
+                          background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                          color: '#f87171', fontWeight: 900, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.08em'
+                        }}>
+                          Atenção ao Gabarito
+                        </span>
+                        <h3 style={{ margin: '14px 0 6px', fontSize: 56, fontWeight: 900, color: '#f87171' }}>
+                          Resposta Incorreta
+                        </h3>
+                        {roundResult.participantName && (
+                          <p style={{ margin: 0, fontSize: 20, color: 'rgba(148,163,184,0.8)' }}>
+                            {roundResult.participantName} indicou esta opção
+                          </p>
+                        )}
+                      </div>
+                      {correctAnswer && (
+                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20 }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>A resposta correta era</p>
+                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                        </div>
+                      )}
+                    </>
+                  )
                 ) : (
-                  <>
-                    <div style={{ fontSize: 115 }}>😅</div>
-                    <div>
-                      <h3 style={{ margin: '0 0 14px', fontSize: 54, fontWeight: 900, color: '#F87171' }}>Ninguém acertou</h3>
-                      <p style={{ margin: 0, fontSize: 27, color: 'rgba(148,163,184,0.7)' }}>Ambos os times erraram esta rodada</p>
-                    </div>
-                    {correctAnswer && (
-                      <div style={{ padding: '22px 36px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 20 }}>
-                        <p style={{ margin: '0 0 8px', fontSize: 20, color: 'rgba(239,68,68,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta era</p>
-                        <p style={{ margin: 0, fontSize: 27, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                  /* Modo Equipes (Com Pontos) */
+                  roundResult.scorer !== null ? (
+                    <>
+                      <div style={{ fontSize: 110 }}>🎉</div>
+                      <div>
+                        <p style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase' }}>Acertou!</p>
+                        <h3 style={{ margin: '0 0 10px', fontSize: 64, fontWeight: 900, color: TEAM_COLORS[roundResult.scorer] }}>
+                          {players[roundResult.scorer]?.name}
+                        </h3>
+                        <p style={{ margin: 0, fontSize: 48, fontWeight: 900, color: '#34D399' }}>
+                          +{firstFailed ? pointsOnPass : pointsPerCorrect} pontos
+                        </p>
                       </div>
+                      {correctAnswer && (
+                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 20 }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 18, color: 'rgba(52,211,153,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta</p>
+                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 100 }}>😅</div>
+                      <div>
+                        <h3 style={{ margin: '0 0 10px', fontSize: 48, fontWeight: 900, color: '#F87171' }}>
+                          Ninguém acertou
+                        </h3>
+                        <p style={{ margin: 0, fontSize: 22, color: 'rgba(148,163,184,0.7)' }}>
+                          Ambos os times erraram esta rodada
+                        </p>
+                      </div>
+                      {correctAnswer && (
+                        <div style={{ padding: '20px 32px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 20 }}>
+                          <p style={{ margin: '0 0 6px', fontSize: 18, color: 'rgba(239,68,68,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta era</p>
+                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
+                        </div>
+                      )}
+                    </>
+                  )
+                )}
+
+                {currentQuestion?.explanation && (
+                  <div style={{ maxWidth: 800, padding: '16px 22px', borderRadius: 16, background: 'rgba(124,58,237,0.13)', border: '1px solid rgba(167,139,250,0.3)', color: '#E9D5FF', fontSize: 18, lineHeight: 1.5 }}>
+                    <strong>Explicação:</strong> {currentQuestion.explanation}
+                    {currentQuestion.reference_url?.match(/^https?:\/\//i) && (
+                      <a href={currentQuestion.reference_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: '#93C5FD', fontSize: 14, marginTop: 6 }}>Ver referência</a>
                     )}
-                  </>
+                  </div>
                 )}
 
-                {currentQuestion?.explanation && <div style={{ maxWidth: 800, padding: '18px 24px', borderRadius: 16, background: 'rgba(124,58,237,0.13)', border: '1px solid rgba(167,139,250,0.3)', color: '#E9D5FF', fontSize: 20, lineHeight: 1.5 }}>
-                  <strong>Explicação:</strong> {currentQuestion.explanation}
-                  {currentQuestion.reference_url?.match(/^https?:\/\//i) && <a href={currentQuestion.reference_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', color: '#93C5FD', fontSize: 15, marginTop: 8 }}>Ver referência</a>}
-                </div>}
-
-                {currentRound < totalRounds && (
-                  <p style={{ margin: 0, fontSize: 22, color: 'rgba(148,163,184,0.4)' }}>
-                    Próxima rodada em instantes...
-                  </p>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={advanceRound}
+                    style={{
+                      padding: '14px 32px', borderRadius: 14,
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: 'white', fontWeight: 800, fontSize: 18, border: 'none', cursor: 'pointer',
+                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                      display: 'flex', alignItems: 'center', gap: 8
+                    }}
+                  >
+                    Próxima Pergunta <Play style={{ width: 18, height: 18, fill: 'white' }} />
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -1785,8 +2589,27 @@ export default function LocalGameMode({
                 <div key={colIndex} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                   {Array.from({ length: endRound - startRound }, (_, i) => {
                     const r = startRound + i;
-                    const r0 = players[0].roundResults[r];
-                    const r1 = players[1].roundResults[r];
+                    if (playMode === 'individual') {
+                      const winnerPlayer = players.find(p => p.roundResults[r]?.correct);
+                      const anyAnswered = players.some(p => p.roundResults[r]?.answered);
+                      const isPastRound = r < currentRound;
+                      return (
+                        <div key={r} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.6)', fontWeight: 800 }}>R{r + 1}</span>
+                          <div style={{
+                            minWidth: 28, height: 28, padding: '0 6px', borderRadius: 8,
+                            background: winnerPlayer ? '#10b981' : anyAnswered ? 'rgba(239,68,68,0.5)' : isPastRound ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
+                            border: `2px solid ${winnerPlayer ? '#34d399' : anyAnswered ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 11, fontWeight: 900, color: 'white'
+                          }} title={winnerPlayer ? `R${r+1}: Acertado por ${winnerPlayer.name}` : anyAnswered ? `R${r+1}: Ninguém acertou` : `R${r+1}: Pendente`}>
+                            {winnerPlayer ? winnerPlayer.name.slice(0, 2).toUpperCase() : anyAnswered ? '✕' : isPastRound ? '—' : ''}
+                          </div>
+                        </div>
+                      );
+                    }
+                    const r0 = players[0]?.roundResults?.[r];
+                    const r1 = players[1]?.roundResults?.[r];
                     return (
                       <div key={r} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                         <span style={{ fontSize: 13, color: 'rgba(148,163,184,0.6)', fontWeight: 800 }}>R{r + 1}</span>
@@ -1922,71 +2745,179 @@ export default function LocalGameMode({
       const rows = questionReport.filter(row => row.question?.category_id === category.id);
       return { category, answered: rows.reduce((sum, row) => sum + row.answered, 0), correct: rows.reduce((sum, row) => sum + row.correct, 0) };
     }).filter(item => item.answered > 0);
+    const totalIndividualAnswered = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
+    const totalIndividualCorrect = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
+    const individualPct = totalIndividualAnswered > 0 ? Math.round((totalIndividualCorrect / totalIndividualAnswered) * 100) : 0;
+
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
         <div className="glass-card p-16 flex flex-col gap-16">
-          <div style={{ textAlign: 'center' }}>
-            <Crown style={{ width: 112, height: 112, color: '#FBBF24', margin: '0 auto 24px', filter: 'drop-shadow(0 0 16px rgba(251,191,36,0.5))' }} />
-            <h2 style={{ fontSize: 64, fontWeight: 900, color: 'white', margin: 0 }}>
-              {isTie ? '🤝 Empate!' : `🏆 ${winner.name} venceu!`}
-            </h2>
-            <p style={{ fontSize: 28, color: 'rgba(148,163,184,0.7)', marginTop: 16 }}>
-              {totalRounds} rodadas concluídas
-            </p>
-          </div>
+          {playMode === 'individual' ? (
+            /* Cabeçalho Modo Individual (Medição de Conhecimento) */
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 80, marginBottom: 16 }}>🎓</div>
+              <h2 style={{ fontSize: 56, fontWeight: 900, color: 'white', margin: 0 }}>
+                Prática Finalizada!
+              </h2>
+              <p style={{ fontSize: 24, color: 'rgba(148,163,184,0.8)', marginTop: 12 }}>
+                Sessão de medição de conhecimento com {totalRounds} perguntas concluída.
+              </p>
+            </div>
+          ) : (
+            /* Cabeçalho Modo Equipes (Competição) */
+            <div style={{ textAlign: 'center' }}>
+              <Crown style={{ width: 112, height: 112, color: '#FBBF24', margin: '0 auto 24px', filter: 'drop-shadow(0 0 16px rgba(251,191,36,0.5))' }} />
+              <h2 style={{ fontSize: 64, fontWeight: 900, color: 'white', margin: 0 }}>
+                {isTie ? '🤝 Empate!' : `🏆 ${winner.name} venceu!`}
+              </h2>
+              <p style={{ fontSize: 28, color: 'rgba(148,163,184,0.7)', marginTop: 16 }}>
+                {totalRounds} rodadas concluídas
+              </p>
+            </div>
+          )}
 
-          {/* Placar final */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-            {[0, 1].map(i => {
-              const isWinner = !isTie && players[i].name === winner.name;
-              return (
-                <motion.div key={i}
-                  initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: i * 0.15 }}
-                  style={{
-                    padding: '44px', borderRadius: 40,
-                    background: isWinner ? TEAM_BG[i] : 'rgba(255,255,255,0.03)',
-                    border: `2px solid ${isWinner ? TEAM_COLORS[i] + '80' : 'rgba(255,255,255,0.06)'}`,
-                    textAlign: 'center', position: 'relative',
-                    boxShadow: isWinner ? `0 8px 32px ${TEAM_COLORS[i]}30` : 'none'
-                  }}>
-                  {isWinner && (
-                    <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)',
-                      background: TEAM_COLORS[i], borderRadius: 999, padding: '6px 28px',
-                      fontSize: 22, fontWeight: 900, color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                      🏆 Vencedor
-                    </div>
-                  )}
-                  <p style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                    {players[i].name}
+          {/* Conteúdo Central */}
+          {playMode === 'individual' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+              {/* Cards de Métricas Gerais de Aprendizagem */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                <div style={{
+                  padding: '28px', borderRadius: 20,
+                  background: 'rgba(56, 189, 248, 0.1)', border: '1.5px solid rgba(56, 189, 248, 0.3)',
+                  textAlign: 'center'
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Questões Respondidas
+                  </span>
+                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: 'white', fontFamily: 'monospace' }}>
+                    {totalRounds}
                   </p>
-                  <p style={{ margin: 0, fontSize: 104, fontWeight: 900, color: isWinner ? TEAM_COLORS[i] : 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>
-                    {players[i].score}
-                  </p>
-                  <p style={{ margin: '4px 0 0', fontSize: 22, color: 'rgba(148,163,184,0.4)' }}>pontos</p>
+                </div>
 
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 24 }}>
-                    {players[i].roundResults.map((r, ri) => (
-                      <div key={ri} style={{
-                        width: 24, height: 24, borderRadius: 6,
-                        background: r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)',
-                        border: `2px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.06)'}`
-                      }} title={`R${ri + 1}: ${r.correct ? 'Acertou' : r.answered ? 'Errou' : '-'}`} />
-                    ))}
+                <div style={{
+                  padding: '28px', borderRadius: 20,
+                  background: 'rgba(52, 211, 153, 0.1)', border: '1.5px solid rgba(52, 211, 153, 0.3)',
+                  textAlign: 'center'
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Total de Acertos
+                  </span>
+                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: '#34d399', fontFamily: 'monospace' }}>
+                    {totalIndividualCorrect}
+                  </p>
+                </div>
+
+                <div style={{
+                  padding: '28px', borderRadius: 20,
+                  background: individualPct >= 70 ? 'rgba(52, 211, 153, 0.1)' : 'rgba(250, 204, 21, 0.1)',
+                  border: `1.5px solid ${individualPct >= 70 ? 'rgba(52, 211, 153, 0.3)' : 'rgba(250, 204, 21, 0.3)'}`,
+                  textAlign: 'center'
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: individualPct >= 70 ? '#34d399' : '#facc15', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Aproveitamento Geral
+                  </span>
+                  <p style={{ margin: '8px 0 0', fontSize: 48, fontWeight: 900, color: individualPct >= 70 ? '#34d399' : '#facc15', fontFamily: 'monospace' }}>
+                    {individualPct}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabela de Participação dos Alunos (Se houver participantes cadastrados) */}
+              {players.length > 0 && players.some(p => p.roundResults.length > 0) && (
+                <div style={{
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 20, padding: 24
+                }}>
+                  <h4 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span>👥</span> Participação e Desempenho dos Alunos
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                    {players.map((p, pIdx) => {
+                      const ans = p.roundResults.filter(r => r.answered).length;
+                      const cor = p.roundResults.filter(r => r.correct).length;
+                      const pPct = ans > 0 ? Math.round((cor / ans) * 100) : 0;
+                      const color = PARTICIPANT_COLORS[pIdx % PARTICIPANT_COLORS.length];
+
+                      return (
+                        <div key={p.name + pIdx} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '14px 18px', borderRadius: 14,
+                          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: 'white' }}>
+                              {p.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{p.name}</span>
+                          </div>
+                          <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>
+                            {cor}/{ans} ({pPct}%)
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
-                </motion.div>
-              );
-            })}
-          </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+              {[0, 1].map(i => {
+                const isWinner = !isTie && players[i]?.name === winner.name;
+                return (
+                  <motion.div key={i}
+                    initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: i * 0.15 }}
+                    style={{
+                      padding: '44px', borderRadius: 40,
+                      background: isWinner ? TEAM_BG[i] : 'rgba(255,255,255,0.03)',
+                      border: `2px solid ${isWinner ? TEAM_COLORS[i] + '80' : 'rgba(255,255,255,0.06)'}`,
+                      textAlign: 'center', position: 'relative',
+                      boxShadow: isWinner ? `0 8px 32px ${TEAM_COLORS[i]}30` : 'none'
+                    }}>
+                    {isWinner && (
+                      <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)',
+                        background: TEAM_COLORS[i], borderRadius: 999, padding: '6px 28px',
+                        fontSize: 22, fontWeight: 900, color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        🏆 Vencedor
+                      </div>
+                    )}
+                    <p style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                      {players[i]?.name}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 104, fontWeight: 900, color: isWinner ? TEAM_COLORS[i] : 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>
+                      {players[i]?.score}
+                    </p>
+                    <p style={{ margin: '4px 0 0', fontSize: 22, color: 'rgba(148,163,184,0.4)' }}>pontos</p>
+
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 24 }}>
+                      {players[i]?.roundResults.map((r, ri) => (
+                        <div key={ri} style={{
+                          width: 24, height: 24, borderRadius: 6,
+                          background: r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)',
+                          border: `2px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.06)'}`
+                        }} title={`R${ri + 1}: ${r.correct ? 'Acertou' : r.answered ? 'Errou' : '-'}`} />
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
 
           <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, color: '#CBD5E1' }}>
             <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
-              <h3 style={{ color: 'white' }}>Desempenho dos times</h3>
+              <h3 style={{ color: 'white' }}>{playMode === 'individual' ? 'Desempenho dos participantes' : 'Desempenho dos times'}</h3>
               {players.map(player => {
                 const answered = player.roundResults.filter(result => result.answered).length;
                 const correct = player.roundResults.filter(result => result.correct).length;
-                return <p key={player.name}>{player.name}: {correct}/{answered} acertos ({answered ? Math.round(correct / answered * 100) : 0}%) · {player.score} pontos</p>;
+                return (
+                  <p key={player.name}>
+                    {player.name}: {correct}/{answered} acertos ({answered ? Math.round(correct / answered * 100) : 0}%)
+                    {playMode === 'teams' ? ` · ${player.score} pontos` : ''}
+                  </p>
+                );
               })}
             </div>
             <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>

@@ -13,7 +13,8 @@ export type RoundPhase =
 export interface SavedLocalGame {
   version: 1;
   savedAt: string;
-  players: [LocalPlayer, LocalPlayer];
+  playMode?: 'teams' | 'individual';
+  players: LocalPlayer[];
   totalRounds: number;
   hasObstacles: boolean;
   selectedCatIds: string[];
@@ -48,7 +49,7 @@ export function parseLocalGameSnapshot(raw: string | null): SavedLocalGame | nul
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object') return null;
     const game = value as Record<string, unknown>;
-    if (game.version !== 1 || !Array.isArray(game.players) || game.players.length !== 2 ||
+    if (game.version !== 1 || !Array.isArray(game.players) || game.players.length < 1 ||
       !game.players.every(player => player && typeof player.name === 'string' &&
         Number.isFinite(player.score) && Array.isArray(player.roundResults)) ||
       !Array.isArray(game.selectedCatIds) || !game.selectedCatIds.every(id => typeof id === 'string') ||
@@ -56,8 +57,7 @@ export function parseLocalGameSnapshot(raw: string | null): SavedLocalGame | nul
       !Number.isInteger(game.totalRounds) || (game.totalRounds as number) < 1 ||
       !Number.isInteger(game.currentRound) || (game.currentRound as number) < 1 ||
       (game.currentRound as number) > (game.totalRounds as number) ||
-      !Number.isFinite(game.timeLeft) || !phases.has(game.phase as RoundPhase) ||
-      ![0, 1].includes(game.roundStarterIndex as number)) return null;
+      !Number.isFinite(game.timeLeft) || !phases.has(game.phase as RoundPhase)) return null;
     return game as unknown as SavedLocalGame;
   } catch { return null; }
 }

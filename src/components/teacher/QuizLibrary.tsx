@@ -17,7 +17,6 @@ import {
   X,
   AlertCircle,
   Wifi,
-  Monitor,
   Smartphone,
   ChevronRight,
   PlusCircle,
@@ -27,7 +26,9 @@ import {
   Database,
   Star,
   Zap,
-  Calendar
+  Calendar,
+  Hand,
+  Users
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, sfx } from '../../App';
@@ -57,8 +58,8 @@ interface QuizLibraryProps {
   onDeleteQuiz: (quizId: string) => void;
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
   onCreateNewQuiz: () => void;
-  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => void;
+  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }
@@ -1828,15 +1829,15 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
               </button>
 
-              {/* Opção 2: Modo Local */}
+              {/* Opção 2: Modo Local por Equipes */}
               <button
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
                   if (playSessionType === 'classic' && onStartClassicGame) {
-                    onStartClassicGame(selectedQuizIds, 'local');
+                    onStartClassicGame(selectedQuizIds, 'local', 'teams');
                   } else {
-                    onStartRouletteGame(selectedQuizIds, 'local');
+                    onStartRouletteGame(selectedQuizIds, 'local', 'teams');
                   }
                 }}
                 style={{
@@ -1879,12 +1880,12 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     color: '#ffffff',
                   }}
                 >
-                  <Monitor style={{ width: '24px', height: '24px' }} />
+                  <Users style={{ width: '24px', height: '24px' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     <span style={{ fontSize: '16px', fontWeight: 800, color: '#064e3b' }}>
-                      Modo Local
+                      Modo Local por Equipes
                     </span>
                     <span
                       style={{
@@ -1903,8 +1904,8 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
                     {playSessionType === 'classic'
-                      ? 'Jogue sem internet com dois times. As perguntas são apresentadas em sequência e o apresentador confirma os pontos.'
-                      : 'Jogue sem internet com dois times. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.'}
+                      ? 'Disputa entre 2 times sem internet. O time da vez responde em voz alta e o apresentador confirma os pontos.'
+                      : 'Disputa entre 2 times sem internet. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['Sem internet', '2 Times', 'Resposta oral', 'SQLite Local'].map(tag => (
@@ -1918,6 +1919,106 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                           padding: '2px 8px',
                           borderRadius: '6px',
                           border: '1px solid #a7f3d0',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
+              </button>
+
+              {/* Opção 3: Modo Local Individual (Medição de Conhecimento) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRouletteModeModal(false);
+                  if (playSessionType === 'classic' && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'local', 'individual');
+                  } else {
+                    onStartRouletteGame(selectedQuizIds, 'local', 'individual');
+                  }
+                }}
+                style={{
+                  padding: '18px',
+                  borderRadius: '14px',
+                  border: '1.5px solid #e2e8f0',
+                  backgroundColor: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#0284c7';
+                  e.currentTarget.style.backgroundColor = '#f0f9ff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(2, 132, 199, 0.12)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.02)';
+                }}
+              >
+                <div
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <Hand style={{ width: '24px', height: '24px' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '16px', fontWeight: 800, color: '#0c4a6e' }}>
+                      Modo Local Individual
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Medição de Conhecimento
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+                    {playSessionType === 'classic'
+                      ? 'Sem competição ou pontos. O aluno responde, confere a resposta correta na hora e segue para a próxima pergunta.'
+                      : 'Sem competição ou pontos. A roleta sorteia o tema, o aluno responde, confere a resposta correta na hora e avança.'}
+                  </p>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {['Sem pontos', 'Sem ranking', 'Feedback imediato', '100% Offline'].map(tag => (
+                      <span
+                        key={tag}
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          color: '#0284c7',
+                          backgroundColor: '#f0f9ff',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid #bae6fd',
                         }}
                       >
                         {tag}
