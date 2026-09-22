@@ -59,7 +59,7 @@ interface QuizLibraryProps {
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks', totalBlocks?: number) => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }
@@ -173,9 +173,10 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   const [showSaveRouletteModal, setShowSaveRouletteModal] = useState(false);
   const [rouletteQuizName, setRouletteQuizName] = useState('');
 
-  // 🎮 Estado do Modal de Escolha do Modo de Jogo com Roleta ou Clássico
+  // 🎮 Estado do Modal de Escolha do Modo de Jogo com Roleta, Clássico ou Blocos
   const [showRouletteModeModal, setShowRouletteModeModal] = useState(false);
-  const [playSessionType, setPlaySessionType] = useState<'classic' | 'roulette'>('classic');
+  const [playSessionType, setPlaySessionType] = useState<'classic' | 'roulette' | 'blocks'>('classic');
+  const [blocksCount, setBlocksCount] = useState<number>(12);
 
   // 🗑️ Estado do Modal de Confirmação para Excluir Quiz (Categoria)
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
@@ -278,6 +279,25 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     setSelectedQuizIds([category.id]);
     setSelectionWarning('');
     setPlaySessionType('classic');
+    setShowRouletteModeModal(true);
+    sfx.playClick();
+  };
+
+  // Confirmar início do jogo no Modo Blocos (Kahoot Blocks - sem roleta)
+  const handleConfirmPlayBlocks = () => {
+    if (selectedQuizIds.length < 1) {
+      setSelectionWarning('Selecione pelo menos 1 quiz para jogar no Modo Blocos.');
+      return;
+    }
+    setPlaySessionType('blocks');
+    setShowRouletteModeModal(true);
+  };
+
+  // Iniciar jogo direto no Modo Blocos para um quiz/card individual
+  const handlePlayCardBlocks = (category: Category) => {
+    setSelectedQuizIds([category.id]);
+    setSelectionWarning('');
+    setPlaySessionType('blocks');
     setShowRouletteModeModal(true);
     sfx.playClick();
   };
@@ -537,7 +557,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
               disabled={selectedQuizIds.length < 1}
               style={{
                 height: '38px',
-                padding: '0 18px',
+                padding: '0 16px',
                 borderRadius: '10px',
                 backgroundColor: '#10b981',
                 color: '#ffffff',
@@ -555,6 +575,33 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             >
               <Zap style={{ width: '16px', height: '16px', fill: 'currentColor' }} />
               <span>Jogar Clássico</span>
+            </button>
+
+            {/* Botão NOVO: Jogar em Blocos (Kahoot Blocks) */}
+            <button
+              type="button"
+              onClick={handleConfirmPlayBlocks}
+              disabled={selectedQuizIds.length < 1}
+              style={{
+                height: '38px',
+                padding: '0 16px',
+                borderRadius: '10px',
+                backgroundColor: '#7c3aed',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '13px',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 10px rgba(124, 58, 237, 0.4)',
+                transition: 'all 0.15s ease',
+              }}
+              title="Jogar no Modo Blocos (tabuleiro com blocos numerados virados estilo Kahoot)"
+            >
+              <LayoutGrid style={{ width: '16px', height: '16px' }} />
+              <span>Jogar em Blocos</span>
             </button>
 
             {/* Botão Jogar com Roleta */}
@@ -1073,6 +1120,34 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             >
                               <Play style={{ width: '14px', height: '14px', fill: 'currentColor' }} />
                               <span>Jogar Modo Clássico</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenuCatId(null);
+                                handlePlayCardBlocks(cat);
+                              }}
+                              style={{
+                                width: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '8px 10px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                color: '#7c3aed',
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                            >
+                              <LayoutGrid style={{ width: '14px', height: '14px' }} />
+                              <span>Jogar em Blocos</span>
                             </button>
 
                             <button
@@ -1674,31 +1749,39 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     width: '46px',
                     height: '46px',
                     borderRadius: '12px',
-                    backgroundColor: playSessionType === 'classic' ? '#ecfdf5' : '#eff6ff',
-                    border: playSessionType === 'classic' ? '1.5px solid #a7f3d0' : '1.5px solid #dbeafe',
+                    backgroundColor: playSessionType === 'classic' ? '#ecfdf5' : playSessionType === 'blocks' ? '#f3e8ff' : '#eff6ff',
+                    border: playSessionType === 'classic' ? '1.5px solid #a7f3d0' : playSessionType === 'blocks' ? '1.5px solid #ddd6fe' : '1.5px solid #dbeafe',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: playSessionType === 'classic' ? '#059669' : '#1368ce',
+                    color: playSessionType === 'classic' ? '#059669' : playSessionType === 'blocks' ? '#7c3aed' : '#1368ce',
                     flexShrink: 0,
                   }}
                 >
                   {playSessionType === 'classic' ? (
                     <Zap style={{ width: '24px', height: '24px', fill: 'currentColor' }} />
+                  ) : playSessionType === 'blocks' ? (
+                    <LayoutGrid style={{ width: '24px', height: '24px' }} />
                   ) : (
                     <RotateCw style={{ width: '24px', height: '24px' }} />
                   )}
                 </div>
                 <div>
                   <h3 style={{ fontSize: '19px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                    {playSessionType === 'classic' ? 'Iniciar Partida - Quiz Clássico' : 'Como deseja jogar com a Roleta?'}
+                    {playSessionType === 'classic'
+                      ? 'Iniciar Partida - Quiz Clássico'
+                      : playSessionType === 'blocks'
+                      ? 'Iniciar Partida - Modo Blocos'
+                      : 'Como deseja jogar com a Roleta?'}
                   </h3>
                   <p style={{ fontSize: '13px', color: '#64748b', margin: '4px 0 0', fontWeight: 500 }}>
-                    <strong style={{ color: playSessionType === 'classic' ? '#059669' : '#1368ce' }}>
+                    <strong style={{ color: playSessionType === 'classic' ? '#059669' : playSessionType === 'blocks' ? '#7c3aed' : '#1368ce' }}>
                       {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'}
                     </strong>
                     {playSessionType === 'classic'
-                      ? ' no formato estilo Kahoot (perguntas diretas, sem sorteio de roleta).'
+                      ? ' no formato sequencial estilo Kahoot (perguntas diretas, sem sorteio de roleta).'
+                      : playSessionType === 'blocks'
+                      ? ' no formato Blocos (perguntas viradas com pontuação de acerto + e erro -).'
                       : ' selecionados para o sorteio na Roleta.'} Escolha o formato da partida:
                   </p>
                 </div>
@@ -1726,7 +1809,119 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
               </button>
             </div>
 
-            {/* Lista dos 3 Modos */}
+            {/* Alternador de Formato Sem Roleta: Clássico vs Blocos */}
+            {playSessionType !== 'roulette' && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  padding: '4px',
+                  backgroundColor: '#f8fafc',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '14px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPlaySessionType('classic')}
+                  style={{
+                    flex: 1,
+                    padding: '9px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: playSessionType === 'classic' ? '#ffffff' : 'transparent',
+                    color: playSessionType === 'classic' ? '#059669' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: playSessionType === 'classic' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '7px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Zap style={{ width: '15px', height: '15px', fill: playSessionType === 'classic' ? 'currentColor' : 'none' }} />
+                  <span>Modo Clássico (Sequencial)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlaySessionType('blocks')}
+                  style={{
+                    flex: 1,
+                    padding: '9px 14px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    backgroundColor: playSessionType === 'blocks' ? '#ffffff' : 'transparent',
+                    color: playSessionType === 'blocks' ? '#7c3aed' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: playSessionType === 'blocks' ? '0 2px 8px rgba(124, 58, 237, 0.12)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '7px',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <LayoutGrid style={{ width: '15px', height: '15px' }} />
+                  <span>Modo Blocos (Kahoot Blocks)</span>
+                </button>
+              </div>
+            )}
+
+            {/* Configuração da Quantidade Pré-definida de Blocos */}
+            {playSessionType === 'blocks' && (
+              <div
+                style={{
+                  backgroundColor: '#faf5ff',
+                  border: '1.5px solid #e9d5ff',
+                  borderRadius: '14px',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#4c1d95', display: 'block' }}>
+                    Quantidade de Blocos no Tabuleiro:
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 500 }}>
+                    Defina quantos blocos numerados virados serão exibidos na tela
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[6, 8, 9, 12, 16, 20].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setBlocksCount(num)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        border: blocksCount === num ? '2px solid #7c3aed' : '1px solid #d8b4fe',
+                        backgroundColor: blocksCount === num ? '#7c3aed' : '#ffffff',
+                        color: blocksCount === num ? '#ffffff' : '#6b21a8',
+                        transition: 'all 0.15s ease',
+                        boxShadow: blocksCount === num ? '0 2px 6px rgba(124, 58, 237, 0.3)' : 'none',
+                      }}
+                    >
+                      {num} Blocos
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Lista dos 4 Modos */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
               {/* Opção 1: Modo Online */}
@@ -1734,8 +1929,8 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  if (playSessionType === 'classic' && onStartClassicGame) {
-                    onStartClassicGame(selectedQuizIds, 'online');
+                  if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'online', undefined, playSessionType, blocksCount);
                   } else {
                     onStartRouletteGame(selectedQuizIds, 'online');
                   }
@@ -1803,7 +1998,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    {playSessionType === 'classic'
+                    {playSessionType === 'blocks'
+                      ? 'Partida multiplayer com PIN da sala. Os participantes usam o celular e as perguntas abrem no tabuleiro de blocos virados.'
+                      : playSessionType === 'classic'
                       ? 'Partida multiplayer com PIN da sala. Os participantes usam o celular e as perguntas seguem em sequência sem roleta.'
                       : 'Jogue em tempo real com jogadores na internet. Crie salas, use o celular como controle e a Roleta sorteia as perguntas ao vivo.'}
                   </p>
@@ -1834,8 +2031,8 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  if (playSessionType === 'classic' && onStartClassicGame) {
-                    onStartClassicGame(selectedQuizIds, 'local', 'teams');
+                  if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'local', 'teams', playSessionType, blocksCount);
                   } else {
                     onStartRouletteGame(selectedQuizIds, 'local', 'teams');
                   }
@@ -1903,12 +2100,14 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    {playSessionType === 'classic'
+                    {playSessionType === 'blocks'
+                      ? 'Disputa entre equipes sem internet. Os times escolhem os blocos numerados, respondem oralmente e gravam acertos (+) e erros (-).'
+                      : playSessionType === 'classic'
                       ? 'Disputa entre 2 times sem internet. O time da vez responde em voz alta e o apresentador confirma os pontos.'
                       : 'Disputa entre 2 times sem internet. Os participantes falam a resposta e o apresentador gira a Roleta e confirma acerto ou erro.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                    {['Sem internet', '2 Times', 'Resposta oral', 'SQLite Local'].map(tag => (
+                    {['Sem internet', 'Equipes', 'Resposta oral', 'Blocos + / -'].map(tag => (
                       <span
                         key={tag}
                         style={{
@@ -1934,8 +2133,8 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  if (playSessionType === 'classic' && onStartClassicGame) {
-                    onStartClassicGame(selectedQuizIds, 'local', 'individual');
+                  if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'local', 'individual', playSessionType, blocksCount);
                   } else {
                     onStartRouletteGame(selectedQuizIds, 'local', 'individual');
                   }
@@ -2003,7 +2202,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    {playSessionType === 'classic'
+                    {playSessionType === 'blocks'
+                      ? 'Sem competição. O aluno escolhe livremente os blocos numerados virados, responde e confere se acertou (+) ou errou (-).'
+                      : playSessionType === 'classic'
                       ? 'Sem competição ou pontos. O aluno responde, confere a resposta correta na hora e segue para a próxima pergunta.'
                       : 'Sem competição ou pontos. A roleta sorteia o tema, o aluno responde, confere a resposta correta na hora e avança.'}
                   </p>
@@ -2029,13 +2230,13 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                 <ChevronRight style={{ width: '20px', height: '20px', color: '#94a3b8', flexShrink: 0 }} />
               </button>
 
-              {/* Opção 3: Presencial com Celulares */}
+              {/* Opção 4: Presencial com Celulares */}
               <button
                 type="button"
                 onClick={() => {
                   setShowRouletteModeModal(false);
-                  if (playSessionType === 'classic' && onStartClassicGame) {
-                    onStartClassicGame(selectedQuizIds, 'hybrid');
+                  if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
+                    onStartClassicGame(selectedQuizIds, 'hybrid', undefined, playSessionType, blocksCount);
                   } else {
                     onStartRouletteGame(selectedQuizIds, 'hybrid');
                   }
@@ -2103,9 +2304,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                    {playSessionType === 'classic'
+                    {playSessionType === 'blocks'
+                      ? 'Projete o tabuleiro de blocos no telão. Os alunos escolhem blocos e respondem ao vivo com os 4 botões geométricos do celular.'
+                      : playSessionType === 'classic'
                       ? 'Projete a partida no telão ou projetor da sala. Os alunos respondem ao vivo com os 4 botões geométricos do celular.'
-                      : 'Projete a tela com a Roleta no telão ou projetor e receba as respostas dos celulares dos alunos conectados pela internet.'}
+                      : 'Projete a Roleta e perguntas no telão da sala. Os alunos respondem ao vivo com os 4 botões geométricos do celular.'}
                   </p>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {['Telão / Projetor', 'Controle por celular', 'Modo Híbrido'].map(tag => (

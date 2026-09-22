@@ -60,7 +60,7 @@ interface TeacherDashboardProps {
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks', totalBlocks?: number) => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onCreateFolder: (name: string, color?: string) => Promise<void> | void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;

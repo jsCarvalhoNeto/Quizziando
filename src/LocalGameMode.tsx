@@ -24,6 +24,9 @@ import { getOfflineAssetsStatus, prepareOfflineAssets, type OfflineAssetsStatus 
 import { KahootCountdown } from './components/KahootCountdown';
 
 
+import { BlocksBoardView } from './components/game/BlocksBoardView';
+import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
+
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
 const ANSWER_COLORS = [
@@ -50,7 +53,8 @@ interface Props {
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
   initialSelectedCategoryIds?: string[];
-  quizFormat?: 'classic' | 'roulette';
+  quizFormat?: 'classic' | 'roulette' | 'blocks';
+  initialBlocksCount?: number;
   initialPlayMode?: 'teams' | 'individual';
   soundEnabled: boolean;
   onToggleSound: () => void;
@@ -199,6 +203,7 @@ export default function LocalGameMode({
   supabaseQuestions,
   initialSelectedCategoryIds,
   quizFormat = 'classic',
+  initialBlocksCount = 12,
   initialPlayMode = 'teams',
   soundEnabled,
   onToggleSound
@@ -207,6 +212,11 @@ export default function LocalGameMode({
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
   const [playMode, setPlayMode]       = useState<'teams' | 'individual'>(initialPlayMode || 'teams');
+
+  // 🧱 Estados do Modo Blocos
+  const [blocks, setBlocks]           = useState<QuizBlockItem[]>([]);
+  const [blocksCount]                 = useState<number>(initialBlocksCount || 12);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   const [dbError, setDbError]         = useState<string | null>(null);
   const [showSyncOptions, setShowSyncOptions] = useState(false);
@@ -677,12 +687,21 @@ export default function LocalGameMode({
       setDbError('⚠️ Sem categorias disponíveis. Volte ao início e recarregue.');
       return;
     }
-    if (qs.length < totalRounds) {
+    if (quizFormat !== 'blocks' && qs.length < totalRounds) {
       setDbError(`⚠️ Precisa de ${totalRounds} perguntas, mas há ${qs.length}. Reduza as rodadas.`);
       return;
     }
 
     setDbError(null);
+
+    if (quizFormat === 'blocks') {
+      const desired = blocksCount || initialBlocksCount || 12;
+      const pool = qs.length > 0 ? qs : allQuestions.filter(q => selectedCatIds.includes(q.category_id));
+      const generated = generateQuizBlocks(pool.length > 0 ? pool : allQuestions, desired);
+      setBlocks(generated);
+      setActiveBlockId(null);
+      setTotalRounds(generated.length);
+    }
 
     if (playMode === 'individual') {
       setPlayers([{ name: 'Auditório', score: 0, roundResults: [] }]);
@@ -690,8 +709,8 @@ export default function LocalGameMode({
     } else {
       const starter = Math.random() < 0.5 ? 0 : 1;
       setPlayers([
-        { name: playerNames[0].trim() || 'Time A', score: 0, roundResults: [] },
-        { name: playerNames[1].trim() || 'Time B', score: 0, roundResults: [] },
+        { name: playerNames[0].trim() || 'Equipe Dragão', score: 0, roundResults: [] },
+        { name: playerNames[1].trim() || 'Equipe Tigre', score: 0, roundResults: [] },
       ]);
       setRoundStarterIndex(starter);
     }
@@ -706,6 +725,53 @@ export default function LocalGameMode({
     setLocalScreen('game');
     sfx.playClick();
   };
+
+  // Efeito de segurança: se entrar direto no Modo Blocos sem passar por startGame
+  useEffect(() => {
+    if (localScreen === 'game' && quizFormat === 'blocks' && blocks.length === 0 && allQuestions.length > 0) {
+      const matchingQuestions = allQuestions.filter(question =>
+        selectedCatIds.includes(question.category_id)
+      );
+      const pool = matchingQuestions.length > 0 ? matchingQuestions : allQuestions;
+      const desired = blocksCount || initialBlocksCount || 12;
+      const generated = generateQuizBlocks(pool, desired);
+      setBlocks(generated);
+      setTotalRounds(generated.length);
+    }
+  }, [localScreen, quizFormat, blocks.length, allQuestions, selectedCatIds, blocksCount, initialBlocksCount]);
+
+  // Escolha de um bloco virado pelo jogador/equipe da vez
+  const handleSelectBlock = useCallback((block: QuizBlockItem) => {
+    if (block.status !== 'unrevealed' || phase !== 'idle') return;
+    setActiveBlockId(block.id);
+    sfx.playClick();
+
+    const chosenQuestion = allQuestions.find(q => q.id === block.questionId) ||
+      allQuestions.find(q => selectedCatIds.includes(q.category_id)) ||
+      allQuestions[0];
+
+    if (!chosenQuestion) {
+      setDbError('Pergunta não encontrada para este bloco.');
+      return;
+    }
+
+    markQuestionUsed(chosenQuestion.id);
+
+    const cat: LocalCategory = allCategories.find(c => c.id === chosenQuestion.category_id) || {
+      id: chosenQuestion.category_id,
+      name: `Bloco ${block.number}`,
+      color: '#7c3aed',
+      icon: 'layout-grid'
+    };
+
+    setSelectedCategory(cat);
+    setCurrentQuestion(chosenQuestion);
+    setFirstFailed(false);
+    setTimeLeft(turnTimeLimit || chosenQuestion.time_limit || 20);
+    setPhase('question-reveal');
+    setIsCountingDown(true);
+    setTimerActive(false);
+  }, [phase, allQuestions, selectedCatIds, allCategories, turnTimeLimit]);
 
   const handleStartClassicQuestion = useCallback(() => {
     if (phase !== 'idle') return;
@@ -868,6 +934,13 @@ export default function LocalGameMode({
       sfx.playWrong();
     }
 
+    if (quizFormat === 'blocks' && activeBlockId) {
+      setBlocks(prev => prev.map(b => b.id === activeBlockId ? {
+        ...b,
+        status: isCorrect ? 'correct' : 'wrong',
+      } : b));
+    }
+
     setPlayers(prev => {
       const next = [...prev];
       if (next.length > 0 && next[0]) {
@@ -891,6 +964,14 @@ export default function LocalGameMode({
     if (phase !== 'question-first') return;
     setTimerActive(false);
     sfx.playTimeout();
+
+    if (quizFormat === 'blocks' && activeBlockId) {
+      setBlocks(prev => prev.map(b => b.id === activeBlockId ? {
+        ...b,
+        status: 'wrong',
+      } : b));
+    }
+
     setPlayers(prev => {
       const next = [...prev];
       if (next.length > 0 && next[0]) {
@@ -916,6 +997,34 @@ export default function LocalGameMode({
     }
     setRoundResult(null);
     setFirstFailed(false);
+
+    if (quizFormat === 'blocks') {
+      const remaining = blocks.filter(b => b.id !== activeBlockId && b.status === 'unrevealed');
+      if (remaining.length === 0) {
+        setPhase('finished');
+        setLocalScreen('podium');
+        sfx.stopGameSound();
+        sfx.playVictory();
+        setTimeout(() => {
+          const end = Date.now() + 4000;
+          const frame = () => {
+            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+            if (Date.now() < end) requestAnimationFrame(frame);
+          };
+          frame();
+          confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+        }, 300);
+        return;
+      }
+      setActiveBlockId(null);
+      setCurrentQuestion(null);
+      setSelectedCategory(null);
+      setRoundStarterIndex(prev => (prev + 1) % players.length);
+      setCurrentRound(r => r + 1);
+      setPhase('idle');
+      return;
+    }
 
     if (currentRound >= totalRounds) {
       setPhase('finished');
@@ -944,6 +1053,17 @@ export default function LocalGameMode({
     setTimerActive(false);
     setPhase('round-result');
     const awardedPoints = firstFailed ? pointsOnPass : pointsPerCorrect;
+
+    if (quizFormat === 'blocks' && activeBlockId) {
+      const isCorrect = scorerIndex !== null;
+      const responderName = scorerIndex !== null ? players[scorerIndex]?.name : undefined;
+      setBlocks(prev => prev.map(b => b.id === activeBlockId ? {
+        ...b,
+        status: isCorrect ? 'correct' : 'wrong',
+        answeredByTeamName: responderName,
+      } : b));
+    }
+
     const projectedTie = scorerIndex === null
       ? (players[0]?.score === players[1]?.score)
       : ((players[0]?.score || 0) + (scorerIndex === 0 ? awardedPoints : 0) === (players[1]?.score || 0) + (scorerIndex === 1 ? awardedPoints : 0));
@@ -971,6 +1091,35 @@ export default function LocalGameMode({
     roundCompletionTimerRef.current = setTimeout(() => {
       roundCompletionTimerRef.current = null;
       setRoundResult(null);
+
+      if (quizFormat === 'blocks') {
+        const remaining = blocks.filter(b => b.id !== activeBlockId && b.status === 'unrevealed');
+        if (remaining.length === 0) {
+          setPhase('finished');
+          setLocalScreen('podium');
+          sfx.stopGameSound();
+          sfx.playVictory();
+          setTimeout(() => {
+            const end = Date.now() + 4000;
+            const frame = () => {
+              confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+              confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+              if (Date.now() < end) requestAnimationFrame(frame);
+            };
+            frame();
+            confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
+          }, 300);
+          return;
+        }
+        setActiveBlockId(null);
+        setCurrentQuestion(null);
+        setSelectedCategory(null);
+        setRoundStarterIndex(prev => (prev + 1) % players.length);
+        setCurrentRound(r => r + 1);
+        setPhase('idle');
+        return;
+      }
+
       if (currentRound >= totalRounds) {
         if (projectedTie && tiePolicy === 'extra' && playMode === 'teams') {
           setTotalRounds(rounds => rounds + 1);
@@ -1731,8 +1880,8 @@ export default function LocalGameMode({
           </header>
         )}
 
-        {/* ── Lateral Esquerda (Apenas no Modo Equipes) ── */}
-        {playMode === 'teams' && (
+        {/* ── Lateral Esquerda (Apenas no Modo Equipes, exceto quando estiver no tabuleiro de blocos) ── */}
+        {playMode === 'teams' && (quizFormat !== 'blocks' || (phase !== 'idle' && phase !== 'spinning')) && (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start',
             padding: '32px 24px', background: 'rgba(0,0,0,0.3)',
@@ -1818,9 +1967,37 @@ export default function LocalGameMode({
 
           <AnimatePresence mode="wait">
 
-            {/* IDLE + SPINNING — Quiz Clássico ou Roleta */}
+            {/* IDLE + SPINNING — Quiz Clássico, Modo Blocos ou Roleta */}
             {(phase === 'idle' || phase === 'spinning') && (
-              quizFormat === 'classic' ? (
+              quizFormat === 'blocks' ? (
+                /* Tabuleiro de Blocos Numerados Estilo Kahoot */
+                <motion.div
+                  key="blocks-board"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                >
+                  <BlocksBoardView
+                    blocks={blocks}
+                    activeTeamIndex={roundStarterIndex}
+                    teams={players.map((p, idx) => ({
+                      id: `team-${idx}`,
+                      name: p.name,
+                      score: p.score,
+                    }))}
+                    isIndividual={playMode === 'individual'}
+                    onSelectBlock={handleSelectBlock}
+                    onFinishGame={() => {
+                      setPhase('finished');
+                      setLocalScreen('podium');
+                      sfx.stopGameSound();
+                      sfx.playVictory();
+                    }}
+                    soundEnabled={soundEnabled}
+                  />
+                </motion.div>
+              ) : quizFormat === 'classic' ? (
                 /* Card do Quiz Clássico (Direto nas perguntas) */
                 <motion.div key="classic-intro"
                   initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}

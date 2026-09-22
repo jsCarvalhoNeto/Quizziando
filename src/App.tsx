@@ -28,6 +28,8 @@ import GameLobbyView from './components/game/GameLobbyView';
 import WelcomeView from './components/game/WelcomeView';
 import { motion, AnimatePresence } from 'framer-motion';
 import KahootCountdown from './components/KahootCountdown';
+import { BlocksBoardView } from './components/game/BlocksBoardView';
+import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -1071,7 +1073,10 @@ Garanta que:
   };
 
   // Estados de Partida Ativa
-  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette'>('classic');
+  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette' | 'blocks'>('classic');
+  const [blocksCount, setBlocksCount] = useState<number>(12);
+  const [hostBlocks, setHostBlocks] = useState<QuizBlockItem[]>([]);
+  const [activeHostBlockId, setActiveHostBlockId] = useState<string | null>(null);
   const [localPlayMode, setLocalPlayMode] = useState<'teams' | 'individual'>('teams');
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
@@ -2083,29 +2088,36 @@ Garanta que:
     });
   };
 
-  // Iniciar a Pergunta no Quiz Clássico (Estilo Kahoot - sem roleta)
-  const handleStartClassicQuestion = async () => {
+  // Iniciar a Pergunta no Quiz Clássico ou Modo Blocos
+  const handleStartClassicQuestion = async (questionIdOverride?: string) => {
     if (hostBusyRef.current || roundState !== 'idle') return;
 
-    let pool = questions.filter(q =>
-      selectedCategoryIds.includes(q.category_id) &&
-      matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter) &&
-      !usedQuestionIdsRef.current.includes(q.id)
-    );
+    let selectedQ: Question | undefined;
+    if (questionIdOverride) {
+      selectedQ = questions.find(q => q.id === questionIdOverride);
+    }
 
-    if (pool.length === 0) {
-      pool = questions.filter(q =>
+    if (!selectedQ) {
+      let pool = questions.filter(q =>
         selectedCategoryIds.includes(q.category_id) &&
-        matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)
+        matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter) &&
+        !usedQuestionIdsRef.current.includes(q.id)
       );
-    }
 
-    if (pool.length === 0) {
-      setGameError('Nenhuma pergunta disponível para os filtros e categorias selecionados.');
-      return;
-    }
+      if (pool.length === 0) {
+        pool = questions.filter(q =>
+          selectedCategoryIds.includes(q.category_id) &&
+          matchesQuestionFilters(q, selectedQuestionIds, difficultyFilter, tagFilter)
+        );
+      }
 
-    const selectedQ = pool[0] || pool[Math.floor(Math.random() * pool.length)];
+      if (pool.length === 0) {
+        setGameError('Nenhuma pergunta disponível para os filtros e categorias selecionados.');
+        return;
+      }
+
+      selectedQ = pool[0] || pool[Math.floor(Math.random() * pool.length)];
+    }
     const cat = categories.find(c => c.id === selectedQ.category_id) || {
       id: selectedQ.category_id,
       name: 'Quiz',
@@ -2723,15 +2735,30 @@ Garanta que:
     sfx.playClick();
   };
 
-  const handleStartClassicGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', playMode?: 'teams' | 'individual') => {
+  const handleStartClassicGame = async (
+    categoryIds: string[],
+    mode: 'online' | 'local' | 'hybrid',
+    playMode?: 'teams' | 'individual',
+    format: 'classic' | 'blocks' = 'classic',
+    totalBlocks: number = 12
+  ) => {
     if (categoryIds.length < 1) {
-      alert('Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.');
+      alert(format === 'blocks' ? 'Para jogar o Modo Blocos, selecione pelo menos 1 quiz.' : 'Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.');
       return;
     }
-    setQuizFormat('classic');
+    setQuizFormat(format);
+    setBlocksCount(totalBlocks || 12);
     setSelectedCategoryIds(categoryIds);
     if (playMode) {
       setLocalPlayMode(playMode);
+    }
+
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+
+    if (format === 'blocks') {
+      const generated = generateQuizBlocks(catQuestions.length > 0 ? catQuestions : questions, totalBlocks || 12);
+      setHostBlocks(generated);
+      setActiveHostBlockId(null);
     }
 
     // 1. Modo Local (Offline)
@@ -2752,13 +2779,14 @@ Garanta que:
     setShowQuizConfigModal(false);
     sfx.playClick();
 
-    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
     if (catQuestions.length === 0) {
       alert('O quiz selecionado não possui perguntas cadastradas.');
       return;
     }
 
-    const roundsCount = Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
+    const roundsCount = format === 'blocks'
+      ? Math.max(1, Math.min(catQuestions.length, totalBlocks || 12))
+      : Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
     setGameRounds(roundsCount);
 
     try {
@@ -2938,6 +2966,12 @@ Garanta que:
         title: `Rodada ${nextRound} de ${gameRounds}`,
         subtitle: roundsLeft === 0 ? `Última rodada! ${randomMsg}` : `Faltam ${roundsLeft} rodadas. ${randomMsg}`
       });
+
+      if (quizFormat === 'blocks' && activeHostBlockId) {
+        const anyCorrect = activePlayers.some(p => p.stats?.answers?.[currentRoundIndex] === true);
+        setHostBlocks(prev => prev.map(b => b.id === activeHostBlockId ? { ...b, state: anyCorrect ? 'correct' : 'wrong' } : b));
+        setActiveHostBlockId(null);
+      }
 
       await publishRoomState({ round_state: 'idle', current_round: nextRound });
       if (currentQuestion) markQuestionUsed(currentQuestion.id);
@@ -3222,6 +3256,7 @@ Garanta que:
             }))}
             initialSelectedCategoryIds={selectedCategoryIds}
             quizFormat={quizFormat}
+            initialBlocksCount={blocksCount}
             initialPlayMode={localPlayMode}
             soundEnabled={soundEnabled}
             onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
@@ -3701,9 +3736,44 @@ Garanta que:
                 )}
 
 
-              {/* APRESENTAÇÃO DA RODADA: QUIZ CLÁSSICO (SEM ROLETA) OU ROLETA DE CATEGORIAS */}
+              {/* APRESENTAÇÃO DA RODADA: MODO BLOCOS, QUIZ CLÁSSICO OU ROLETA */}
               {(roundState === 'idle' || roundState === 'spinning') ? (
-                quizFormat === 'classic' ? (
+                quizFormat === 'blocks' ? (
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: '32px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '32px',
+                      border: '4px solid rgba(124, 58, 237, 0.45)',
+                      position: 'relative',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                      background: 'radial-gradient(ellipse at 50% 40%, #1e1b4b 0%, #0f172a 100%)',
+                      minHeight: '380px',
+                      width: '100%',
+                    }}
+                  >
+                    <BlocksBoardView
+                      blocks={hostBlocks}
+                      teams={activePlayers.map((p, idx) => ({
+                        id: p.id || `p-${idx}`,
+                        name: p.nickname || `Jogador ${idx + 1}`,
+                        score: p.score || 0,
+                      }))}
+                      onSelectBlock={(block) => {
+                        setActiveHostBlockId(block.id);
+                        void handleStartClassicQuestion(block.questionId);
+                      }}
+                      onFinishGame={async () => {
+                        await handleNextRound();
+                      }}
+                      soundEnabled={soundEnabled}
+                    />
+                  </div>
+                ) : quizFormat === 'classic' ? (
                   <div 
                     style={{ 
                       flex: 1, 
@@ -3765,7 +3835,7 @@ Garanta que:
                       {role === 'operator' && (
                         <button
                           type="button"
-                          onClick={handleStartClassicQuestion}
+                          onClick={() => void handleStartClassicQuestion()}
                           disabled={hostBusy}
                           style={{
                             height: '54px',

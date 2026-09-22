@@ -17,6 +17,7 @@ import {
   Minimize2,
   User,
   Zap,
+  LayoutGrid,
   X
 } from 'lucide-react';
 import { type GamePlayer } from '../../App';
@@ -32,19 +33,18 @@ interface GameLobbyViewProps {
   role: 'operator' | 'player';
   roomCode: string;
   roomLink: string;
-  spectatorLink: string;
+  spectatorLink?: string;
   linkCopied: boolean;
   onCopyLink: () => void;
   activePlayers: GamePlayer[];
-  onlineCount: number;
+  onlineCount?: number;
   onlinePlayerIds: string[];
-  totalAnswered: number;
   onRemovePlayer: (id: string) => void;
   onStartMatch: () => void;
   onBack: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
-  hybridMode: boolean;
+  hybridMode?: boolean;
   gameRounds: number;
   selectedCategoryIds: string[];
   categories: CategoryItem[];
@@ -56,11 +56,13 @@ interface GameLobbyViewProps {
   onToggleAutoReveal: () => void;
   nickname?: string;
   getAvatarUrl: (nickname: string) => string;
-  quizFormat?: 'classic' | 'roulette';
+  quizFormat?: 'classic' | 'roulette' | 'blocks';
+  totalAnswered?: number;
 }
 
 export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
   role,
+  totalAnswered: _totalAnswered,
   roomCode,
   roomLink,
   spectatorLink,
@@ -194,16 +196,16 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 fontWeight: 800,
                 padding: '2px 8px',
                 borderRadius: '999px',
-                backgroundColor: quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
-                border: `1px solid ${quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
-                color: quizFormat === 'classic' ? '#34d399' : '#c084fc',
+                backgroundColor: quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.25)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                border: `1px solid ${quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.5)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
+                color: quizFormat === 'blocks' ? '#a78bfa' : quizFormat === 'classic' ? '#34d399' : '#c084fc',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 display: 'none',
               }}
               className="md:inline-block"
             >
-              {quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
+              {quizFormat === 'blocks' ? '🧱 Modo Blocos' : quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
             </span>
           </div>
         </div>
@@ -712,8 +714,14 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 gap: '6px',
               }}
             >
-              {quizFormat === 'classic' ? <Zap style={{ width: '13px', height: '13px', color: '#34d399' }} /> : <RotateCw style={{ width: '13px', height: '13px', color: '#c084fc' }} />}
-              <span>{quizFormat === 'classic' ? 'Quiz Clássico (Sem Roleta)' : 'Quiz com Roleta'}</span>
+              {quizFormat === 'blocks' ? (
+                <LayoutGrid style={{ width: '13px', height: '13px', color: '#a78bfa' }} />
+              ) : quizFormat === 'classic' ? (
+                <Zap style={{ width: '13px', height: '13px', color: '#34d399' }} />
+              ) : (
+                <RotateCw style={{ width: '13px', height: '13px', color: '#c084fc' }} />
+              )}
+              <span>{quizFormat === 'blocks' ? 'Modo Blocos (Kahoot)' : quizFormat === 'classic' ? 'Quiz Clássico (Sem Roleta)' : 'Quiz com Roleta'}</span>
             </span>
 
             <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>

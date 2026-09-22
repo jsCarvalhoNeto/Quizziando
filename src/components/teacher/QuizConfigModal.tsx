@@ -5,17 +5,18 @@ import {
   Bookmark, 
   Clock, 
   Award, 
-  Settings2,
   Zap,
-  RotateCw
+  RotateCw,
+  LayoutGrid,
+  Settings2
 } from 'lucide-react';
 
 interface QuizConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStartGame: () => void;
-  quizFormat?: 'classic' | 'roulette';
-  setQuizFormat?: (format: 'classic' | 'roulette') => void;
+  quizFormat?: 'classic' | 'roulette' | 'blocks';
+  setQuizFormat?: (format: 'classic' | 'roulette' | 'blocks') => void;
   gameMode: 'duel' | 'team' | 'open';
   setGameMode: (mode: 'duel' | 'team' | 'open') => void;
   gameRounds: number;
@@ -109,10 +110,10 @@ export const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
               <label className="text-xs font-bold text-slate-300 uppercase block mb-1.5 flex items-center justify-between">
                 <span>Formato da Partida</span>
                 <span className="text-[10px] text-purple-400 font-semibold lowercase">
-                  {quizFormat === 'classic' ? 'direto nas perguntas' : 'sorteio de temas'}
+                  {quizFormat === 'classic' ? 'direto nas perguntas' : quizFormat === 'blocks' ? 'tabuleiro de blocos' : 'sorteio de temas'}
                 </span>
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setQuizFormat?.('classic')}
@@ -122,12 +123,30 @@ export const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
                       : 'border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Zap className={`w-4 h-4 ${quizFormat === 'classic' ? 'text-emerald-400' : 'text-slate-400'}`} />
-                    <span className="text-xs font-extrabold">Quiz Clássico</span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Zap className={`w-3.5 h-3.5 ${quizFormat === 'classic' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                    <span className="text-xs font-extrabold">Clássico</span>
                   </div>
-                  <p className="text-[10px] text-slate-300/80 leading-snug">
-                    Estilo Kahoot. Perguntas em sequência, direto ao ponto e sem roleta.
+                  <p className="text-[9px] text-slate-300/80 leading-snug">
+                    Perguntas em sequência sem roleta.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQuizFormat?.('blocks')}
+                  className={`p-2.5 text-left rounded-xl border transition-all ${
+                    quizFormat === 'blocks'
+                      ? 'border-purple-500 bg-purple-500/20 text-white shadow-md shadow-purple-500/20'
+                      : 'border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <LayoutGrid className={`w-3.5 h-3.5 ${quizFormat === 'blocks' ? 'text-purple-400' : 'text-slate-400'}`} />
+                    <span className="text-xs font-extrabold">Blocos</span>
+                  </div>
+                  <p className="text-[9px] text-slate-300/80 leading-snug">
+                    Perguntas viradas com sinais + e -.
                   </p>
                 </button>
 
@@ -136,16 +155,16 @@ export const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
                   onClick={() => setQuizFormat?.('roulette')}
                   className={`p-2.5 text-left rounded-xl border transition-all ${
                     quizFormat === 'roulette'
-                      ? 'border-purple-500 bg-purple-500/20 text-white shadow-md shadow-purple-500/20'
+                      ? 'border-indigo-500 bg-indigo-500/20 text-white shadow-md shadow-indigo-500/20'
                       : 'border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <RotateCw className={`w-4 h-4 ${quizFormat === 'roulette' ? 'text-purple-400' : 'text-slate-400'}`} />
-                    <span className="text-xs font-extrabold">Quiz com Roleta</span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <RotateCw className={`w-3.5 h-3.5 ${quizFormat === 'roulette' ? 'text-indigo-400' : 'text-slate-400'}`} />
+                    <span className="text-xs font-extrabold">Roleta</span>
                   </div>
-                  <p className="text-[10px] text-slate-300/80 leading-snug">
-                    Sorteador com roleta giratória entre categorias a cada rodada.
+                  <p className="text-[9px] text-slate-300/80 leading-snug">
+                    Sorteio de categorias por roleta.
                   </p>
                 </button>
               </div>
