@@ -6,7 +6,7 @@ import {
   Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X,
-  Hand, Users, Zap
+  Hand, Users, Zap, RotateCcw, Target, BarChart3
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2624,57 +2624,139 @@ export default function LocalGameMode({
       const results = players.map(player => player.roundResults[index]).filter(result => result?.answered);
       return { id, question, answered: results.length, correct: results.filter(result => result.correct).length };
     }).filter(item => item.question);
+
     const categoryReport = allCategories.map(category => {
       const rows = questionReport.filter(row => row.question?.category_id === category.id);
       return { category, answered: rows.reduce((sum, row) => sum + row.answered, 0), correct: rows.reduce((sum, row) => sum + row.correct, 0) };
     }).filter(item => item.answered > 0);
 
+    const totalAnswered = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.answered).length, 0);
+    const totalCorrect = players.reduce((sum, p) => sum + p.roundResults.filter(r => r.correct).length, 0);
+    const overallPct = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
+
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <div className="glass-card p-16 flex flex-col gap-16">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        style={{ maxWidth: 1100, margin: '20px auto', width: '100%', padding: '0 16px' }}
+      >
+        <div style={{
+          background: 'linear-gradient(165deg, #0b1120 0%, #0f172a 45%, #1e1b4b 100%)',
+          borderRadius: 28,
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+          padding: '44px 36px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 32,
+          color: '#ffffff',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Brilho decorativo no topo */}
+          <div style={{
+            position: 'absolute', top: -120, left: '50%', transform: 'translateX(-50%)',
+            width: 500, height: 220,
+            background: playMode === 'individual'
+              ? 'radial-gradient(circle, rgba(56, 189, 248, 0.2) 0%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(251, 191, 36, 0.2) 0%, transparent 70%)',
+            pointerEvents: 'none', filter: 'blur(60px)'
+          }} />
+
           {playMode === 'individual' ? (
             /* Cabeçalho Modo Individual (Auditório) */
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 80, marginBottom: 16 }}>🎓</div>
-              <h2 style={{ fontSize: 56, fontWeight: 900, color: 'white', margin: 0 }}>
+            <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+              <div style={{
+                width: 76, height: 76, borderRadius: '50%',
+                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(124, 58, 237, 0.25) 100%)',
+                border: '2px solid rgba(56, 189, 248, 0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 38, margin: '0 auto 16px',
+                boxShadow: '0 0 30px rgba(56, 189, 248, 0.25)'
+              }}>
+                🎓
+              </div>
+              <h2 style={{ fontSize: 42, fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
                 Sessão Concluída!
               </h2>
-              <p style={{ fontSize: 24, color: 'rgba(148,163,184,0.8)', marginTop: 12 }}>
-                Todas as {totalRounds} perguntas do quiz foram apresentadas ao auditório.
+              <p style={{ fontSize: 18, color: '#cbd5e1', marginTop: 10, fontWeight: 500, maxWidth: 640, marginInline: 'auto', lineHeight: 1.5 }}>
+                Todas as <strong style={{ color: '#38bdf8', fontWeight: 800 }}>{totalRounds}</strong> perguntas do quiz foram apresentadas ao auditório.
               </p>
             </div>
           ) : (
             /* Cabeçalho Modo Equipes (Competição) */
-            <div style={{ textAlign: 'center' }}>
-              <Crown style={{ width: 112, height: 112, color: '#FBBF24', margin: '0 auto 24px', filter: 'drop-shadow(0 0 16px rgba(251,191,36,0.5))' }} />
-              <h2 style={{ fontSize: 64, fontWeight: 900, color: 'white', margin: 0 }}>
+            <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+              <Crown style={{ width: 84, height: 84, color: '#FBBF24', margin: '0 auto 16px', filter: 'drop-shadow(0 0 20px rgba(251,191,36,0.6))' }} />
+              <h2 style={{ fontSize: 46, fontWeight: 900, color: '#ffffff', margin: 0, letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
                 {isTie ? '🤝 Empate!' : `🏆 ${winner.name} venceu!`}
               </h2>
-              <p style={{ fontSize: 28, color: 'rgba(148,163,184,0.7)', marginTop: 16 }}>
-                {totalRounds} rodadas concluídas
+              <p style={{ fontSize: 18, color: '#cbd5e1', marginTop: 10, fontWeight: 500 }}>
+                {totalRounds} rodadas concluídas com sucesso
               </p>
             </div>
           )}
 
-          {/* Conteúdo Central */}
+          {/* Destaque Central */}
           {playMode === 'individual' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center' }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: 16,
+              width: '100%',
+              maxWidth: 820,
+              margin: '0 auto',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              {/* Card 1: Perguntas Apresentadas */}
               <div style={{
-                padding: '32px 48px', borderRadius: 24,
-                background: 'rgba(56, 189, 248, 0.08)', border: '1.5px solid rgba(56, 189, 248, 0.25)',
-                textAlign: 'center', maxWidth: 480, width: '100%'
+                padding: '20px 24px', borderRadius: 18,
+                background: '#1e293b', border: '1px solid rgba(56, 189, 248, 0.3)',
+                textAlign: 'center', boxShadow: '0 6px 18px rgba(0,0,0,0.2)'
               }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   Perguntas Apresentadas
                 </span>
-                <p style={{ margin: '8px 0 0', fontSize: 56, fontWeight: 900, color: 'white', fontFamily: 'monospace' }}>
+                <p style={{ margin: '6px 0 0', fontSize: 40, fontWeight: 900, color: '#ffffff', fontFamily: 'monospace' }}>
                   {totalRounds}
+                </p>
+              </div>
+
+              {/* Card 2: Acertos Registrados */}
+              <div style={{
+                padding: '20px 24px', borderRadius: 18,
+                background: '#1e293b', border: '1px solid rgba(16, 185, 129, 0.3)',
+                textAlign: 'center', boxShadow: '0 6px 18px rgba(0,0,0,0.2)'
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Acertos do Auditório
+                </span>
+                <p style={{ margin: '6px 0 0', fontSize: 40, fontWeight: 900, color: '#ffffff', fontFamily: 'monospace' }}>
+                  {totalCorrect} <span style={{ fontSize: 18, color: '#94a3b8', fontWeight: 600 }}>/ {totalAnswered || totalRounds}</span>
+                </p>
+              </div>
+
+              {/* Card 3: Taxa de Aproveitamento */}
+              <div style={{
+                padding: '20px 24px', borderRadius: 18,
+                background: '#1e293b', border: '1px solid rgba(168, 85, 247, 0.3)',
+                textAlign: 'center', boxShadow: '0 6px 18px rgba(0,0,0,0.2)'
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Taxa de Acertos
+                </span>
+                <p style={{
+                  margin: '6px 0 0', fontSize: 40, fontWeight: 900,
+                  color: overallPct >= 70 ? '#34d399' : overallPct >= 40 ? '#facc15' : '#f87171',
+                  fontFamily: 'monospace'
+                }}>
+                  {overallPct}%
                 </p>
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, position: 'relative', zIndex: 1 }}>
               {[0, 1].map(i => {
                 const isWinner = !isTie && players[i]?.name === winner.name;
                 return (
@@ -2682,33 +2764,34 @@ export default function LocalGameMode({
                     initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: i * 0.15 }}
                     style={{
-                      padding: '44px', borderRadius: 40,
-                      background: isWinner ? TEAM_BG[i] : 'rgba(255,255,255,0.03)',
-                      border: `2px solid ${isWinner ? TEAM_COLORS[i] + '80' : 'rgba(255,255,255,0.06)'}`,
+                      padding: '36px 28px', borderRadius: 24,
+                      background: isWinner ? TEAM_BG[i] : '#1e293b',
+                      border: `2px solid ${isWinner ? TEAM_COLORS[i] : 'rgba(255,255,255,0.08)'}`,
                       textAlign: 'center', position: 'relative',
-                      boxShadow: isWinner ? `0 8px 32px ${TEAM_COLORS[i]}30` : 'none'
+                      boxShadow: isWinner ? `0 10px 30px ${TEAM_COLORS[i]}35` : '0 6px 20px rgba(0,0,0,0.25)'
                     }}>
                     {isWinner && (
-                      <div style={{ position: 'absolute', top: -28, left: '50%', transform: 'translateX(-50%)',
-                        background: TEAM_COLORS[i], borderRadius: 999, padding: '6px 28px',
-                        fontSize: 22, fontWeight: 900, color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      <div style={{ position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%)',
+                        background: TEAM_COLORS[i], borderRadius: 999, padding: '4px 22px',
+                        fontSize: 16, fontWeight: 900, color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                        boxShadow: `0 4px 14px ${TEAM_COLORS[i]}60` }}>
                         🏆 Vencedor
                       </div>
                     )}
-                    <p style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    <p style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {players[i]?.name}
                     </p>
-                    <p style={{ margin: 0, fontSize: 104, fontWeight: 900, color: isWinner ? TEAM_COLORS[i] : 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>
+                    <p style={{ margin: 0, fontSize: 80, fontWeight: 900, color: isWinner ? TEAM_COLORS[i] : '#ffffff', fontFamily: 'monospace', lineHeight: 1 }}>
                       {players[i]?.score}
                     </p>
-                    <p style={{ margin: '4px 0 0', fontSize: 22, color: 'rgba(148,163,184,0.4)' }}>pontos</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 16, color: '#94a3b8', fontWeight: 600 }}>pontos</p>
 
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 24 }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20 }}>
                       {players[i]?.roundResults.map((r, ri) => (
                         <div key={ri} style={{
-                          width: 24, height: 24, borderRadius: 6,
-                          background: r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.08)',
-                          border: `2px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.06)'}`
+                          width: 22, height: 22, borderRadius: 6,
+                          background: r.correct ? TEAM_COLORS[i] : r.answered ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                          border: `1.5px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? '#f87171' : 'rgba(255,255,255,0.15)'}`
                         }} title={`R${ri + 1}: ${r.correct ? 'Acertou' : r.answered ? 'Errou' : '-'}`} />
                       ))}
                     </div>
@@ -2718,48 +2801,177 @@ export default function LocalGameMode({
             </div>
           )}
 
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, color: '#CBD5E1' }}>
-            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
-              <h3 style={{ color: 'white' }}>{playMode === 'individual' ? 'Desempenho dos participantes' : 'Desempenho dos times'}</h3>
-              {players.map(player => {
-                const answered = player.roundResults.filter(result => result.answered).length;
-                const correct = player.roundResults.filter(result => result.correct).length;
-                return (
-                  <p key={player.name}>
-                    {player.name}: {correct}/{answered} acertos ({answered ? Math.round(correct / answered * 100) : 0}%)
-                    {playMode === 'teams' ? ` · ${player.score} pontos` : ''}
-                  </p>
-                );
-              })}
+          {/* Seção de Relatórios com Alto Contraste */}
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, position: 'relative', zIndex: 1 }}>
+            {/* Card 1: Desempenho */}
+            <div style={{
+              padding: 22, borderRadius: 20,
+              background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 6px 16px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 14
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
+                <Users style={{ width: 18, height: 18, color: '#38bdf8' }} />
+                <h3 style={{ color: '#ffffff', fontSize: 16, fontWeight: 800, margin: 0 }}>
+                  {playMode === 'individual' ? 'Desempenho dos Participantes' : 'Desempenho dos Times'}
+                </h3>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {players.map(player => {
+                  const answered = player.roundResults.filter(result => result.answered).length;
+                  const correct = player.roundResults.filter(result => result.correct).length;
+                  const pct = answered ? Math.round(correct / answered * 100) : 0;
+                  return (
+                    <div key={player.name} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '10px 14px', borderRadius: 12,
+                      background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(255, 255, 255, 0.06)'
+                    }}>
+                      <span style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 14 }}>
+                        {player.name}
+                        {playMode === 'teams' ? ` (${player.score} pts)` : ''}
+                      </span>
+                      <span style={{
+                        background: pct >= 70 ? 'rgba(16, 185, 129, 0.2)' : pct >= 40 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                        color: pct >= 70 ? '#34d399' : pct >= 40 ? '#fcd34d' : '#fca5a5',
+                        border: `1px solid ${pct >= 70 ? 'rgba(16, 185, 129, 0.4)' : pct >= 40 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+                        padding: '4px 10px', borderRadius: 8, fontSize: 13, fontWeight: 800
+                      }}>
+                        {correct}/{answered} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
-              <h3 style={{ color: 'white' }}>Acertos por categoria</h3>
-              {categoryReport.map(row => <p key={row.category.id}>{row.category.name}: {row.correct}/{row.answered} ({Math.round(row.correct / row.answered * 100)}%)</p>)}
+
+            {/* Card 2: Categorias */}
+            <div style={{
+              padding: 22, borderRadius: 20,
+              background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 6px 16px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 14
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
+                <Target style={{ width: 18, height: 18, color: '#a855f7' }} />
+                <h3 style={{ color: '#ffffff', fontSize: 16, fontWeight: 800, margin: 0 }}>Acertos por Categoria</h3>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {categoryReport.length === 0 ? (
+                  <p style={{ color: '#94a3b8', fontSize: 13, margin: 0, fontStyle: 'italic' }}>Nenhuma categoria registrada.</p>
+                ) : (
+                  categoryReport.map(row => {
+                    const pct = Math.round(row.correct / row.answered * 100);
+                    return (
+                      <div key={row.category.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', borderRadius: 12,
+                        background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        <span style={{ color: '#f1f5f9', fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+                          {row.category.name}
+                        </span>
+                        <span style={{
+                          background: 'rgba(168, 85, 247, 0.2)', color: '#d8b4fe',
+                          border: '1px solid rgba(168, 85, 247, 0.4)',
+                          padding: '4px 10px', borderRadius: 8, fontSize: 13, fontWeight: 800
+                        }}>
+                          {row.correct}/{row.answered} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
-            <div style={{ padding: 24, borderRadius: 18, background: 'rgba(255,255,255,0.05)' }}>
-              <h3 style={{ color: 'white' }}>Questões mais difíceis</h3>
-              {questionReport.filter(row => row.answered > 0).sort((a, b) => a.correct / a.answered - b.correct / b.answered).map(row => <p key={row.id}>{row.question?.question_text}: {row.correct}/{row.answered} acertos</p>)}
+
+            {/* Card 3: Questões */}
+            <div style={{
+              padding: 22, borderRadius: 20,
+              background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 6px 16px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 14
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 10 }}>
+                <BarChart3 style={{ width: 18, height: 18, color: '#f59e0b' }} />
+                <h3 style={{ color: '#ffffff', fontSize: 16, fontWeight: 800, margin: 0 }}>Questões Apresentadas</h3>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+                {questionReport.filter(row => row.answered > 0).length === 0 ? (
+                  <p style={{ color: '#94a3b8', fontSize: 13, margin: 0, fontStyle: 'italic' }}>Nenhuma questão com resposta registrada.</p>
+                ) : (
+                  questionReport.filter(row => row.answered > 0)
+                    .sort((a, b) => a.correct / a.answered - b.correct / b.answered)
+                    .map(row => (
+                      <div key={row.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                        padding: '10px 12px', borderRadius: 12,
+                        background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        <span style={{
+                          color: '#e2e8f0', fontSize: 13, fontWeight: 500,
+                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3
+                        }} title={row.question?.question_text}>
+                          {row.question?.question_text}
+                        </span>
+                        <span style={{
+                          background: row.correct === 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                          color: row.correct === 0 ? '#fca5a5' : '#6ee7b7',
+                          border: `1px solid ${row.correct === 0 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
+                          padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 800, whiteSpace: 'nowrap'
+                        }}>
+                          {row.correct}/{row.answered} acertos
+                        </span>
+                      </div>
+                    ))
+                )}
+              </div>
             </div>
           </section>
 
-          <div style={{ display: 'flex', gap: 24 }}>
-            <button onClick={resetGame}
+          {/* Botões de Ação */}
+          <div style={{ display: 'flex', gap: 16, position: 'relative', zIndex: 1, marginTop: 4 }}>
+            <button
+              onClick={resetGame}
               style={{
-                flex: 1, padding: '28px', borderRadius: 28,
-                background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.35)',
-                color: '#A78BFA', fontWeight: 800, fontSize: 30, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16
-              }}>
-              🔄 Jogar Novamente
+                flex: 1, padding: '18px 28px', borderRadius: 16,
+                background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                border: 'none', color: '#ffffff', fontWeight: 800, fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                boxShadow: '0 8px 24px -4px rgba(124, 58, 237, 0.5)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 12px 28px -4px rgba(124, 58, 237, 0.65)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 8px 24px -4px rgba(124, 58, 237, 0.5)';
+              }}
+            >
+              <RotateCcw style={{ width: 22, height: 22 }} />
+              <span>Jogar Novamente</span>
             </button>
-            <button onClick={onBack}
+
+            <button
+              onClick={onBack}
               style={{
-                flex: 1, padding: '28px', borderRadius: 28,
-                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(148,163,184,0.8)', fontWeight: 700, fontSize: 30, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16
-              }}>
-              <Home style={{ width: 36, height: 36 }} /> Início
+                flex: 1, padding: '18px 28px', borderRadius: 16,
+                background: '#334155', border: '1px solid rgba(255,255,255,0.14)',
+                color: '#ffffff', fontWeight: 700, fontSize: 18, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#475569';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#334155';
+                e.currentTarget.style.transform = 'none';
+              }}
+            >
+              <Home style={{ width: 22, height: 22 }} />
+              <span>Início</span>
             </button>
           </div>
         </div>
