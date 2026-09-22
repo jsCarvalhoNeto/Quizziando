@@ -23,6 +23,7 @@ import LoginPortal from './components/auth/LoginPortal';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import QuizConfigModal from './components/teacher/QuizConfigModal';
 import CreateQuizModal from './components/teacher/CreateQuizModal';
+import EditQuizModal from './components/teacher/EditQuizModal';
 import GameLobbyView from './components/game/GameLobbyView';
 import WelcomeView from './components/game/WelcomeView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -620,6 +621,9 @@ export default function App() {
   const [studentRoomCode, setStudentRoomCode] = useState<string | null>(null);
   const [showQuizConfigModal, setShowQuizConfigModal] = useState(false);
   const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
+  const [showEditQuizModal, setShowEditQuizModal] = useState(false);
+  const [editingQuizCategory, setEditingQuizCategory] = useState<Category | null>(null);
+  const [editingSavedQuiz, setEditingSavedQuiz] = useState<SavedQuiz | null>(null);
   const [hybridMode, setHybridMode] = useState(false);
 
   const handleReturnToSelectMode = () => {
@@ -2165,10 +2169,189 @@ Garanta que:
   };
 
   const handleEditQuizFromDashboard = (quiz: SavedQuiz) => {
-    const effectiveCatId = quiz.categoryIds?.[0] || quiz.id;
-    setManagerQCatId(effectiveCatId);
-    setManagerSelectedCatFilter(effectiveCatId);
-    handleOpenQuestionManager('bank');
+    setEditingSavedQuiz(quiz);
+    const matchedCat = categories.find(c => quiz.categoryIds?.includes(c.id));
+    setEditingQuizCategory(matchedCat || null);
+    setShowEditQuizModal(true);
+    sfx.playClick();
+  };
+
+  const handleSaveEditedQuizSubmit = async (payload: {
+    targetId: string;
+    isCategory: boolean;
+    name: string;
+    folderId: string | null;
+    color?: string;
+    finalQuestionIds: string[];
+    editedQuestions: Question[];
+    newQuestions: Array<Omit<Question, 'id'>>;
+    removedQuestionIds: string[];
+  }) => {
+    const {
+      targetId,
+      isCategory,
+      name,
+      folderId,
+      color,
+      finalQuestionIds,
+      editedQuestions,
+      newQuestions,
+      removedQuestionIds
+    } = payload;
+
+    // 1. Atualizar Categoria (se for categoria / quiz principal)
+    if (isCategory) {
+      if (useRealSupabase) {
+        try {
+          await supabase
+            .from('categories')
+            .update({
+              name,
+              folder_id: folderId || null,
+              color: color || '#46178F'
+            })
+            .eq('id', targetId);
+        } catch (err) {
+          console.error('Erro ao atualizar categoria no Supabase:', err);
+        }
+      }
+
+      setCategories(prev => prev.map(c => 
+        c.id === targetId ? { ...c, name, folder_id: folderId || null, color: color || c.color } : c
+      ));
+    }
+
+    // 2. Perguntas Removidas do Quiz
+    if (removedQuestionIds.length > 0) {
+      const uncat = categories.find(c => c.id !== targetId && c.name.trim().toLowerCase() === 'sem categoria');
+      const uncatId = uncat ? uncat.id : null;
+
+      if (useRealSupabase && uncatId) {
+        try {
+          await supabase
+            .from('questions')
+            .update({ category_id: uncatId })
+            .in('id', removedQuestionIds);
+        } catch (err) {
+          console.error('Erro ao desvincular perguntas no Supabase:', err);
+        }
+      }
+
+      setQuestions(prev => prev.map(q => 
+        removedQuestionIds.includes(q.id) ? { ...q, category_id: uncatId || '' } : q
+      ));
+    }
+
+    // 3. Perguntas Importadas
+    const importedIds = finalQuestionIds.filter(id => {
+      const q = questions.find(item => item.id === id);
+      return q && q.category_id !== targetId;
+    });
+
+    if (importedIds.length > 0) {
+      if (useRealSupabase) {
+        try {
+          await supabase
+            .from('questions')
+            .update({ category_id: targetId })
+            .in('id', importedIds);
+        } catch (err) {
+          console.error('Erro ao vincular perguntas importadas no Supabase:', err);
+        }
+      }
+
+      setQuestions(prev => prev.map(q => 
+        importedIds.includes(q.id) ? { ...q, category_id: targetId } : q
+      ));
+    }
+
+    // 4. Perguntas Editadas
+    if (editedQuestions.length > 0) {
+      for (const eq of editedQuestions) {
+        if (useRealSupabase) {
+          try {
+            await supabase.rpc('quiz_save_question', {
+              p_question_id: eq.id,
+              p_category_id: targetId,
+              p_question_text: eq.question_text.trim(),
+              p_time_limit: eq.time_limit,
+              p_explanation: eq.explanation?.trim() || null,
+              p_reference_url: eq.reference_url?.trim() || null,
+              p_difficulty: eq.difficulty || 'medium',
+              p_tags: eq.tags || [],
+              p_alternatives: eq.alternatives.map(a => ({ text: a.text, isCorrect: a.isCorrect }))
+            });
+          } catch (err) {
+            console.error('Erro ao salvar edição de pergunta no Supabase:', err);
+          }
+        }
+
+        setQuestions(prev => prev.map(q => q.id === eq.id ? eq : q));
+      }
+    }
+
+    // 5. Novas Perguntas Criadas
+    if (newQuestions.length > 0) {
+      const createdObjects: Question[] = [];
+
+      for (const nq of newQuestions) {
+        let createdId: string = crypto.randomUUID();
+
+        if (useRealSupabase) {
+          try {
+            const { data, error } = await supabase.rpc('quiz_save_question', {
+              p_question_id: null,
+              p_category_id: targetId,
+              p_question_text: nq.question_text.trim(),
+              p_time_limit: nq.time_limit,
+              p_explanation: nq.explanation?.trim() || null,
+              p_reference_url: null,
+              p_difficulty: nq.difficulty || 'medium',
+              p_tags: [],
+              p_alternatives: nq.alternatives.map(a => ({ text: a.text, isCorrect: a.isCorrect }))
+            });
+
+            if (!error && data) {
+              createdId = String(data);
+            }
+          } catch (err) {
+            console.error('Erro ao salvar nova pergunta no Supabase:', err);
+          }
+        }
+
+        const newObj: Question = {
+          id: createdId,
+          category_id: targetId,
+          question_text: nq.question_text,
+          time_limit: nq.time_limit,
+          explanation: nq.explanation || null,
+          reference_url: null,
+          difficulty: nq.difficulty,
+          tags: [],
+          alternatives: nq.alternatives
+        };
+
+        createdObjects.push(newObj);
+      }
+
+      setQuestions(prev => [...prev, ...createdObjects]);
+    }
+
+    // 6. Sincronizar SavedQuiz se aplicável
+    const existingSavedQuiz = savedQuizzes.find(sq => sq.id === targetId || sq.categoryIds?.includes(targetId));
+    if (existingSavedQuiz) {
+      const updatedSq: SavedQuiz = {
+        ...existingSavedQuiz,
+        name,
+        folderId: folderId || null,
+        questionIds: finalQuestionIds,
+        rounds: Math.max(1, Math.min(20, finalQuestionIds.length || 10)),
+      };
+      const updatedList = saveQuiz(updatedSq);
+      setSavedQuizzes(updatedList);
+    }
+
+    sfx.playCorrect();
   };
 
   const handleDuplicateQuizFromDashboard = (quizId: string) => {
@@ -2486,9 +2669,10 @@ Garanta que:
   };
 
   const handleEditCategoryQuestions = (category: Category) => {
-    setManagerQCatId(category.id);
-    setManagerSelectedCatFilter(category.id);
-    handleOpenQuestionManager('bank');
+    setEditingQuizCategory(category);
+    setEditingSavedQuiz(null);
+    setShowEditQuizModal(true);
+    sfx.playClick();
   };
 
   const handleStartClassicGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid') => {
@@ -3308,6 +3492,21 @@ Garanta que:
               categories={categories}
               questions={questions}
               onSaveQuiz={handleCreateQuizSubmit}
+            />
+
+            <EditQuizModal
+              isOpen={showEditQuizModal}
+              onClose={() => {
+                setShowEditQuizModal(false);
+                setEditingQuizCategory(null);
+                setEditingSavedQuiz(null);
+              }}
+              category={editingQuizCategory}
+              savedQuiz={editingSavedQuiz}
+              folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
+              allCategories={categories}
+              allQuestions={questions}
+              onSave={handleSaveEditedQuizSubmit}
             />
 
             <QuizConfigModal

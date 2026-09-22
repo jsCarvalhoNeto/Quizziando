@@ -961,11 +961,40 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                         {cat.name}
                       </h3>
 
-                      {/* Menu 3 Pontinhos */}
-                      <div 
-                        style={{ position: 'relative' }}
-                        data-category-menu-container={cat.id}
-                      >
+                      {/* Ações: Botão Editar Quiz e Menu 3 Pontinhos */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        {onEditCategory && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditCategory(cat);
+                            }}
+                            style={{
+                              padding: '4px',
+                              borderRadius: '6px',
+                              color: '#94a3b8',
+                              border: 'none',
+                              background: 'transparent',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = '#7c3aed'; e.currentTarget.style.backgroundColor = '#faf5ff'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                            title="Editar Quiz (nome, pasta, questões)"
+                          >
+                            <Edit3 style={{ width: '15px', height: '15px' }} />
+                          </button>
+                        )}
+
+                        {/* Menu 3 Pontinhos */}
+                        <div 
+                          style={{ position: 'relative' }}
+                          data-category-menu-container={cat.id}
+                        >
                         <button
                           type="button"
                           onClick={() => setOpenMenuCatId(isMenuOpen ? null : cat.id)}
@@ -1082,62 +1111,33 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             </button>
 
                             {onEditCategory && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenMenuCatId(null);
-                                    onEditCategory(cat);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '8px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    color: '#7c3aed',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                                >
-                                  <PlusCircle style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
-                                  <span>Criar Questões</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenMenuCatId(null);
-                                    onEditCategory(cat);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '8px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    color: '#334155',
-                                    border: 'none',
-                                    background: 'transparent',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                                >
-                                  <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
-                                  <span>Ver Perguntas ({totalQ})</span>
-                                </button>
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuCatId(null);
+                                  onEditCategory(cat);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  color: '#7c3aed',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                              >
+                                <Edit3 style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                                <span>Editar Quiz</span>
+                              </button>
                             )}
 
                             {/* Separador */}
@@ -1175,6 +1175,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                         )}
                       </div>
                     </div>
+                  </div>
 
                     {/* Pasta Associada com Bolinha de Cor */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>

@@ -241,18 +241,18 @@ export const QuizCard: React.FC<QuizCardProps> = ({
                       padding: '8px 10px',
                       borderRadius: '6px',
                       fontSize: '12px',
-                      fontWeight: 600,
-                      color: '#334155',
+                      fontWeight: 700,
+                      color: '#7c3aed',
                       border: 'none',
                       background: 'transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
-                    <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
-                    <span>Editar Perguntas</span>
+                    <Edit3 style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                    <span>Editar Quiz</span>
                   </button>
                 )}
                 <button
@@ -492,56 +492,30 @@ export const QuizCard: React.FC<QuizCardProps> = ({
                     <span>Jogar Agora</span>
                   </button>
                   {onEdit && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => { setShowMenu(false); onEdit(quiz); }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#7c3aed',
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                      >
-                        <PlusCircle style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
-                        <span>Criar Questões</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowMenu(false); onEdit(quiz); }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '8px 10px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: '#334155',
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                      >
-                        <Edit3 style={{ width: '14px', height: '14px', color: '#0284c7' }} />
-                        <span>Editar Perguntas</span>
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => { setShowMenu(false); onEdit(quiz); }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#7c3aed',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#faf5ff')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <Edit3 style={{ width: '14px', height: '14px', color: '#7c3aed' }} />
+                      <span>Editar Quiz</span>
+                    </button>
                   )}
                   <button
                     type="button"
