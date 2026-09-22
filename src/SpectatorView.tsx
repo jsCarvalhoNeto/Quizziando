@@ -25,6 +25,15 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [countdownSeconds] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('quizziando_countdown_seconds');
+      const n = saved ? parseInt(saved, 10) : 7;
+      return Number.isFinite(n) && n >= 2 && n <= 60 ? n : 7;
+    } catch {
+      return 7;
+    }
+  });
 
   useEffect(() => {
     let stopped = false;
@@ -443,7 +452,7 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
             {/* Contagem regressiva estilo Kahoot durante question-reveal */}
             {room.round_state === 'question-reveal' && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', padding: '30px 0' }}>
-                <KahootCountdown seconds={7} soundEnabled={true} />
+                <KahootCountdown seconds={countdownSeconds} soundEnabled={true} />
               </div>
             )}
 

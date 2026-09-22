@@ -62,6 +62,15 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [roomMode, setRoomMode] = useState<OnlineRoom['game_mode'] | null>(null);
   const [joinError, setJoinError] = useState('');
   const [joining, setJoining] = useState(false);
+  const [countdownSeconds] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('quizziando_countdown_seconds');
+      const n = saved ? parseInt(saved, 10) : 7;
+      return Number.isFinite(n) && n >= 2 && n <= 60 ? n : 7;
+    } catch {
+      return 7;
+    }
+  });
 
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [myScore, setMyScore] = useState(0);
@@ -492,7 +501,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             {roomState.current_question.question_text}
           </h3>
           <div style={{ marginTop: 'auto', marginBottom: 'auto', display: 'flex', justifyContent: 'center' }}>
-            <KahootCountdown seconds={7} soundEnabled={true} />
+            <KahootCountdown seconds={countdownSeconds} soundEnabled={true} />
           </div>
         </div>
       </div>

@@ -29,7 +29,8 @@ import {
   ExternalLink,
   BookOpen,
   Loader2,
-  Sliders
+  Sliders,
+  Clock
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, GAME_THEMES, sfx } from '../../App';
@@ -84,6 +85,8 @@ interface TeacherDashboardProps {
   onToggleSound?: () => void;
   gameTheme?: string;
   onSelectGameTheme?: (theme: string) => void;
+  countdownSeconds?: number;
+  onUpdateCountdownSeconds?: (seconds: number) => void;
 }
 
 const FOLDER_COLORS = [
@@ -138,6 +141,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onToggleSound,
   gameTheme = 'default',
   onSelectGameTheme,
+  countdownSeconds = 7,
+  onUpdateCountdownSeconds,
 }) => {
   const [activeNav, setActiveNav] = useState<'library' | 'launch' | 'active_rooms'>('library');
   const [isLibraryExpanded, setIsLibraryExpanded] = useState(true);
@@ -1032,6 +1037,147 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         >
                           Gerenciar
                         </button>
+                      </div>
+
+                      {/* Contagem Pré-Questão (Estilo Kahoot) */}
+                      <div 
+                        style={{
+                          padding: '14px',
+                          borderRadius: '12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div 
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '8px',
+                                backgroundColor: '#ede9fe',
+                                color: '#6d28d9',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Clock style={{ width: '18px', height: '18px' }} />
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'block' }}>
+                                Contagem Pré-Questão
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#64748b' }}>
+                                Animação estilo Kahoot antes das alternativas
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: '#46178f',
+                            color: '#ffffff',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            fontWeight: 800,
+                            fontSize: '12px',
+                          }}>
+                            {countdownSeconds}s
+                          </div>
+                        </div>
+
+                        {/* Seletor rápido de tempo */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', paddingTop: '4px', borderTop: '1px dashed #e2e8f0' }}>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {[3, 5, 7, 10, 15].map((sec) => (
+                              <button
+                                key={sec}
+                                type="button"
+                                onClick={() => {
+                                  if (onUpdateCountdownSeconds) onUpdateCountdownSeconds(sec);
+                                  sfx.playClick();
+                                }}
+                                style={{
+                                  padding: '4px 9px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: countdownSeconds === sec ? 800 : 600,
+                                  backgroundColor: countdownSeconds === sec ? '#6d28d9' : '#ffffff',
+                                  color: countdownSeconds === sec ? '#ffffff' : '#475569',
+                                  border: `1px solid ${countdownSeconds === sec ? '#6d28d9' : '#cbd5e1'}`,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                {sec}s
+                              </button>
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onUpdateCountdownSeconds && countdownSeconds > 2) {
+                                  onUpdateCountdownSeconds(countdownSeconds - 1);
+                                  sfx.playClick();
+                                }
+                              }}
+                              disabled={countdownSeconds <= 2}
+                              title="Diminuir 1 segundo"
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                backgroundColor: '#ffffff',
+                                color: '#334155',
+                                fontWeight: 800,
+                                fontSize: '13px',
+                                cursor: countdownSeconds <= 2 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              -
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onUpdateCountdownSeconds && countdownSeconds < 60) {
+                                  onUpdateCountdownSeconds(countdownSeconds + 1);
+                                  sfx.playClick();
+                                }
+                              }}
+                              disabled={countdownSeconds >= 60}
+                              title="Aumentar 1 segundo"
+                              style={{
+                                width: '26px',
+                                height: '26px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                backgroundColor: '#ffffff',
+                                color: '#334155',
+                                fontWeight: 800,
+                                fontSize: '13px',
+                                cursor: countdownSeconds >= 60 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

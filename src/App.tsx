@@ -411,6 +411,17 @@ export default function App() {
     if (typeof window === 'undefined') return null;
     try { return localStorage.getItem('customThemeImg'); } catch { return null; }
   });
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(() => {
+    const saved = localStorage.getItem('quizziando_countdown_seconds');
+    const n = saved ? parseInt(saved, 10) : 7;
+    return Number.isFinite(n) && n >= 2 && n <= 60 ? n : 7;
+  });
+
+  const handleUpdateCountdownSeconds = (sec: number) => {
+    const clamped = Math.max(2, Math.min(60, sec));
+    setCountdownSeconds(clamped);
+    localStorage.setItem('quizziando_countdown_seconds', String(clamped));
+  };
 
   // Resolve o fundo do tema atual (suporta o tema 'custom')
   const activeThemeBg = gameTheme === 'custom' ? 'transparent' : (GAME_THEMES[gameTheme]?.bg || '#2a1b54');
@@ -2066,7 +2077,7 @@ Garanta que:
         await publishRoomState({ round_state: 'category-reveal', current_question: { id: selectedQ.id } });
         later(2200, async () => {
           await publishRoomState({ round_state: 'question-reveal' });
-          later(7500, async () => { await publishRoomState({ round_state: 'question' }); setPlayerAnswered(null); });
+          later((countdownSeconds * 1000) + 500, async () => { await publishRoomState({ round_state: 'question' }); setPlayerAnswered(null); });
         });
       });
     });
@@ -2129,7 +2140,7 @@ Garanta que:
           await publishRoomState({ round_state: 'question-reveal' });
 
           // Passo 4: Abre as alternativas para os competidores responderem
-          later(7500, async () => {
+          later((countdownSeconds * 1000) + 500, async () => {
             sfx.playGameSound();
             await publishRoomState({ round_state: 'question' });
             setPlayerAnswered(null);
@@ -3528,6 +3539,8 @@ Garanta que:
                 localStorage.setItem('gameTheme', theme);
                 sfx.playClick();
               }}
+              countdownSeconds={countdownSeconds}
+              onUpdateCountdownSeconds={handleUpdateCountdownSeconds}
             />
 
             <CreateQuizModal
@@ -4215,11 +4228,11 @@ Garanta que:
                     </h3>
                   </div>
 
-                  {/* Animação Estilo Kahoot (7 a 1) antes de mostrar as alternativas */}
+                  {/* Animação Estilo Kahoot antes de mostrar as alternativas */}
                   {roundState === 'question-reveal' && (
                     <div className="my-auto flex-1 flex flex-col items-center justify-center py-6">
                       <KahootCountdown
-                        seconds={7}
+                        seconds={countdownSeconds}
                         soundEnabled={sfx.enabled}
                         onComplete={async () => {
                           if (role === 'operator') {
@@ -5259,6 +5272,65 @@ Garanta que:
                           {soundEnabled ? 'Som ativado' : 'Som desativado'}
                         </span>
                       </button>
+                    </div>
+
+                    {/* Contagem Pré-Questão */}
+                    <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-1">Contagem Pré-Questão</h4>
+                        <p className="text-[11px] text-slate-400">Duração da animação estilo Kahoot antes da liberação das alternativas.</p>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
+                        <div className="flex gap-2">
+                          {[3, 5, 7, 10, 15].map((sec) => (
+                            <button
+                              key={sec}
+                              onClick={() => {
+                                handleUpdateCountdownSeconds(sec);
+                                sfx.playClick();
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                countdownSeconds === sec
+                                  ? 'bg-[hsl(var(--primary))] text-white shadow-md'
+                                  : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                              }`}
+                            >
+                              {sec}s
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              if (countdownSeconds > 2) {
+                                handleUpdateCountdownSeconds(countdownSeconds - 1);
+                                sfx.playClick();
+                              }
+                            }}
+                            disabled={countdownSeconds <= 2}
+                            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40 text-white font-bold flex items-center justify-center text-sm"
+                          >
+                            -
+                          </button>
+                          <span className="font-mono font-extrabold text-sm text-[hsl(var(--primary))] px-2">
+                            {countdownSeconds}s
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (countdownSeconds < 60) {
+                                handleUpdateCountdownSeconds(countdownSeconds + 1);
+                                sfx.playClick();
+                              }
+                            }}
+                            disabled={countdownSeconds >= 60}
+                            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40 text-white font-bold flex items-center justify-center text-sm"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                   </div>

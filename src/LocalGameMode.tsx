@@ -220,6 +220,16 @@ export default function LocalGameMode({
   const [pointsPerCorrect, setPointsPerCorrect] = useState(100);
   const [pointsOnPass, setPointsOnPass] = useState(100);
   const [turnTimeLimit, setTurnTimeLimit] = useState(20);
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(() => {
+    const saved = localStorage.getItem('quizziando_countdown_seconds');
+    const n = saved ? parseInt(saved, 10) : 7;
+    return Number.isFinite(n) && n >= 2 && n <= 60 ? n : 7;
+  });
+  const handleUpdateCountdownSeconds = (sec: number) => {
+    const clamped = Math.max(2, Math.min(60, sec));
+    setCountdownSeconds(clamped);
+    localStorage.setItem('quizziando_countdown_seconds', String(clamped));
+  };
   const [quickMode, setQuickMode] = useState(false);
   const [tiePolicy, setTiePolicy] = useState<'shared' | 'extra'>('shared');
   const transitionMs = (normal: number) => quickMode ? Math.max(250, Math.round(normal * 0.25)) : normal;
@@ -342,7 +352,7 @@ export default function LocalGameMode({
 
   // Estados de configurações (Modo Local)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [settingsActiveTab, setSettingsActiveTab] = useState<'appearance'>('appearance');
+  const [settingsActiveTab, setSettingsActiveTab] = useState<'general' | 'appearance'>('general');
   const [bgImage, setBgImage] = useState<string | null>(() => localStorage.getItem('local_roulette_bg') || null);
 
   useEffect(() => {
@@ -2064,7 +2074,7 @@ export default function LocalGameMode({
                 {isCountingDown ? (
                   <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <KahootCountdown
-                      seconds={7}
+                      seconds={countdownSeconds}
                       soundEnabled={soundEnabled}
                       onComplete={() => {
                         setIsCountingDown(false);
@@ -2435,6 +2445,19 @@ export default function LocalGameMode({
                 {/* Sidebar */}
                 <div style={{ width: '33.33%', borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(8,12,28,0.4)', padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <button
+                    onClick={() => { setSettingsActiveTab('general'); sfx.playClick(); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, textAlign: 'left', cursor: 'pointer',
+                      background: settingsActiveTab === 'general' ? 'rgba(255,255,255,0.05)' : 'transparent',
+                      color: settingsActiveTab === 'general' ? '#818cf8' : '#94a3b8',
+                      borderLeft: settingsActiveTab === 'general' ? '2px solid #6366f1' : '2px solid transparent'
+                    }}
+                  >
+                    <Settings style={{ width: 16, height: 16 }} />
+                    Geral
+                  </button>
+
+                  <button
                     onClick={() => { setSettingsActiveTab('appearance'); sfx.playClick(); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, textAlign: 'left', cursor: 'pointer',
@@ -2449,6 +2472,100 @@ export default function LocalGameMode({
                 </div>
                 {/* Content */}
                 <div style={{ width: '66.66%', padding: 24, overflowY: 'auto' }}>
+                  {settingsActiveTab === 'general' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeInModal 0.25s ease' }}>
+                      {/* Efeitos Sonoros */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div>
+                          <h4 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: '0 0 4px 0' }}>Efeitos Sonoros</h4>
+                          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Ative ou silencie os sons do jogo local.</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            onToggleSound();
+                            sfx.playClick();
+                          }}
+                          style={{
+                            padding: '10px 16px', borderRadius: 10,
+                            background: soundEnabled ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
+                            border: `1px solid ${soundEnabled ? '#6366f1' : 'rgba(255,255,255,0.1)'}`,
+                            color: soundEnabled ? '#a5b4fc' : '#94a3b8',
+                            fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content'
+                          }}
+                        >
+                          {soundEnabled ? <Volume2 style={{ width: 16, height: 16 }} /> : <VolumeX style={{ width: 16, height: 16 }} />}
+                          <span>{soundEnabled ? 'Sons Ativados' : 'Sons Desativados'}</span>
+                        </button>
+                      </div>
+
+                      {/* Contagem Pré-Questão */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <h4 style={{ color: 'white', fontWeight: 700, fontSize: 14, margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <Clock style={{ width: 16, height: 16, color: '#818cf8' }} />
+                              Contagem Pré-Questão
+                            </h4>
+                            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Duração da animação estilo Kahoot antes das alternativas.</p>
+                          </div>
+                          <span style={{ background: '#46178f', color: 'white', padding: '4px 10px', borderRadius: 8, fontWeight: 800, fontSize: 12 }}>
+                            {countdownSeconds}s
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[3, 5, 7, 10, 15].map((sec) => (
+                              <button
+                                key={sec}
+                                onClick={() => {
+                                  handleUpdateCountdownSeconds(sec);
+                                  sfx.playClick();
+                                }}
+                                style={{
+                                  padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: countdownSeconds === sec ? 800 : 600,
+                                  background: countdownSeconds === sec ? '#6366f1' : 'rgba(255,255,255,0.05)',
+                                  color: countdownSeconds === sec ? '#ffffff' : '#94a3b8',
+                                  border: `1px solid ${countdownSeconds === sec ? '#818cf8' : 'rgba(255,255,255,0.1)'}`,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {sec}s
+                              </button>
+                            ))}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={() => {
+                                if (countdownSeconds > 2) {
+                                  handleUpdateCountdownSeconds(countdownSeconds - 1);
+                                  sfx.playClick();
+                                }
+                              }}
+                              disabled={countdownSeconds <= 2}
+                              style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: countdownSeconds <= 2 ? 'not-allowed' : 'pointer', fontWeight: 800 }}
+                            >
+                              -
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (countdownSeconds < 60) {
+                                  handleUpdateCountdownSeconds(countdownSeconds + 1);
+                                  sfx.playClick();
+                                }
+                              }}
+                              disabled={countdownSeconds >= 60}
+                              style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', cursor: countdownSeconds >= 60 ? 'not-allowed' : 'pointer', fontWeight: 800 }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {settingsActiveTab === 'appearance' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeInModal 0.25s ease' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
