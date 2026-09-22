@@ -443,7 +443,7 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
             {/* Contagem regressiva estilo Kahoot durante question-reveal */}
             {room.round_state === 'question-reveal' && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', padding: '30px 0' }}>
-                <KahootCountdown seconds={3} soundEnabled={true} />
+                <KahootCountdown seconds={7} soundEnabled={true} />
               </div>
             )}
 

@@ -2066,7 +2066,7 @@ Garanta que:
         await publishRoomState({ round_state: 'category-reveal', current_question: { id: selectedQ.id } });
         later(2200, async () => {
           await publishRoomState({ round_state: 'question-reveal' });
-          later(5000, async () => { await publishRoomState({ round_state: 'question' }); setPlayerAnswered(null); });
+          later(7500, async () => { await publishRoomState({ round_state: 'question' }); setPlayerAnswered(null); });
         });
       });
     });
@@ -2129,7 +2129,7 @@ Garanta que:
           await publishRoomState({ round_state: 'question-reveal' });
 
           // Passo 4: Abre as alternativas para os competidores responderem
-          later(3500, async () => {
+          later(7500, async () => {
             sfx.playGameSound();
             await publishRoomState({ round_state: 'question' });
             setPlayerAnswered(null);
@@ -4215,11 +4215,11 @@ Garanta que:
                     </h3>
                   </div>
 
-                  {/* Animação Estilo Kahoot (3, 2, 1) antes de mostrar as alternativas */}
+                  {/* Animação Estilo Kahoot (7 a 1) antes de mostrar as alternativas */}
                   {roundState === 'question-reveal' && (
                     <div className="my-auto flex-1 flex flex-col items-center justify-center py-6">
                       <KahootCountdown
-                        seconds={3}
+                        seconds={7}
                         soundEnabled={sfx.enabled}
                         onComplete={async () => {
                           if (role === 'operator') {

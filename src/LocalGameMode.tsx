@@ -2064,7 +2064,7 @@ export default function LocalGameMode({
                 {isCountingDown ? (
                   <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <KahootCountdown
-                      seconds={3}
+                      seconds={7}
                       soundEnabled={soundEnabled}
                       onComplete={() => {
                         setIsCountingDown(false);

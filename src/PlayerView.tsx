@@ -492,7 +492,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             {roomState.current_question.question_text}
           </h3>
           <div style={{ marginTop: 'auto', marginBottom: 'auto', display: 'flex', justifyContent: 'center' }}>
-            <KahootCountdown seconds={3} soundEnabled={true} />
+            <KahootCountdown seconds={7} soundEnabled={true} />
           </div>
         </div>
       </div>

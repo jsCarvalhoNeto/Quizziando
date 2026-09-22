@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface KahootCountdownProps {
-  /** Duração em segundos da contagem (padrão: 3) */
+  /** Duração em segundos da contagem (padrão: 7) */
   seconds?: number;
   /** Chamado assim que a contagem chega ao fim */
   onComplete?: () => void;
@@ -40,13 +40,17 @@ class CountdownAudio {
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    // Frequências crescentes conforme a contagem avança (estilo Kahoot)
+    // Frequências crescentes conforme a contagem avança de 7 até 1 (estilo Kahoot)
     const freqs: Record<number, number> = {
-      3: 440, // A4
+      7: 330,    // E4
+      6: 370,    // F#4
+      5: 392,    // G4
+      4: 415.3,  // G#4
+      3: 440,    // A4
       2: 523.25, // C5
       1: 659.25, // E5
     };
-    const freq = freqs[number] || 480;
+    const freq = freqs[number] || 440;
 
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
@@ -85,7 +89,7 @@ class CountdownAudio {
 const countdownSfx = new CountdownAudio();
 
 export const KahootCountdown: React.FC<KahootCountdownProps> = ({
-  seconds = 3,
+  seconds = 7,
   onComplete,
   soundEnabled = true,
   title,
