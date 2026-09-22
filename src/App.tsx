@@ -1238,6 +1238,17 @@ Garanta que:
     sfx.enabled = soundEnabled;
   }, [soundEnabled]);
 
+  // Sincroniza a cor de fundo do documento para manter harmonia e eliminar faixas escuras
+  useEffect(() => {
+    const isLightScreen = screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby';
+    document.body.style.backgroundColor = isLightScreen ? '#f4f5f8' : '';
+    document.documentElement.style.backgroundColor = isLightScreen ? '#f4f5f8' : '';
+    return () => {
+      document.body.style.backgroundColor = '';
+      document.documentElement.style.backgroundColor = '';
+    };
+  }, [screen]);
+
   // Simular a entrada de jogadores reais via Supabase Realtime
   useEffect(() => {
     if (screen !== 'game-lobby' || role !== 'operator' || !roomCode) return;
@@ -3327,7 +3338,7 @@ Garanta que:
 
   return (
     <div className={`min-h-screen flex flex-col justify-between ${isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? '' : 'app-container'}`}
-      style={isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? { maxWidth: '100%', margin: 0, padding: '0', backgroundColor: (screen === 'game-lobby' || screen === 'welcome') ? '#f8fafc' : undefined } : undefined}
+      style={isGamePlayFullscreen || screen === 'operator-dashboard' || screen === 'game-lobby' || screen === 'welcome' ? { maxWidth: '100%', margin: 0, padding: '0', backgroundColor: (screen === 'game-lobby' || screen === 'welcome' || screen === 'operator-dashboard') ? '#f4f5f8' : undefined } : undefined}
     >
       {gameError && <div role="alert" style={{ position: 'fixed', top: 12, left: '10%', right: '10%', zIndex: 9999, background: '#451a1a', color: 'white', padding: 16, borderRadius: 12 }}>
         <p>{gameError}</p>
@@ -3395,7 +3406,7 @@ Garanta que:
       </header>
 
       {/* CONTEÚDO PRINCIPAL DINÂMICO */}
-      <main className={`flex-grow flex flex-col justify-center ${isGamePlayFullscreen || screen === 'operator-dashboard' ? 'py-0' : 'py-4'}`}>
+      <main className={`flex-grow flex flex-col ${screen === 'operator-dashboard' ? 'justify-start py-0' : (isGamePlayFullscreen ? 'justify-center py-0' : 'justify-center py-4')}`}>
         
         {/* ==========================================
             1. TELA DE ENTRADA (WELCOME)
@@ -3424,7 +3435,7 @@ Garanta que:
             2. PAINEL DE CONTROLE DO OPERADOR
             ========================================== */}
         {screen === 'operator-dashboard' && (
-          <div className="w-full min-h-screen flex flex-col">
+          <div className="w-full flex-1 flex flex-col">
             <TeacherDashboard
               teacherEmail={authUser?.email || 'professor@quizziando.com'}
               quizzes={savedQuizzes}
@@ -4792,14 +4803,49 @@ Garanta que:
 
       </main>
 
-      {/* FOOTER — oculto durante game-play fullscreen */}
-      <footer className="text-center py-4 border-t border-[hsl(var(--border-color))] mt-6 text-xs text-[hsl(var(--text-muted))] flex flex-col sm:flex-row justify-between items-center gap-2"
-        style={isGamePlayFullscreen ? { display: 'none' } : undefined}
+      {/* FOOTER — compacto e perfeitamente integrado ao layout */}
+      <footer 
+        style={isGamePlayFullscreen ? { display: 'none' } : {
+          padding: '8px 24px',
+          fontSize: '11px',
+          fontWeight: 500,
+          borderTop: (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') 
+            ? '1px solid #e2e8f0' 
+            : '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') 
+            ? '#ffffff' 
+            : 'rgba(5, 8, 20, 0.95)',
+          color: (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') 
+            ? '#64748b' 
+            : 'hsl(var(--text-muted))',
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+          marginTop: 0,
+          flexShrink: 0,
+          width: '100%',
+          boxSizing: 'border-box',
+          lineHeight: '1.4',
+        }}
       >
         <span>© 2026 Quizziando. Criado com design de alta fidelidade e tempo real.</span>
-        <div className="flex gap-4">
-          <span className="hover:text-[hsl(var(--text-primary))] transition cursor-pointer">Termos</span>
-          <span className="hover:text-[hsl(var(--text-primary))] transition cursor-pointer">Privacidade</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span 
+            style={{ cursor: 'pointer', transition: 'color 0.15s ease' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') ? '#46178f' : '#ffffff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') ? '#64748b' : 'inherit'; }}
+          >
+            Termos
+          </span>
+          <span 
+            style={{ cursor: 'pointer', transition: 'color 0.15s ease' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') ? '#46178f' : '#ffffff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = (screen === 'operator-dashboard' || screen === 'welcome' || screen === 'game-lobby') ? '#64748b' : 'inherit'; }}
+          >
+            Privacidade
+          </span>
         </div>
       </footer>
 

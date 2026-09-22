@@ -195,7 +195,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   return (
     <div 
       style={{
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 38px)',
+        flex: 1,
         width: '100%',
         backgroundColor: '#f4f5f8',
         color: '#1e293b',
