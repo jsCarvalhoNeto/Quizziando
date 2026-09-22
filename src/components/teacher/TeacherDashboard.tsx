@@ -9,7 +9,6 @@ import {
   Wifi, 
   Monitor, 
   Users, 
-  Search, 
   Radio, 
   Folder, 
   FolderPlus, 
@@ -143,7 +142,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   const [activeNav, setActiveNav] = useState<'library' | 'launch' | 'active_rooms'>('library');
   const [isLibraryExpanded, setIsLibraryExpanded] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [globalSearch, setGlobalSearch] = useState('');
 
   // Estados do Menu Popover de Configurações no Painel
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -245,58 +243,6 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </span>
             </div>
           </div>
-        </div>
-
-        {/* Centro: Barra de Busca Estilo Kahoot! */}
-        <div 
-          style={{
-            flex: 1,
-            maxWidth: '460px',
-            margin: '0 20px',
-            position: 'relative',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-        >
-          <Search 
-            style={{
-              position: 'absolute',
-              left: '14px',
-              width: '16px',
-              height: '16px',
-              color: '#64748b',
-              pointerEvents: 'none',
-            }}
-          />
-          <input 
-            type="text"
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Pesquisar quizzes, conteúdos públicos e temas..."
-            style={{
-              width: '100%',
-              height: '40px',
-              paddingLeft: '40px',
-              paddingRight: '14px',
-              backgroundColor: '#f1f5f9',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              fontSize: '13px',
-              color: '#1e293b',
-              outline: 'none',
-              transition: 'all 0.2s ease',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.backgroundColor = '#ffffff';
-              e.currentTarget.style.borderColor = '#46178f';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(70, 23, 143, 0.12)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.backgroundColor = '#f1f5f9';
-              e.currentTarget.style.borderColor = '#e2e8f0';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          />
         </div>
 
         {/* Lado Direito: Ações Globais & Perfil */}
