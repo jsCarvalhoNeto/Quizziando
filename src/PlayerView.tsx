@@ -987,9 +987,9 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
   },
   answerText: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 15,
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.95)',
     textAlign: 'center',
     lineHeight: 1.3,
     maxWidth: '100%',

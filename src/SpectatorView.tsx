@@ -452,13 +452,20 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                 const isAnsweredState = room.round_state === 'answered';
                 const isCorrect = alt.isCorrect;
 
+                const textLen = (alt.text || '').length;
+                const altFontSize = textLen <= 28
+                  ? 'clamp(24px, 2.5vw, 36px)'
+                  : textLen <= 55
+                  ? 'clamp(20px, 1.9vw, 28px)'
+                  : 'clamp(17px, 1.5vw, 23px)';
+
                 return (
                   <div
                     key={index}
                     style={{
                       background: kTheme.bg,
                       borderRadius: '20px',
-                      padding: '24px 28px',
+                      padding: '24px 30px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -468,25 +475,31 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                       opacity: isAnsweredState ? (isCorrect ? 1 : 0.3) : 1,
                       transform: isAnsweredState && isCorrect ? 'scale(1.02)' : 'none',
                       transition: 'all 0.3s ease',
+                      minHeight: '110px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flex: 1, minWidth: 0 }}>
                       <span
                         style={{
-                          fontSize: '32px',
+                          fontSize: 'clamp(32px, 3vw, 44px)',
                           fontWeight: 900,
                           lineHeight: 1,
                           userSelect: 'none',
+                          flexShrink: 0,
+                          textShadow: '0 2px 6px rgba(0,0,0,0.35)',
                         }}
                       >
                         {kTheme.symbol}
                       </span>
                       <span
                         style={{
-                          fontSize: '22px',
+                          fontSize: altFontSize,
                           fontWeight: 800,
-                          lineHeight: 1.3,
+                          lineHeight: 1.25,
                           color: '#ffffff',
+                          textShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                          wordBreak: 'break-word',
+                          letterSpacing: '-0.01em',
                         }}
                       >
                         {alt.text}

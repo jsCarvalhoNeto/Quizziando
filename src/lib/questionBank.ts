@@ -34,7 +34,7 @@ export function parseQuestionBank(raw: string): QuestionBank {
       !Number.isInteger(question.time_limit) || question.time_limit < 5 || question.time_limit > 600 ||
       !Array.isArray(question.alternatives) || question.alternatives.length !== 4 ||
       question.alternatives.filter(alt => alt?.isCorrect === true).length !== 1 ||
-      question.alternatives.some(alt => typeof alt?.text !== 'string' || !alt.text.trim()) ||
+      question.alternatives.some(alt => typeof alt?.text !== 'string' || !alt.text.trim() || alt.text.trim().length > 80) ||
       (question.difficulty !== undefined && !['easy', 'medium', 'hard'].includes(question.difficulty)) ||
       (question.explanation !== undefined && question.explanation !== null && typeof question.explanation !== 'string') ||
       (question.reference_url !== undefined && question.reference_url !== null && typeof question.reference_url !== 'string') ||

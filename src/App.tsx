@@ -873,7 +873,7 @@ ${contextText.slice(0, 10000)}
 ---` : ''}
 REGRAS IMPORTANTES PARA A GERAÇÃO:
 1. Enunciado da Questão (Pergunta): Limite de 120 caracteres. Seja objetivo, curto e direto, sem longos textos de contextualização.
-2. Alternativas de Resposta: Limite de 75 caracteres por alternativa.
+2. Alternativas de Resposta: LIMITE MÁXIMO RIGOROSO de 80 caracteres por alternativa. Respostas devem ser curtas, diretas, sem prolixidade e equilibradas em tamanho. NUNCA ultrapasse 80 caracteres em nenhuma alternativa.
 3. Alterne sempre a posição das alternativas corretas no array.
 4. Seja o mais objetivo possível e priorize respostas claras e pequenas.
 5. Mantenha o comprimento de todas as alternativas de uma questão rigorosamente balanceado. A diferença de tamanho entre a alternativa mais curta e a mais longa em uma mesma questão não deve ultrapassar 10 a 15 caracteres. As opções incorretas devem ser plausíveis e usar o mesmo nível de vocabulário e detalhamento da opção correta.
@@ -886,10 +886,10 @@ Estrutura JSON:
     "time_limit": 20,
     "explanation": "Explique brevemente por que a alternativa correta está certa.",
     "alternatives": [
-      { "text": "Alternativa correta...", "isCorrect": true },
-      { "text": "Alternativa incorreta 1...", "isCorrect": false },
-      { "text": "Alternativa incorreta 2...", "isCorrect": false },
-      { "text": "Alternativa incorreta 3...", "isCorrect": false }
+      { "text": "Alternativa correta (máx 80 caracteres)...", "isCorrect": true },
+      { "text": "Alternativa incorreta 1 (máx 80 caracteres)...", "isCorrect": false },
+      { "text": "Alternativa incorreta 2 (máx 80 caracteres)...", "isCorrect": false },
+      { "text": "Alternativa incorreta 3 (máx 80 caracteres)...", "isCorrect": false }
     ]
   }
 ]
@@ -899,7 +899,7 @@ Garanta que:
 2. Haja exatamente 4 alternativas por questão.
 3. Exatamente uma alternativa por questão tenha "isCorrect": true, e as outras 3 tenham "isCorrect": false.
 4. Inclua o campo "time_limit" com o valor numérico em segundos de tempo de espera. O padrão é 20.
-5. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil.
+5. As perguntas e alternativas sejam desafiadoras, claras, corretas e redigidas em português do Brasil. Nenhuma alternativa pode passar de 80 caracteres.
 6. Inclua uma explicação curta para revisão humana; não invente referências.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`, {
@@ -971,8 +971,8 @@ Garanta que:
         if (correctCount !== 1 || parsed.alternatives.some((a: any) => typeof a.text !== 'string' || !a.text.trim())) continue;
 
         const updatedAlts = parsed.alternatives.map((alt: any) => ({
-          text: alt.text,
-          isCorrect: alt.isCorrect
+          text: (typeof alt.text === 'string' ? alt.text.trim() : '').slice(0, 80),
+          isCorrect: Boolean(alt.isCorrect)
         }));
 
         newQuestions.push({
@@ -1589,7 +1589,10 @@ Garanta que:
 
   const persistAiDraft = async (draft: Question): Promise<Question> => {
     let savedQuestionId = draft.id || crypto.randomUUID();
-    const alternatives = draft.alternatives.map((alternative) => ({ ...alternative, text: alternative.text.trim() }));
+    const alternatives = draft.alternatives.map((alternative) => ({
+      ...alternative,
+      text: alternative.text.trim().slice(0, 80)
+    }));
 
     if (useRealSupabase) {
       const { data, error } = await supabase.rpc('quiz_save_question', {
@@ -1682,6 +1685,10 @@ Garanta que:
       alert('Preencha todas as 4 alternativas!');
       return;
     }
+    if (managerQAlts.some(a => a.text.trim().length > 80)) {
+      alert('Cada alternativa deve ter no máximo 80 caracteres.');
+      return;
+    }
     if (managerQAlts.filter(a => a.isCorrect).length !== 1) {
       alert('Selecione exatamente uma alternativa correta.');
       return;
@@ -1694,7 +1701,10 @@ Garanta que:
     }
 
     let savedQuestionId = editingQuestionId || Math.random().toString();
-    const updatedAlts = [...managerQAlts];
+    const updatedAlts = managerQAlts.map(alt => ({
+      text: alt.text.trim().slice(0, 80),
+      isCorrect: alt.isCorrect
+    }));
 
     if (useRealSupabase) {
       try {
@@ -1707,7 +1717,7 @@ Garanta que:
           p_reference_url: managerQReference.trim() || null,
           p_difficulty: managerQDifficulty,
           p_tags: managerQTags.split(',').map(tag => tag.trim()).filter(Boolean),
-          p_alternatives: updatedAlts.map(alt => ({ text: alt.text.trim(), isCorrect: alt.isCorrect }))
+          p_alternatives: updatedAlts.map(alt => ({ text: alt.text, isCorrect: alt.isCorrect }))
         });
         if (error || !data) {
           alert('Erro ao salvar pergunta no banco: ' + (error?.message || 'Sem dados'));
@@ -3973,25 +3983,29 @@ Garanta que:
                       const isCorrectAnswer = alt.isCorrect;
                       const theme = KAHOOT_THEMES[index] || KAHOOT_THEMES[0];
                       
+                      const textLen = (alt.text || '').length;
+                      const altFontSize = textLen <= 28
+                        ? 'clamp(24px, 2.5vw, 36px)'
+                        : textLen <= 55
+                        ? 'clamp(20px, 1.9vw, 28px)'
+                        : 'clamp(17px, 1.5vw, 23px)';
+
                       // Estilo base com gradiente inline
                       let btnStyle: React.CSSProperties = {
                         background: theme.gradient,
                         color: 'white',
                         border: '3px solid transparent',
-                        borderRadius: '16px',
-                        padding: '24px 20px',
+                        borderRadius: '20px',
+                        padding: '24px 32px',
                         cursor: role === 'player' && !showAnswers && !playerAnswered ? 'pointer' : 'default',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         textAlign: 'left' as const,
-                        fontWeight: 700,
-                        fontSize: '18px',
-                        lineHeight: 1.4,
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: `0 6px 20px ${theme.shadow}`,
+                        boxShadow: `0 8px 24px ${theme.shadow}`,
                         width: '100%',
-                        minHeight: '100px',
+                        minHeight: '120px',
                         flex: 1,
                         opacity: 1,
                         transform: 'scale(1)',
@@ -4004,7 +4018,7 @@ Garanta que:
                         btnStyle = {
                           ...btnStyle,
                           border: '3px solid white',
-                          boxShadow: `0 0 25px white, 0 6px 20px ${theme.shadow}`,
+                          boxShadow: `0 0 25px white, 0 8px 24px ${theme.shadow}`,
                           transform: 'scale(1.03)',
                         };
                       }
@@ -4015,7 +4029,7 @@ Garanta que:
                           btnStyle = {
                             ...btnStyle,
                             border: '3px solid #48BB78',
-                            boxShadow: `0 0 30px ${theme.shadow}, 0 0 15px rgba(72, 187, 120, 0.5)`,
+                            boxShadow: `0 0 32px ${theme.shadow}, 0 0 16px rgba(72, 187, 120, 0.6)`,
                             transform: 'scale(1.02)',
                           };
                         } else {
@@ -4039,32 +4053,46 @@ Garanta que:
                           onMouseEnter={(e) => {
                             if (role === 'player' && !showAnswers && !playerAnswered) {
                               e.currentTarget.style.transform = 'scale(1.03)';
-                              e.currentTarget.style.boxShadow = `0 8px 28px ${theme.shadow}`;
+                              e.currentTarget.style.boxShadow = `0 10px 30px ${theme.shadow}`;
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (role === 'player' && !showAnswers && !isSelectedBySelf) {
                               e.currentTarget.style.transform = 'scale(1)';
-                              e.currentTarget.style.boxShadow = `0 6px 20px ${theme.shadow}`;
+                              e.currentTarget.style.boxShadow = `0 8px 24px ${theme.shadow}`;
                             }
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flex: 1, minWidth: 0 }}>
                             <span style={{
-                              fontSize: '28px',
+                              fontSize: 'clamp(32px, 3vw, 44px)',
                               fontWeight: 900,
                               userSelect: 'none',
-                              textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                              textShadow: '0 3px 6px rgba(0,0,0,0.35)',
                               lineHeight: 1,
+                              flexShrink: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
                             }}>{theme.icon}</span>
-                            <span style={{ textShadow: '0 1px 3px rgba(0,0,0,0.2)' }}>{alt.text}</span>
+                            <span style={{ 
+                              fontSize: altFontSize,
+                              fontWeight: 800,
+                              lineHeight: 1.25,
+                              textShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                              letterSpacing: '-0.01em',
+                              wordBreak: 'break-word',
+                              hyphens: 'auto',
+                            }}>
+                              {alt.text}
+                            </span>
                           </div>
                           
                           {showAnswers && isCorrectAnswer && (
-                            <CheckCircle style={{ width: 28, height: 28, color: 'white', flexShrink: 0, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                            <CheckCircle style={{ width: 34, height: 34, color: 'white', flexShrink: 0, marginLeft: '12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           )}
                           {showAnswers && !isCorrectAnswer && isSelectedBySelf && (
-                            <XCircle style={{ width: 28, height: 28, color: 'white', flexShrink: 0, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                            <XCircle style={{ width: 34, height: 34, color: 'white', flexShrink: 0, marginLeft: '12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           )}
                         </button>
                       );
@@ -5511,7 +5539,7 @@ Garanta que:
                       <span>02</span>
                       <div>
                         <h4>Alternativas <em>Selecione a correta</em></h4>
-                        <p>Marque o círculo da alternativa correta e digite as 4 opções.</p>
+                        <p>Marque o círculo da alternativa correta e digite as 4 opções (máx. 80 caracteres cada).</p>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2.5">
@@ -5549,22 +5577,32 @@ Garanta que:
                             >
                               {currentBadge.letter}
                             </span>
-                            <input
-                              type="text"
-                              placeholder={
-                                index === 0
-                                  ? 'Ex: Alternativa correta da pergunta...'
-                                  : `Alternativa incorreta ${index}...`
-                              }
-                              value={alt.text}
-                              onChange={(e) => {
-                                const newText = e.target.value;
-                                setManagerQAlts((prev) =>
-                                  prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
-                                );
-                              }}
-                              className="qm-input font-medium"
-                            />
+                            <div className="relative flex-1 flex items-center">
+                              <input
+                                type="text"
+                                maxLength={80}
+                                placeholder={
+                                  index === 0
+                                    ? 'Ex: Alternativa correta da pergunta (máx. 80 caracteres)...'
+                                    : `Alternativa incorreta ${index} (máx. 80 caracteres)...`
+                                }
+                                value={alt.text}
+                                onChange={(e) => {
+                                  const newText = e.target.value.slice(0, 80);
+                                  setManagerQAlts((prev) =>
+                                    prev.map((a, i) => (i === index ? { ...a, text: newText } : a))
+                                  );
+                                }}
+                                className="qm-input font-medium w-full pr-14"
+                              />
+                              <span 
+                                className={`absolute right-3 text-[10px] font-mono pointer-events-none transition-colors ${
+                                  alt.text.length >= 75 ? 'text-amber-500 font-bold' : 'text-slate-400 opacity-70'
+                                }`}
+                              >
+                                {alt.text.length}/80
+                              </span>
+                            </div>
                             {alt.isCorrect && (
                               <span className="hidden sm:inline-flex items-center text-[11px] font-black uppercase text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded-lg flex-shrink-0">
                                 ✓ Correta

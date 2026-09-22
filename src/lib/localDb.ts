@@ -323,7 +323,7 @@ function validateImport(categories: LocalCategory[], questions: LocalQuestion[])
     !question.id || !categoryIds.has(question.category_id) || !question.question_text.trim() ||
     question.time_limit < 5 || question.alternatives.length !== 4 ||
     question.alternatives.filter(alternative => alternative.isCorrect).length !== 1 ||
-    question.alternatives.some(alternative => !alternative.text.trim())
+    question.alternatives.some(alternative => !alternative.text.trim() || alternative.text.trim().length > 80)
   )) {
     throw new Error('Há uma pergunta inválida na sincronização. Nada foi alterado.');
   }
