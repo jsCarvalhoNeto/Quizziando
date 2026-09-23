@@ -34,6 +34,7 @@ import {
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, GAME_THEMES, sfx } from '../../App';
 import QuizLibrary from './QuizLibrary';
+import { LaunchGameHub } from './LaunchGameHub';
 
 interface TeacherDashboardProps {
   teacherEmail: string;
@@ -1868,145 +1869,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             />
           )}
 
-          {/* ─── Seção Lançar Partida (Atalhos) ─────────────────────────────────── */}
+          {/* ─── Seção Lançar Partida (Central Moderna) ─────────────────────────── */}
           {activeNav === 'launch' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1e1b4b' }}>
-                Escolha o Formato da Sua Partida
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-                
-                {/* Modo 1 */}
-                <div 
-                  style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#e0f2fe', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                      <Monitor style={{ width: '24px', height: '24px' }} />
-                    </div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
-                      Presencial no Telão
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                      Ideal para sala de aula ou auditório. As perguntas aparecem no telão e os alunos respondem com cores e símbolos no celular.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onLaunchNewRoom('hybrid')}
-                    style={{
-                      marginTop: '24px',
-                      height: '42px',
-                      borderRadius: '8px',
-                      backgroundColor: '#1368ce',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Iniciar Partida no Telão
-                  </button>
-                </div>
-
-                {/* Modo 2 */}
-                <div 
-                  style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#f3e8ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                      <Wifi style={{ width: '24px', height: '24px' }} />
-                    </div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
-                      Online em Tempo Real
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                      Para turmas remotas, híbridas ou atividades para casa. Cada aluno vê as perguntas e opções na sua própria tela.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onLaunchNewRoom('online')}
-                    style={{
-                      marginTop: '24px',
-                      height: '42px',
-                      borderRadius: '8px',
-                      backgroundColor: '#46178f',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Criar Sala Online
-                  </button>
-                </div>
-
-                {/* Modo 3 */}
-                <div 
-                  style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <div>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
-                      <Users style={{ width: '24px', height: '24px' }} />
-                    </div>
-                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
-                      Local (2 Equipes)
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.5, margin: 0 }}>
-                      Disputa presencial rápida dividindo a turma em dois times (Azul vs Vermelho) usando apenas um único computador.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onLaunchNewRoom('local')}
-                    style={{
-                      marginTop: '24px',
-                      height: '42px',
-                      borderRadius: '8px',
-                      backgroundColor: '#10b981',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '13px',
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Abrir Batalha 2 Times
-                  </button>
-                </div>
-
-              </div>
-            </div>
+            <LaunchGameHub
+              categories={categories}
+              questions={questions}
+              folders={folders}
+              onStartRouletteGame={onStartRouletteGame}
+              onStartClassicGame={onStartClassicGame}
+              onLaunchNewRoom={onLaunchNewRoom}
+            />
           )}
 
           {/* ─── Seção Salas Abertas ────────────────────────────────────────────── */}
