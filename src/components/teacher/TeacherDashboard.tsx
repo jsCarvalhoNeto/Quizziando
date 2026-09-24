@@ -144,8 +144,16 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onUpdateCountdownSeconds,
 }) => {
   const [activeNav, setActiveNav] = useState<'library' | 'launch' | 'active_rooms'>('library');
+  const [launchDeliveryFilter, setLaunchDeliveryFilter] = useState<'all' | 'hybrid' | 'online' | 'local'>('all');
   const [isLibraryExpanded, setIsLibraryExpanded] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  // Navega para a Central Moderna de Lançamento aplicando o filtro de ambiente selecionado
+  const handleNavigateToDelivery = (delivery: 'all' | 'hybrid' | 'online' | 'local') => {
+    sfx.playClick();
+    setLaunchDeliveryFilter(delivery);
+    setActiveNav('launch');
+  };
 
   // Estados do Menu Popover de Configurações no Painel
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -1576,7 +1584,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               {/* Botão Lançar Partida */}
               <button
                 type="button"
-                onClick={() => setActiveNav('launch')}
+                onClick={() => handleNavigateToDelivery('all')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1589,17 +1597,17 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   border: 'none',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  backgroundColor: activeNav === 'launch' ? '#f3e8ff' : 'transparent',
-                  color: activeNav === 'launch' ? '#46178f' : '#475569',
+                  backgroundColor: activeNav === 'launch' && launchDeliveryFilter === 'all' ? '#f3e8ff' : 'transparent',
+                  color: activeNav === 'launch' && launchDeliveryFilter === 'all' ? '#46178f' : '#475569',
                 }}
                 onMouseEnter={(e) => {
-                  if (activeNav !== 'launch') e.currentTarget.style.backgroundColor = '#f8fafc';
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'all')) e.currentTarget.style.backgroundColor = '#f8fafc';
                 }}
                 onMouseLeave={(e) => {
-                  if (activeNav !== 'launch') e.currentTarget.style.backgroundColor = 'transparent';
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'all')) e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <Play style={{ width: '18px', height: '18px', color: activeNav === 'launch' ? '#46178f' : '#64748b' }} />
+                <Play style={{ width: '18px', height: '18px', color: activeNav === 'launch' && launchDeliveryFilter === 'all' ? '#46178f' : '#64748b' }} />
                 <span>Lançar Partida</span>
               </button>
 
@@ -1653,7 +1661,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             {/* Divisor */}
             <div style={{ height: '1px', backgroundColor: '#e5e7eb' }} />
 
-            {/* Modos de Apresentação */}
+            {/* Modos de Apresentação (Atalhos diretos para a Central Moderna) */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '8px' }}>
                 Modos de Apresentação
@@ -1661,7 +1669,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
               <button
                 type="button"
-                onClick={() => onLaunchNewRoom('hybrid')}
+                onClick={() => handleNavigateToDelivery('hybrid')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1669,15 +1677,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  backgroundColor: 'transparent',
-                  border: 'none',
+                  fontWeight: activeNav === 'launch' && launchDeliveryFilter === 'hybrid' ? 700 : 600,
+                  color: activeNav === 'launch' && launchDeliveryFilter === 'hybrid' ? '#0369a1' : '#334155',
+                  backgroundColor: activeNav === 'launch' && launchDeliveryFilter === 'hybrid' ? '#e0f2fe' : 'transparent',
+                  border: activeNav === 'launch' && launchDeliveryFilter === 'hybrid' ? '1px solid #bae6fd' : '1px solid transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
+                  transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onMouseEnter={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'hybrid')) e.currentTarget.style.backgroundColor = '#f1f5f9';
+                }}
+                onMouseLeave={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'hybrid')) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Ver e lançar jogos no Telão da Sala com celulares dos alunos"
               >
                 <Monitor style={{ width: '16px', height: '16px', color: '#0284c7' }} />
                 <span>Presencial / Telão</span>
@@ -1685,7 +1699,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
               <button
                 type="button"
-                onClick={() => onLaunchNewRoom('online')}
+                onClick={() => handleNavigateToDelivery('online')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1693,15 +1707,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  backgroundColor: 'transparent',
-                  border: 'none',
+                  fontWeight: activeNav === 'launch' && launchDeliveryFilter === 'online' ? 700 : 600,
+                  color: activeNav === 'launch' && launchDeliveryFilter === 'online' ? '#6d28d9' : '#334155',
+                  backgroundColor: activeNav === 'launch' && launchDeliveryFilter === 'online' ? '#ede9fe' : 'transparent',
+                  border: activeNav === 'launch' && launchDeliveryFilter === 'online' ? '1px solid #ddd6fe' : '1px solid transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
+                  transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onMouseEnter={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'online')) e.currentTarget.style.backgroundColor = '#f1f5f9';
+                }}
+                onMouseLeave={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'online')) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Ver e lançar jogos multiplayer online em tempo real com código PIN"
               >
                 <Radio style={{ width: '16px', height: '16px', color: '#8b5cf6' }} />
                 <span>Online Realtime</span>
@@ -1709,7 +1729,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
               <button
                 type="button"
-                onClick={() => onLaunchNewRoom('local')}
+                onClick={() => handleNavigateToDelivery('local')}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1717,15 +1737,21 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  backgroundColor: 'transparent',
-                  border: 'none',
+                  fontWeight: activeNav === 'launch' && launchDeliveryFilter === 'local' ? 700 : 600,
+                  color: activeNav === 'launch' && launchDeliveryFilter === 'local' ? '#047857' : '#334155',
+                  backgroundColor: activeNav === 'launch' && launchDeliveryFilter === 'local' ? '#d1fae5' : 'transparent',
+                  border: activeNav === 'launch' && launchDeliveryFilter === 'local' ? '1px solid #a7f3d0' : '1px solid transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
+                  transition: 'all 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f1f5f9')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onMouseEnter={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'local')) e.currentTarget.style.backgroundColor = '#f1f5f9';
+                }}
+                onMouseLeave={(e) => {
+                  if (!(activeNav === 'launch' && launchDeliveryFilter === 'local')) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Ver e lançar jogos locais offline (Duelo de 2 equipes ou treino individual)"
               >
                 <Users style={{ width: '16px', height: '16px', color: '#10b981' }} />
                 <span>Local (2 Times)</span>
@@ -1878,6 +1904,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               onStartRouletteGame={onStartRouletteGame}
               onStartClassicGame={onStartClassicGame}
               onLaunchNewRoom={onLaunchNewRoom}
+              deliveryFilter={launchDeliveryFilter}
+              onDeliveryFilterChange={setLaunchDeliveryFilter}
             />
           )}
 
@@ -1890,7 +1918,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </h2>
                 <button
                   type="button"
-                  onClick={() => onLaunchNewRoom('hybrid')}
+                  onClick={() => handleNavigateToDelivery('online')}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '8px',
@@ -1925,7 +1953,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                   </p>
                   <button
                     type="button"
-                    onClick={() => onLaunchNewRoom('hybrid')}
+                    onClick={() => handleNavigateToDelivery('online')}
                     style={{
                       padding: '10px 20px',
                       borderRadius: '8px',

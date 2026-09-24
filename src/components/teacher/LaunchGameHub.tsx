@@ -28,6 +28,8 @@ export interface LaunchGameHubProps {
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
   onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks', totalBlocks?: number) => void;
   onLaunchNewRoom?: (mode: 'online' | 'hybrid' | 'local') => void;
+  deliveryFilter?: 'all' | 'hybrid' | 'online' | 'local';
+  onDeliveryFilterChange?: (delivery: 'all' | 'hybrid' | 'online' | 'local') => void;
 }
 
 type GameFormat = 'classic' | 'roulette' | 'blocks';
@@ -58,10 +60,19 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   folders = [],
   onStartRouletteGame,
   onStartClassicGame,
+  deliveryFilter = 'all',
+  onDeliveryFilterChange,
 }) => {
   // Filtros de visualização
   const [filterFormat, setFilterFormat] = useState<'all' | 'classic' | 'roulette' | 'blocks'>('all');
-  const [filterDelivery, setFilterDelivery] = useState<'all' | 'hybrid' | 'online' | 'local'>('all');
+  const [filterDelivery, setFilterDelivery] = useState<'all' | 'hybrid' | 'online' | 'local'>(deliveryFilter || 'all');
+
+  // Sincroniza filtro externo de ambiente (ex: vindo da barra lateral)
+  React.useEffect(() => {
+    if (deliveryFilter !== undefined) {
+      setFilterDelivery(deliveryFilter);
+    }
+  }, [deliveryFilter]);
 
   // Estado da seleção para lançamento
   const [activeCard, setActiveCard] = useState<GameModeCardDef | null>(null);
@@ -620,6 +631,9 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                 onClick={() => {
                   sfx.playClick();
                   setFilterDelivery(d.id as any);
+                  if (onDeliveryFilterChange) {
+                    onDeliveryFilterChange(d.id as any);
+                  }
                 }}
                 style={{
                   padding: '6px 12px',
