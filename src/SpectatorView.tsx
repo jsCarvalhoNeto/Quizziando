@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { supabase } from './lib/supabaseClient';
 import { remainingSeconds } from './lib/gameRules';
 import type { OnlineRoom } from './lib/onlineGame';
@@ -417,23 +418,31 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                 </div>
               )}
 
-              {/* Cronômetro Gigante */}
+              {/* Cronômetro Gigante com Suspense Cinematográfico */}
               {room.round_state === 'question' && (
-                <div
+                <motion.div
+                  animate={{
+                    scale: seconds <= 5 && seconds > 0 ? [1, 1.08, 1] : 1,
+                  }}
+                  transition={{ duration: 0.45, ease: 'easeInOut' }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    background: seconds <= 5 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                    background: seconds <= 5 ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
                     border: `2px solid ${seconds <= 5 ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
                     borderRadius: '999px',
                     padding: '8px 24px',
-                    boxShadow: seconds <= 5 ? '0 0 24px rgba(239, 68, 68, 0.4)' : 'none',
+                    boxShadow: seconds <= 5 ? '0 0 30px rgba(239, 68, 68, 0.55)' : 'none',
                     transition: 'all 0.3s',
                   }}
                 >
                   <Clock style={{ width: '22px', height: '22px', color: seconds <= 5 ? '#f87171' : '#fbbf24' }} />
-                  <span
+                  <motion.span
+                    key={seconds}
+                    initial={seconds <= 5 ? { scale: 1.28, opacity: 0.7 } : false}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.25 }}
                     style={{
                       fontSize: '32px',
                       fontWeight: 900,
@@ -442,8 +451,8 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                     }}
                   >
                     {seconds}s
-                  </span>
-                </div>
+                  </motion.span>
+                </motion.div>
               )}
 
               <div
@@ -493,81 +502,133 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
               </div>
             )}
 
-            {/* Grid 2x2 das Alternativas Kahoot */}
+            {/* Grid 2x2 das Alternativas Kahoot com Câmera Dinâmica */}
             {room.round_state !== 'question-reveal' && (
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
-                  gap: '20px',
+                  gap: '24px',
+                  perspective: 1200,
+                  position: 'relative',
                 }}
               >
                 {room.current_question.alternatives.map((alt, index) => {
                   const kTheme = KAHOOT_COLORS[index] || KAHOOT_COLORS[0];
-                const isAnsweredState = room.round_state === 'answered';
-                const isCorrect = alt.isCorrect;
+                  const isAnsweredState = room.round_state === 'answered';
+                  const isCorrect = !!alt.isCorrect;
 
-                const textLen = (alt.text || '').length;
-                const altFontSize = textLen <= 28
-                  ? 'clamp(24px, 2.5vw, 36px)'
-                  : textLen <= 55
-                  ? 'clamp(20px, 1.9vw, 28px)'
-                  : 'clamp(17px, 1.5vw, 23px)';
+                  const textLen = (alt.text || '').length;
+                  const altFontSize = textLen <= 28
+                    ? 'clamp(24px, 2.5vw, 36px)'
+                    : textLen <= 55
+                    ? 'clamp(20px, 1.9vw, 28px)'
+                    : 'clamp(17px, 1.5vw, 23px)';
 
-                return (
-                  <div
-                    key={index}
-                    style={{
-                      background: kTheme.bg,
-                      borderRadius: '20px',
-                      padding: '24px 30px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '16px',
-                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
-                      border: isAnsweredState && isCorrect ? '4px solid #86efac' : '4px solid transparent',
-                      opacity: isAnsweredState ? (isCorrect ? 1 : 0.3) : 1,
-                      transform: isAnsweredState && isCorrect ? 'scale(1.02)' : 'none',
-                      transition: 'all 0.3s ease',
-                      minHeight: '110px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flex: 1, minWidth: 0 }}>
-                      <span
-                        style={{
-                          fontSize: 'clamp(32px, 3vw, 44px)',
-                          fontWeight: 900,
-                          lineHeight: 1,
-                          userSelect: 'none',
-                          flexShrink: 0,
-                          textShadow: '0 2px 6px rgba(0,0,0,0.35)',
-                        }}
-                      >
-                        {kTheme.symbol}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: altFontSize,
-                          fontWeight: 800,
-                          lineHeight: 1.25,
-                          color: '#ffffff',
-                          textShadow: '0 2px 4px rgba(0,0,0,0.25)',
-                          wordBreak: 'break-word',
-                          letterSpacing: '-0.01em',
-                        }}
-                      >
-                        {alt.text}
-                      </span>
-                    </div>
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={false}
+                      animate={{
+                        scale: isAnsweredState ? (isCorrect ? 1.07 : 0.91) : 1,
+                        y: isAnsweredState ? (isCorrect ? -8 : 10) : 0,
+                        opacity: isAnsweredState ? (isCorrect ? 1 : 0.2) : 1,
+                        filter: isAnsweredState ? (isCorrect ? 'none' : 'grayscale(70%) blur(0.5px)') : 'none',
+                        zIndex: isAnsweredState && isCorrect ? 30 : 1,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: isAnsweredState && isCorrect ? 380 : 320,
+                        damping: isAnsweredState && isCorrect ? 20 : 28,
+                      }}
+                      style={{
+                        background: kTheme.bg,
+                        borderRadius: '24px',
+                        padding: '26px 32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '18px',
+                        boxShadow: isAnsweredState && isCorrect
+                          ? '0 0 65px rgba(74, 222, 128, 0.7), 0 24px 50px rgba(0, 0, 0, 0.7)'
+                          : '0 8px 24px rgba(0, 0, 0, 0.25)',
+                        border: isAnsweredState && isCorrect ? '4.5px solid #4ade80' : '4px solid transparent',
+                        position: 'relative',
+                        minHeight: '120px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {/* Selo Animado de Resposta Correta */}
+                      {isAnsweredState && isCorrect && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0, y: -8 }}
+                          animate={{ scale: 1, opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1, type: 'spring', stiffness: 500, damping: 20 }}
+                          style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '16px',
+                            background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+                            color: '#ffffff',
+                            padding: '4px 12px',
+                            borderRadius: '999px',
+                            fontSize: '11px',
+                            fontWeight: 900,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
+                            border: '1px solid rgba(255, 255, 255, 0.35)',
+                          }}
+                        >
+                          <CheckCircle2 style={{ width: '14px', height: '14px' }} />
+                          <span>Gabarito</span>
+                        </motion.div>
+                      )}
 
-                    {isAnsweredState && isCorrect && (
-                      <CheckCircle2 style={{ width: '36px', height: '36px', color: '#86efac', flexShrink: 0 }} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flex: 1, minWidth: 0 }}>
+                        <span
+                          style={{
+                            fontSize: 'clamp(32px, 3vw, 44px)',
+                            fontWeight: 900,
+                            lineHeight: 1,
+                            userSelect: 'none',
+                            flexShrink: 0,
+                            textShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                          }}
+                        >
+                          {kTheme.symbol}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: altFontSize,
+                            fontWeight: 800,
+                            lineHeight: 1.25,
+                            color: '#ffffff',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.25)',
+                            wordBreak: 'break-word',
+                            letterSpacing: '-0.01em',
+                          }}
+                        >
+                          {alt.text}
+                        </span>
+                      </div>
+
+                      {isAnsweredState && isCorrect && (
+                        <motion.div
+                          initial={{ scale: 0, rotate: -45 }}
+                          animate={{ scale: [0, 1.3, 1], rotate: 0 }}
+                          transition={{ duration: 0.4 }}
+                        >
+                          <CheckCircle2 style={{ width: '38px', height: '38px', color: '#4ade80', flexShrink: 0 }} />
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
             )}
 
             {/* Explicação da Resposta */}

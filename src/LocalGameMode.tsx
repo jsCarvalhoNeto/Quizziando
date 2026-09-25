@@ -2540,10 +2540,28 @@ export default function LocalGameMode({
                         </h3>
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '24px 36px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20, maxWidth: 900, width: '100%' }}>
-                          <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>Alternativa Correta</p>
-                          <p style={{ margin: 0, fontSize: 26, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
-                        </div>
+                        <motion.div
+                          initial={{ scale: 0.88, opacity: 0, y: 20 }}
+                          animate={{ scale: 1.05, opacity: 1, y: 0 }}
+                          transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                          style={{
+                            padding: '28px 40px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%)',
+                            border: '2.5px solid #10b981',
+                            boxShadow: '0 0 50px rgba(16, 185, 129, 0.4), 0 20px 40px rgba(0,0,0,0.5)',
+                            borderRadius: 24,
+                            maxWidth: 900,
+                            width: '100%',
+                            position: 'relative',
+                          }}
+                        >
+                          <p style={{ margin: '0 0 8px', fontSize: 15, color: '#34d399', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.08em' }}>
+                            ✓ Alternativa Correta (Gabarito)
+                          </p>
+                          <p style={{ margin: 0, fontSize: 30, color: 'white', fontWeight: 800, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                            {correctAnswer.text}
+                          </p>
+                        </motion.div>
                       )}
                     </>
                   ) : (
@@ -2562,10 +2580,28 @@ export default function LocalGameMode({
                         </h3>
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '24px 36px', background: 'rgba(52,211,153,0.12)', border: '1.5px solid rgba(52,211,153,0.4)', borderRadius: 20, maxWidth: 900, width: '100%' }}>
-                          <p style={{ margin: '0 0 6px', fontSize: 16, color: 'rgba(52,211,153,0.9)', textTransform: 'uppercase', fontWeight: 800 }}>A resposta correta era</p>
-                          <p style={{ margin: 0, fontSize: 26, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
-                        </div>
+                        <motion.div
+                          initial={{ scale: 0.88, opacity: 0, y: 20 }}
+                          animate={{ scale: 1.05, opacity: 1, y: 0 }}
+                          transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                          style={{
+                            padding: '28px 40px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%)',
+                            border: '2.5px solid #10b981',
+                            boxShadow: '0 0 50px rgba(16, 185, 129, 0.4), 0 20px 40px rgba(0,0,0,0.5)',
+                            borderRadius: 24,
+                            maxWidth: 900,
+                            width: '100%',
+                            position: 'relative',
+                          }}
+                        >
+                          <p style={{ margin: '0 0 8px', fontSize: 15, color: '#34d399', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.08em' }}>
+                            ✓ A Resposta Correta Era
+                          </p>
+                          <p style={{ margin: 0, fontSize: 30, color: 'white', fontWeight: 800, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                            {correctAnswer.text}
+                          </p>
+                        </motion.div>
                       )}
                     </>
                   )
@@ -2584,10 +2620,23 @@ export default function LocalGameMode({
                         </p>
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '20px 32px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 20 }}>
-                          <p style={{ margin: '0 0 6px', fontSize: 18, color: 'rgba(52,211,153,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta</p>
-                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
-                        </div>
+                        <motion.div
+                          initial={{ scale: 0.88, opacity: 0, y: 20 }}
+                          animate={{ scale: 1.05, opacity: 1, y: 0 }}
+                          transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                          style={{
+                            padding: '24px 38px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%)',
+                            border: '2.5px solid #10b981',
+                            boxShadow: '0 0 50px rgba(16, 185, 129, 0.4), 0 20px 40px rgba(0,0,0,0.5)',
+                            borderRadius: 24,
+                            maxWidth: 900,
+                            width: '100%',
+                          }}
+                        >
+                          <p style={{ margin: '0 0 6px', fontSize: 16, color: '#34d399', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.08em' }}>✓ Resposta Correta</p>
+                          <p style={{ margin: 0, fontSize: 28, color: 'white', fontWeight: 800, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{correctAnswer.text}</p>
+                        </motion.div>
                       )}
                     </>
                   ) : (
@@ -2602,10 +2651,23 @@ export default function LocalGameMode({
                         </p>
                       </div>
                       {correctAnswer && (
-                        <div style={{ padding: '20px 32px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 20 }}>
-                          <p style={{ margin: '0 0 6px', fontSize: 18, color: 'rgba(239,68,68,0.8)', textTransform: 'uppercase', fontWeight: 700 }}>Resposta Correta era</p>
-                          <p style={{ margin: 0, fontSize: 24, color: 'white', fontWeight: 700 }}>{correctAnswer.text}</p>
-                        </div>
+                        <motion.div
+                          initial={{ scale: 0.88, opacity: 0, y: 20 }}
+                          animate={{ scale: 1.05, opacity: 1, y: 0 }}
+                          transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+                          style={{
+                            padding: '24px 38px',
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.12) 100%)',
+                            border: '2.5px solid #10b981',
+                            boxShadow: '0 0 50px rgba(16, 185, 129, 0.4), 0 20px 40px rgba(0,0,0,0.5)',
+                            borderRadius: 24,
+                            maxWidth: 900,
+                            width: '100%',
+                          }}
+                        >
+                          <p style={{ margin: '0 0 6px', fontSize: 16, color: '#34d399', textTransform: 'uppercase', fontWeight: 900, letterSpacing: '0.08em' }}>✓ A Resposta Correta Era</p>
+                          <p style={{ margin: 0, fontSize: 28, color: 'white', fontWeight: 800, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{correctAnswer.text}</p>
+                        </motion.div>
                       )}
                     </>
                   )

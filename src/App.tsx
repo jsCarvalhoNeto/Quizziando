@@ -4590,8 +4590,17 @@ Garanta que:
                   )}
 
                   {/* Alternativas — Estilo Kahoot com cores vibrantes */}
+                  {/* Alternativas — Estilo Kahoot com cores vibrantes e Zoom Cinematográfico */}
                   {roundState !== 'question-reveal' && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '16px', flex: 1, minHeight: 0 }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gridTemplateRows: '1fr 1fr',
+                    gap: '16px',
+                    flex: 1,
+                    minHeight: 0,
+                    perspective: '1200px',
+                  }}>
                     {currentQuestion.alternatives.map((alt, index) => {
                       const isSelectedBySelf = playerAnswered === alt.text;
                       const showAnswers = roundState === 'answered';
@@ -4605,79 +4614,89 @@ Garanta que:
                         ? 'clamp(20px, 1.9vw, 28px)'
                         : 'clamp(17px, 1.5vw, 23px)';
 
-                      // Estilo base com gradiente inline
-                      let btnStyle: React.CSSProperties = {
-                        background: theme.gradient,
-                        color: 'white',
-                        border: '3px solid transparent',
-                        borderRadius: '20px',
-                        padding: '24px 32px',
-                        cursor: role === 'player' && !showAnswers && !playerAnswered ? 'pointer' : 'default',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        textAlign: 'left' as const,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: `0 8px 24px ${theme.shadow}`,
-                        width: '100%',
-                        minHeight: '120px',
-                        flex: 1,
-                        opacity: 1,
-                        transform: 'scale(1)',
-                        filter: 'none',
-                        fontFamily: "'Plus Jakarta Sans', 'Outfit', sans-serif",
-                      };
-
-                      // Jogador selecionou esta alternativa
-                      if (role === 'player' && !showAnswers && isSelectedBySelf) {
-                        btnStyle = {
-                          ...btnStyle,
-                          border: '3px solid white',
-                          boxShadow: `0 0 25px white, 0 8px 24px ${theme.shadow}`,
-                          transform: 'scale(1.03)',
-                        };
-                      }
-
-                      // Revelação da resposta
-                      if (showAnswers) {
-                        if (isCorrectAnswer) {
-                          btnStyle = {
-                            ...btnStyle,
-                            border: '3px solid #48BB78',
-                            boxShadow: `0 0 32px ${theme.shadow}, 0 0 16px rgba(72, 187, 120, 0.6)`,
-                            transform: 'scale(1.02)',
-                          };
-                        } else {
-                          btnStyle = {
-                            ...btnStyle,
-                            opacity: 0.25,
-                            filter: 'saturate(0.4)',
-                            transform: 'scale(0.97)',
-                            cursor: 'default',
-                            pointerEvents: 'none',
-                          };
-                        }
-                      }
+                      // Configuração dinâmica de estilos e animações Framer Motion
+                      const isWinner = showAnswers && isCorrectAnswer;
+                      const isLoser = showAnswers && !isCorrectAnswer;
 
                       return (
-                        <button
+                        <motion.button
                           key={index}
                           disabled={role !== 'player' || showAnswers || playerAnswered !== null}
                           onClick={() => handlePlayerAnswer(index)}
-                          style={btnStyle}
-                          onMouseEnter={(e) => {
-                            if (role === 'player' && !showAnswers && !playerAnswered) {
-                              e.currentTarget.style.transform = 'scale(1.03)';
-                              e.currentTarget.style.boxShadow = `0 10px 30px ${theme.shadow}`;
-                            }
+                          initial={false}
+                          animate={{
+                            scale: isWinner ? 1.07 : isLoser ? 0.91 : (role === 'player' && isSelectedBySelf ? 1.03 : 1),
+                            y: isWinner ? -8 : isLoser ? 10 : 0,
+                            opacity: isLoser ? 0.2 : 1,
+                            filter: isLoser ? 'grayscale(70%) blur(0.5px)' : 'none',
+                            zIndex: isWinner ? 30 : (role === 'player' && isSelectedBySelf ? 10 : 1),
                           }}
-                          onMouseLeave={(e) => {
-                            if (role === 'player' && !showAnswers && !isSelectedBySelf) {
-                              e.currentTarget.style.transform = 'scale(1)';
-                              e.currentTarget.style.boxShadow = `0 8px 24px ${theme.shadow}`;
-                            }
+                          transition={{
+                            type: 'spring',
+                            stiffness: isWinner ? 380 : 320,
+                            damping: isWinner ? 20 : 28,
+                          }}
+                          whileHover={role === 'player' && !showAnswers && !playerAnswered ? { scale: 1.025, filter: 'brightness(1.08)' } : {}}
+                          whileTap={role === 'player' && !showAnswers && !playerAnswered ? { scale: 0.98 } : {}}
+                          style={{
+                            background: theme.gradient,
+                            color: 'white',
+                            border: isWinner
+                              ? '4.5px solid #4ade80'
+                              : (role === 'player' && isSelectedBySelf)
+                              ? '3px solid white'
+                              : '3px solid transparent',
+                            borderRadius: '24px',
+                            padding: '24px 32px',
+                            cursor: role === 'player' && !showAnswers && !playerAnswered ? 'pointer' : 'default',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            textAlign: 'left' as const,
+                            boxShadow: isWinner
+                              ? `0 0 60px rgba(74, 222, 128, 0.7), 0 20px 45px rgba(0, 0, 0, 0.65)`
+                              : (role === 'player' && isSelectedBySelf)
+                              ? `0 0 25px white, 0 8px 24px ${theme.shadow}`
+                              : `0 8px 24px ${theme.shadow}`,
+                            width: '100%',
+                            minHeight: '120px',
+                            flex: 1,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            fontFamily: "'Plus Jakarta Sans', 'Outfit', sans-serif",
+                            pointerEvents: isLoser ? 'none' : 'auto',
                           }}
                         >
+                          {/* Badge de Gabarito na Alternativa Vencedora */}
+                          {isWinner && (
+                            <motion.div
+                              initial={{ scale: 0, opacity: 0, y: -8 }}
+                              animate={{ scale: 1, opacity: 1, y: 0 }}
+                              transition={{ delay: 0.1, type: 'spring', stiffness: 500, damping: 20 }}
+                              style={{
+                                position: 'absolute',
+                                top: '10px',
+                                right: '16px',
+                                background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+                                color: '#ffffff',
+                                padding: '4px 12px',
+                                borderRadius: '999px',
+                                fontSize: '11px',
+                                fontWeight: 900,
+                                letterSpacing: '0.08em',
+                                textTransform: 'uppercase',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
+                                border: '1px solid rgba(255, 255, 255, 0.35)',
+                              }}
+                            >
+                              <CheckCircle style={{ width: '13px', height: '13px' }} />
+                              <span>Gabarito</span>
+                            </motion.div>
+                          )}
+
                           <div style={{ display: 'flex', alignItems: 'center', gap: '22px', flex: 1, minWidth: 0 }}>
                             <span style={{
                               fontSize: 'clamp(32px, 3vw, 44px)',
@@ -4703,13 +4722,19 @@ Garanta que:
                             </span>
                           </div>
                           
-                          {showAnswers && isCorrectAnswer && (
-                            <CheckCircle style={{ width: 34, height: 34, color: 'white', flexShrink: 0, marginLeft: '12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                          {isWinner && (
+                            <motion.div
+                              initial={{ scale: 0, rotate: -45 }}
+                              animate={{ scale: [0, 1.3, 1], rotate: 0 }}
+                              transition={{ duration: 0.4 }}
+                            >
+                              <CheckCircle style={{ width: 38, height: 38, color: '#4ade80', flexShrink: 0, marginLeft: '12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
+                            </motion.div>
                           )}
                           {showAnswers && !isCorrectAnswer && isSelectedBySelf && (
                             <XCircle style={{ width: 34, height: 34, color: 'white', flexShrink: 0, marginLeft: '12px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }} />
                           )}
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>
