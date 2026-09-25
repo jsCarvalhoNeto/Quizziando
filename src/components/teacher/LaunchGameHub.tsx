@@ -18,21 +18,25 @@ import {
   AlertTriangle,
   ChevronRight,
   Layers,
+  Swords,
+  Shield,
+  Skull,
 } from 'lucide-react';
 import { sfx } from '../../App';
+import { RAID_BOSSES } from '../../lib/bossRaid';
 
 export interface LaunchGameHubProps {
   categories: Array<{ id: string; name: string; color?: string; folder_id?: string | null; icon?: string }>;
   questions: Array<{ id: string; category_id: string; question_text: string }>;
   folders: Array<{ id: string; name: string; color?: string }>;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks', totalBlocks?: number) => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid', totalBlocks?: number, selectedBossId?: string) => void;
   onLaunchNewRoom?: (mode: 'online' | 'hybrid' | 'local') => void;
   deliveryFilter?: 'all' | 'hybrid' | 'online' | 'local';
   onDeliveryFilterChange?: (delivery: 'all' | 'hybrid' | 'online' | 'local') => void;
 }
 
-type GameFormat = 'classic' | 'roulette' | 'blocks';
+type GameFormat = 'classic' | 'roulette' | 'blocks' | 'boss_raid';
 type DeliveryMode = 'hybrid' | 'online' | 'local_teams' | 'local_individual';
 
 interface GameModeCardDef {
@@ -64,7 +68,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   onDeliveryFilterChange,
 }) => {
   // Filtros de visualização
-  const [filterFormat, setFilterFormat] = useState<'all' | 'classic' | 'roulette' | 'blocks'>('all');
+  const [filterFormat, setFilterFormat] = useState<'all' | 'classic' | 'roulette' | 'blocks' | 'boss_raid'>('all');
   const [filterDelivery, setFilterDelivery] = useState<'all' | 'hybrid' | 'online' | 'local'>(deliveryFilter || 'all');
 
   // Sincroniza filtro externo de ambiente (ex: vindo da barra lateral)
@@ -80,6 +84,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   const [searchQuizQuery, setSearchQuizQuery] = useState('');
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string>('all');
   const [selectedBlocksCount, setSelectedBlocksCount] = useState<number>(12);
+  const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
   const [selectionWarning, setSelectionWarning] = useState<string>('');
 
   // Mapeamento de perguntas por categoria
@@ -314,6 +319,62 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
       buttonText: 'Praticar em Blocos',
       icon: <CheckCircle2 style={{ width: '26px', height: '26px' }} />,
     },
+
+    // ── 4. BATALHA CONTRA O CHEFE (BOSS RAID COLETIVO) ───────────────────
+    {
+      id: 'boss_hybrid',
+      format: 'boss_raid',
+      delivery: 'hybrid',
+      title: 'Chefe no Telão (Boss Raid)',
+      badge: 'Batalha Coletiva Telão + Celular',
+      badgeBg: '#fee2e2',
+      badgeColor: '#b91c1c',
+      gradient: 'linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #ea580c 100%)',
+      accentColor: '#dc2626',
+      iconBg: '#fef2f2',
+      iconColor: '#991b1b',
+      description: 'A turma inteira se une em cooperação no telão contra um Grande Chefe! Acertos desferem Dano Crítico no HP do monstro.',
+      tags: ['Raid Coletivo', 'Barra de Vida HP', 'Celulares dos Alunos'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Lançar Batalha no Telão',
+      icon: <Swords style={{ width: '26px', height: '26px' }} />,
+    },
+    {
+      id: 'boss_teams',
+      format: 'boss_raid',
+      delivery: 'local_teams',
+      title: 'Chefe Batalha da Turma (Offline)',
+      badge: '100% Offline / Sem Internet',
+      badgeBg: '#fef3c7',
+      badgeColor: '#92400e',
+      gradient: 'linear-gradient(135deg, #78350f 0%, #b45309 50%, #d97706 100%)',
+      accentColor: '#b45309',
+      iconBg: '#fffbeb',
+      iconColor: '#78350f',
+      description: 'Batalha épica cooperativa num único computador ou projetor. A turma responde oralmente e ataca o Chefe antes que o Escudo caia!',
+      tags: ['Sem Internet', 'Escudo da Turma', 'Cooperação Máxima'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Iniciar Duelo Coletivo',
+      icon: <Shield style={{ width: '26px', height: '26px' }} />,
+    },
+    {
+      id: 'boss_online',
+      format: 'boss_raid',
+      delivery: 'online',
+      title: 'Chefe Online Multiplayer',
+      badge: 'Raid Remoto c/ PIN',
+      badgeBg: '#ede9fe',
+      badgeColor: '#5b21b6',
+      gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #a855f7 100%)',
+      accentColor: '#7c3aed',
+      iconBg: '#f5f3ff',
+      iconColor: '#5b21b6',
+      description: 'Partida cooperativa com PIN de acesso para turmas remotas. Todos os alunos atacam o mesmo Chefe simultaneamente em tempo real!',
+      tags: ['Raid Online', 'Multiplayer Co-op', 'PIN da Sala'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Criar Sala de Raid Online',
+      icon: <Skull style={{ width: '26px', height: '26px' }} />,
+    },
   ];
 
   // Filtro dos cards exibidos
@@ -458,18 +519,18 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
         onStartRouletteGame(selectedQuizIds, 'local', 'individual');
       }
     } else {
-      // Clássico ou Blocos
-      const formatParam = format === 'blocks' ? 'blocks' : 'classic';
+      // Clássico, Blocos ou Batalha contra o Chefe
+      const formatParam = format === 'boss_raid' ? 'boss_raid' : format === 'blocks' ? 'blocks' : 'classic';
       const blocksParam = format === 'blocks' ? selectedBlocksCount : 12;
 
       if (delivery === 'hybrid') {
-        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam);
+        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId);
       } else if (delivery === 'online') {
-        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam);
+        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId);
       } else if (delivery === 'local_teams') {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId);
       } else {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId);
       }
     }
 
@@ -579,6 +640,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
             { id: 'classic', label: '⚡ Modo Clássico', icon: null },
             { id: 'roulette', label: '🎡 Modo Roleta', icon: null },
             { id: 'blocks', label: '🧱 Modo em Blocos', icon: null },
+            { id: 'boss_raid', label: '⚔️ Batalha contra o Chefe', icon: null },
           ].map(f => {
             const isActive = filterFormat === f.id;
             return (
@@ -1102,6 +1164,109 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+              ) : activeCard.format === 'boss_raid' ? (
+                <div
+                  style={{
+                    backgroundColor: '#fff1f2',
+                    borderRadius: '18px',
+                    padding: '16px 20px',
+                    border: '1.5px solid #fda4af',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '12px',
+                          backgroundColor: '#ffe4e6',
+                          color: '#e11d48',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Swords style={{ width: '22px', height: '22px' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#9f1239' }}>
+                          ⚔️ Batalha contra o Chefe: Cooperação Total da Turma
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', lineHeight: 1.4 }}>
+                          Cada acerto da turma desfere Dano Crítico no HP do Chefe. Erros deixam o Chefe atacar o Escudo!
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '999px',
+                        backgroundColor: selectedQuizIds.length >= 1 ? '#10b981' : '#f59e0b',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {selectedQuizIds.length === 0
+                        ? 'Selecione pelo menos 1 quiz'
+                        : `✅ ${selectedQuizIds.length} quiz(zes) selecionado(s)`}
+                    </div>
+                  </div>
+
+                  {/* Seletor de Chefe Lendário */}
+                  <div style={{ borderTop: '1px solid #fecdd3', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#881337', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Escolha o Chefe Lendário para a Turma Enfrentar:
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                      {RAID_BOSSES.map((boss) => {
+                        const isChosen = selectedBossId === boss.id;
+                        return (
+                          <div
+                            key={boss.id}
+                            onClick={() => {
+                              sfx.playClick();
+                              setSelectedBossId(boss.id);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '12px',
+                              border: isChosen ? `2px solid ${boss.accentColor}` : '1.5px solid #e2e8f0',
+                              backgroundColor: isChosen ? '#ffffff' : '#f8fafc',
+                              boxShadow: isChosen ? `0 4px 14px ${boss.accentColor}33` : 'none',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <img
+                              src={boss.image}
+                              alt={boss.name}
+                              style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }}
+                            />
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <p style={{ margin: 0, fontSize: '12px', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {boss.name}
+                              </p>
+                              <span style={{ fontSize: '10px', color: boss.accentColor, fontWeight: 700 }}>
+                                {boss.element === 'fire' ? '🔥 Fogo' : boss.element === 'tech' ? '⚡ Tecnologia' : '✨ Cósmico'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               ) : (

@@ -56,7 +56,7 @@ interface GameLobbyViewProps {
   onToggleAutoReveal: () => void;
   nickname?: string;
   getAvatarUrl: (nickname: string) => string;
-  quizFormat?: 'classic' | 'roulette' | 'blocks';
+  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
   totalAnswered?: number;
 }
 
@@ -196,16 +196,16 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 fontWeight: 800,
                 padding: '2px 8px',
                 borderRadius: '999px',
-                backgroundColor: quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.25)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
-                border: `1px solid ${quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.5)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
-                color: quizFormat === 'blocks' ? '#a78bfa' : quizFormat === 'classic' ? '#34d399' : '#c084fc',
+                backgroundColor: quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.15)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.2)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                border: `1px solid ${quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.5)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.5)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
+                color: quizFormat === 'boss_raid' ? '#fda4af' : quizFormat === 'blocks' ? '#a78bfa' : quizFormat === 'classic' ? '#34d399' : '#c084fc',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 display: 'none',
               }}
               className="md:inline-block"
             >
-              {quizFormat === 'blocks' ? '🧱 Modo Blocos' : quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
+              {quizFormat === 'boss_raid' ? '⚔️ Batalha contra o Chefe' : quizFormat === 'blocks' ? '🧱 Modo Blocos' : quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
             </span>
           </div>
         </div>

@@ -1,7 +1,7 @@
 // src/lib/blocks.ts
 // Tipos e utilitários para o Modo Blocos (Kahoot Blocks)
 
-export type QuizFormat = 'classic' | 'roulette' | 'blocks';
+export type QuizFormat = 'classic' | 'roulette' | 'blocks' | 'boss_raid';
 
 export type BlockStatus = 'unrevealed' | 'active' | 'correct' | 'wrong';
 

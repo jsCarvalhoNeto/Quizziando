@@ -30,6 +30,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import KahootCountdown from './components/KahootCountdown';
 import { BlocksBoardView } from './components/game/BlocksBoardView';
 import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
+import { BossRaidBoardView } from './components/game/BossRaidBoardView';
+import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -1073,10 +1075,20 @@ Garanta que:
   };
 
   // Estados de Partida Ativa
-  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette' | 'blocks'>('classic');
+  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette' | 'blocks' | 'boss_raid'>('classic');
   const [blocksCount, setBlocksCount] = useState<number>(12);
   const [hostBlocks, setHostBlocks] = useState<QuizBlockItem[]>([]);
   const [activeHostBlockId, setActiveHostBlockId] = useState<string | null>(null);
+
+  // Estados da Batalha contra o Chefe (Boss Raid)
+  const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
+  const [bossHp, setBossHp] = useState<number>(20000);
+  const [bossMaxHp, setBossMaxHp] = useState<number>(20000);
+  const [teamShieldHp, setTeamShieldHp] = useState<number>(5000);
+  const [teamShieldMaxHp, setTeamShieldMaxHp] = useState<number>(5000);
+  const [lastBossDamage, setLastBossDamage] = useState<number | null>(null);
+  const [lastBossDamageDealer, setLastBossDamageDealer] = useState<string | null>(null);
+  const [isBossDamageCritical, setIsBossDamageCritical] = useState<boolean>(false);
   const [localPlayMode, setLocalPlayMode] = useState<'teams' | 'individual'>('teams');
   const [gameMode, setGameMode] = useState<'duel' | 'team' | 'open'>('open');
   const [gameRounds, setGameRounds] = useState(3);
@@ -2790,11 +2802,18 @@ Garanta que:
     categoryIds: string[],
     mode: 'online' | 'local' | 'hybrid',
     playMode?: 'teams' | 'individual',
-    format: 'classic' | 'blocks' = 'classic',
-    totalBlocks: number = 12
+    format: 'classic' | 'blocks' | 'boss_raid' = 'classic',
+    totalBlocks: number = 12,
+    bossId?: string
   ) => {
     if (categoryIds.length < 1) {
-      alert(format === 'blocks' ? 'Para jogar o Modo Blocos, selecione pelo menos 1 quiz.' : 'Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.');
+      alert(
+        format === 'boss_raid'
+          ? 'Para jogar a Batalha contra o Chefe, selecione pelo menos 1 quiz.'
+          : format === 'blocks'
+          ? 'Para jogar o Modo Blocos, selecione pelo menos 1 quiz.'
+          : 'Para jogar o Quiz Clássico, selecione pelo menos 1 quiz.'
+      );
       return;
     }
     setQuizFormat(format);
@@ -2805,6 +2824,20 @@ Garanta que:
     }
 
     const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+
+    if (format === 'boss_raid') {
+      const chosenId = bossId || selectedBossId;
+      setSelectedBossId(chosenId);
+      const rounds = Math.max(1, Math.min(catQuestions.length || 10, 20));
+      const initHp = calculateBossInitialHp(rounds, 15);
+      setBossHp(initHp);
+      setBossMaxHp(initHp);
+      setTeamShieldHp(5000);
+      setTeamShieldMaxHp(5000);
+      setLastBossDamage(null);
+      setLastBossDamageDealer(null);
+      setIsBossDamageCritical(false);
+    }
 
     if (format === 'blocks') {
       const generated = generateQuizBlocks(catQuestions.length > 0 ? catQuestions : questions, totalBlocks || 12);
@@ -2989,6 +3022,42 @@ Garanta que:
   const revealAnswer = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'answered' });
     sfx.stopGameSound();
+
+    if (quizFormat === 'boss_raid') {
+      const correctPlayers = activePlayers.filter(p => p.stats?.answers?.[currentRoundIndex] === true);
+      const totalParticipants = Math.max(1, activePlayers.length);
+      const correctCount = correctPlayers.length;
+      const wrongCount = totalParticipants - correctCount;
+
+      // Base de dano por acerto escalada com a vida total do chefe e número de rodadas
+      const damagePerCorrect = Math.max(250, Math.round(bossMaxHp / (gameRounds * Math.max(1, totalParticipants))));
+      const baseRoundDamage = correctCount * damagePerCorrect;
+      const isCrit = correctCount >= Math.ceil(totalParticipants * 0.65) && correctCount > 0;
+      const finalDamage = isCrit ? Math.round(baseRoundDamage * 1.4) : baseRoundDamage;
+
+      if (finalDamage > 0) {
+        setBossHp(prev => Math.max(0, prev - finalDamage));
+        setLastBossDamage(finalDamage);
+        setIsBossDamageCritical(isCrit);
+        const topHitter = correctPlayers[0]?.nickname || 'Turma';
+        setLastBossDamageDealer(isCrit ? 'Ataque em Massa da Turma! 🔥' : `${topHitter} & Aliados`);
+        sfx.playCorrect();
+      } else {
+        setLastBossDamage(null);
+        setLastBossDamageDealer(null);
+        setIsBossDamageCritical(false);
+      }
+
+      // O Chefe contra-ataca o escudo coletivo se houver erros
+      if (wrongCount > 0) {
+        const damagePerWrong = Math.max(150, Math.round(teamShieldMaxHp / (gameRounds * 2.5)));
+        const counterDamage = wrongCount * damagePerWrong;
+        setTeamShieldHp(prev => Math.max(0, prev - counterDamage));
+        if (finalDamage === 0) {
+          sfx.playWrong();
+        }
+      }
+    }
   });
   useEffect(() => { revealAnswerRef.current = revealAnswer; });
 
@@ -3307,6 +3376,7 @@ Garanta que:
             }))}
             initialSelectedCategoryIds={selectedCategoryIds}
             quizFormat={quizFormat}
+            selectedBossId={selectedBossId}
             initialBlocksCount={blocksCount}
             initialPlayMode={localPlayMode}
             soundEnabled={soundEnabled}
@@ -3789,9 +3859,44 @@ Garanta que:
                 )}
 
 
-              {/* APRESENTAÇÃO DA RODADA: MODO BLOCOS, QUIZ CLÁSSICO OU ROLETA */}
+              {/* APRESENTAÇÃO DA RODADA: BATALHA CONTRA O CHEFE, MODO BLOCOS, QUIZ CLÁSSICO OU ROLETA */}
               {(roundState === 'idle' || roundState === 'spinning') ? (
-                quizFormat === 'blocks' ? (
+                quizFormat === 'boss_raid' ? (
+                  <div
+                    style={{
+                      flex: 1,
+                      padding: '24px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '32px',
+                      border: '4px solid rgba(225, 29, 72, 0.45)',
+                      position: 'relative',
+                      boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                      background: 'radial-gradient(ellipse at 50% 30%, #311124 0%, #0f172a 100%)',
+                      minHeight: '380px',
+                      width: '100%',
+                    }}
+                  >
+                    <BossRaidBoardView
+                      boss={RAID_BOSSES.find(b => b.id === selectedBossId) || RAID_BOSSES[0]}
+                      bossHp={bossHp}
+                      bossMaxHp={bossMaxHp}
+                      teamShieldHp={teamShieldHp}
+                      teamShieldMaxHp={teamShieldMaxHp}
+                      currentRound={currentRoundIndex}
+                      totalRounds={gameRounds}
+                      lastDamageTaken={lastBossDamage}
+                      lastDamageDealer={lastBossDamageDealer}
+                      isCritical={isBossDamageCritical}
+                      onStartRound={() => void handleStartClassicQuestion()}
+                      canStartRound={role === 'operator' && !hostBusy}
+                      onFinishBattle={async () => { await handleNextRound(); }}
+                      soundEnabled={soundEnabled}
+                    />
+                  </div>
+                ) : quizFormat === 'blocks' ? (
                   <div
                     style={{
                       flex: 1,

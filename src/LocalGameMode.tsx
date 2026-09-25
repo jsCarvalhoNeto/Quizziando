@@ -26,6 +26,8 @@ import { KahootCountdown } from './components/KahootCountdown';
 
 import { BlocksBoardView } from './components/game/BlocksBoardView';
 import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
+import { BossRaidBoardView } from './components/game/BossRaidBoardView';
+import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -53,7 +55,8 @@ interface Props {
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
   initialSelectedCategoryIds?: string[];
-  quizFormat?: 'classic' | 'roulette' | 'blocks';
+  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
+  selectedBossId?: string;
   initialBlocksCount?: number;
   initialPlayMode?: 'teams' | 'individual';
   soundEnabled: boolean;
@@ -203,6 +206,7 @@ export default function LocalGameMode({
   supabaseQuestions,
   initialSelectedCategoryIds,
   quizFormat = 'classic',
+  selectedBossId: initialBossId,
   initialBlocksCount = 12,
   initialPlayMode = 'teams',
   soundEnabled,
@@ -217,6 +221,17 @@ export default function LocalGameMode({
   const [blocks, setBlocks]           = useState<QuizBlockItem[]>([]);
   const [blocksCount]                 = useState<number>(initialBlocksCount || 12);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  // ⚔️ Estados da Batalha contra o Chefe (Boss Raid)
+  const [bossId] = useState<string>(initialBossId || RAID_BOSSES[0].id);
+  const currentBoss = RAID_BOSSES.find(b => b.id === bossId) || RAID_BOSSES[0];
+  const [bossHp, setBossHp] = useState<number>(20000);
+  const [bossMaxHp, setBossMaxHp] = useState<number>(20000);
+  const [teamShieldHp, setTeamShieldHp] = useState<number>(5000);
+  const [teamShieldMaxHp, setTeamShieldMaxHp] = useState<number>(5000);
+  const [lastBossDamage, setLastBossDamage] = useState<number | null>(null);
+  const [lastBossDamageDealer, setLastBossDamageDealer] = useState<string | null>(null);
+  const [isBossDamageCritical, setIsBossDamageCritical] = useState<boolean>(false);
 
   const [dbError, setDbError]         = useState<string | null>(null);
   const [showSyncOptions, setShowSyncOptions] = useState(false);
@@ -694,6 +709,17 @@ export default function LocalGameMode({
 
     setDbError(null);
 
+    if (quizFormat === 'boss_raid') {
+      const initHp = calculateBossInitialHp(totalRounds || 10, 15);
+      setBossHp(initHp);
+      setBossMaxHp(initHp);
+      setTeamShieldHp(5000);
+      setTeamShieldMaxHp(5000);
+      setLastBossDamage(null);
+      setLastBossDamageDealer(null);
+      setIsBossDamageCritical(false);
+    }
+
     if (quizFormat === 'blocks') {
       const desired = blocksCount || initialBlocksCount || 12;
       const pool = qs.length > 0 ? qs : allQuestions.filter(q => selectedCatIds.includes(q.category_id));
@@ -930,8 +956,23 @@ export default function LocalGameMode({
 
     if (isCorrect) {
       sfx.playCorrect();
+      if (quizFormat === 'boss_raid') {
+        const baseDmg = Math.max(800, Math.round(bossMaxHp / (totalRounds || 10)));
+        const crit = Math.random() < 0.3;
+        const finalDmg = crit ? Math.round(baseDmg * 1.4) : baseDmg;
+        setBossHp(prev => Math.max(0, prev - finalDmg));
+        setLastBossDamage(finalDmg);
+        setIsBossDamageCritical(crit);
+        setLastBossDamageDealer('Turma');
+      }
     } else {
       sfx.playWrong();
+      if (quizFormat === 'boss_raid') {
+        const attack = Math.max(600, Math.round(teamShieldMaxHp / ((totalRounds || 10) * 0.7)));
+        setTeamShieldHp(prev => Math.max(0, prev - attack));
+        setLastBossDamage(null);
+        setLastBossDamageDealer(null);
+      }
     }
 
     if (quizFormat === 'blocks' && activeBlockId) {
@@ -964,6 +1005,13 @@ export default function LocalGameMode({
     if (phase !== 'question-first') return;
     setTimerActive(false);
     sfx.playTimeout();
+
+    if (quizFormat === 'boss_raid') {
+      const attack = Math.max(600, Math.round(teamShieldMaxHp / ((totalRounds || 10) * 0.7)));
+      setTeamShieldHp(prev => Math.max(0, prev - attack));
+      setLastBossDamage(null);
+      setLastBossDamageDealer(null);
+    }
 
     if (quizFormat === 'blocks' && activeBlockId) {
       setBlocks(prev => prev.map(b => b.id === activeBlockId ? {
@@ -1053,6 +1101,23 @@ export default function LocalGameMode({
     setTimerActive(false);
     setPhase('round-result');
     const awardedPoints = firstFailed ? pointsOnPass : pointsPerCorrect;
+
+    if (quizFormat === 'boss_raid') {
+      if (scorerIndex !== null) {
+        const baseDmg = Math.max(800, Math.round(bossMaxHp / (totalRounds || 10)));
+        const crit = firstFailed ? false : Math.random() < 0.35;
+        const finalDmg = crit ? Math.round(baseDmg * 1.45) : baseDmg;
+        setBossHp(prev => Math.max(0, prev - finalDmg));
+        setLastBossDamage(finalDmg);
+        setIsBossDamageCritical(crit);
+        setLastBossDamageDealer(players[scorerIndex]?.name || 'Equipe');
+      } else {
+        const attack = Math.max(600, Math.round(teamShieldMaxHp / ((totalRounds || 10) * 0.7)));
+        setTeamShieldHp(prev => Math.max(0, prev - attack));
+        setLastBossDamage(null);
+        setLastBossDamageDealer(null);
+      }
+    }
 
     if (quizFormat === 'blocks' && activeBlockId) {
       const isCorrect = scorerIndex !== null;
@@ -1967,9 +2032,39 @@ export default function LocalGameMode({
 
           <AnimatePresence mode="wait">
 
-            {/* IDLE + SPINNING — Quiz Clássico, Modo Blocos ou Roleta */}
+            {/* IDLE + SPINNING — Batalha contra o Chefe, Modo Blocos, Quiz Clássico ou Roleta */}
             {(phase === 'idle' || phase === 'spinning') && (
-              quizFormat === 'blocks' ? (
+              quizFormat === 'boss_raid' ? (
+                <motion.div
+                  key="boss-raid-board"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                >
+                  <BossRaidBoardView
+                    boss={currentBoss}
+                    bossHp={bossHp}
+                    bossMaxHp={bossMaxHp}
+                    teamShieldHp={teamShieldHp}
+                    teamShieldMaxHp={teamShieldMaxHp}
+                    currentRound={currentRound}
+                    totalRounds={totalRounds}
+                    lastDamageTaken={lastBossDamage}
+                    lastDamageDealer={lastBossDamageDealer}
+                    isCritical={isBossDamageCritical}
+                    onStartRound={handleStartClassicQuestion}
+                    canStartRound={phase === 'idle'}
+                    onFinishBattle={() => {
+                      setPhase('finished');
+                      setLocalScreen('podium');
+                      sfx.stopGameSound();
+                      sfx.playVictory();
+                    }}
+                    soundEnabled={soundEnabled}
+                  />
+                </motion.div>
+              ) : quizFormat === 'blocks' ? (
                 /* Tabuleiro de Blocos Numerados Estilo Kahoot */
                 <motion.div
                   key="blocks-board"
