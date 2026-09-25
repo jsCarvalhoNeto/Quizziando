@@ -2572,6 +2572,7 @@ Garanta que:
     timeLimit: number;
     questionIds: string[];
     categoryIds: string[];
+    newQuestions?: Array<Omit<Question, 'id'>>;
   }) => {
     const trimmedName = quizData.name.trim();
     if (!trimmedName) return;
@@ -2631,7 +2632,57 @@ Garanta que:
       return exists ? prev : [...prev, newCategory];
     });
 
-    // 3. Se houver perguntas associadas no modal de criação, vinculá-las à nova categoria
+    const finalQuestionIds = [...(quizData.questionIds || [])];
+
+    // 2.1 Se houver novas perguntas geradas via IA no modal de criação
+    if (quizData.newQuestions && quizData.newQuestions.length > 0) {
+      const createdQuestionsList: Question[] = [];
+
+      for (const nq of quizData.newQuestions) {
+        let createdId: string = crypto.randomUUID();
+
+        if (useRealSupabase) {
+          try {
+            const { data, error } = await supabase.rpc('quiz_save_question', {
+              p_question_id: null,
+              p_category_id: newCategory.id,
+              p_question_text: nq.question_text.trim(),
+              p_time_limit: nq.time_limit || quizData.timeLimit || 20,
+              p_explanation: nq.explanation?.trim() || null,
+              p_reference_url: null,
+              p_difficulty: nq.difficulty || 'medium',
+              p_tags: ['IA', 'Gemini'],
+              p_alternatives: nq.alternatives.map(a => ({ text: a.text, isCorrect: a.isCorrect }))
+            });
+
+            if (!error && data) {
+              createdId = String(data);
+            }
+          } catch (err) {
+            console.error('Erro ao salvar pergunta gerada por IA no Supabase:', err);
+          }
+        }
+
+        const newQObj: Question = {
+          id: createdId,
+          category_id: newCategory.id,
+          question_text: nq.question_text,
+          time_limit: nq.time_limit || quizData.timeLimit || 20,
+          explanation: nq.explanation || null,
+          reference_url: null,
+          difficulty: nq.difficulty,
+          tags: ['IA', 'Gemini'],
+          alternatives: nq.alternatives
+        };
+
+        createdQuestionsList.push(newQObj);
+        finalQuestionIds.push(createdId);
+      }
+
+      setQuestions(prev => [...prev, ...createdQuestionsList]);
+    }
+
+    // 3. Se houver perguntas existentes do acervo associadas no modal de criação, vinculá-las à nova categoria
     if (quizData.questionIds && quizData.questionIds.length > 0) {
       setQuestions(prev => prev.map(q => 
         quizData.questionIds.includes(q.id) ? { ...q, category_id: newCategory.id } : q
@@ -2655,8 +2706,8 @@ Garanta que:
       name: trimmedName,
       savedAt: new Date().toISOString(),
       categoryIds: [newCategory.id],
-      questionIds: quizData.questionIds,
-      rounds: Math.max(1, Math.min(20, quizData.questionIds.length || 10)),
+      questionIds: finalQuestionIds,
+      rounds: Math.max(1, Math.min(20, finalQuestionIds.length || 10)),
       timeLimit: quizData.timeLimit,
       onlineMode: 'open',
       scoringMode: 'speed',
@@ -3584,6 +3635,8 @@ Garanta que:
               folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
               categories={categories}
               questions={questions}
+              geminiApiKey={geminiApiKey}
+              geminiModel={geminiModel}
               onSaveQuiz={handleCreateQuizSubmit}
             />
 
