@@ -164,6 +164,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const sendingRef = useRef(false);
   const lastSnapshot = useRef(0);
   const lastRound = useRef(0);
+  const [isConfidenceBet, setIsConfidenceBet] = useState(false);
   const [playerRank, setPlayerRank] = useState<number | null>(null);
   const [isWinner, setIsWinner] = useState(false);
   const [rankingPlayers, setRankingPlayers] = useState<PlayerSnapshot['players']>([]);
@@ -178,6 +179,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     if (lastRound.current !== room.current_round) {
       setAnswerError('');
       setPendingAnswer(null);
+      setIsConfidenceBet(false);
       lastRound.current = room.current_round;
     }
 
@@ -790,8 +792,43 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             </h3>
           </div>
 
-          <div style={{ margin: 'auto 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ margin: 'auto 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
             <KahootCountdown seconds={countdownSeconds} soundEnabled={true} />
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => {
+                setIsConfidenceBet(prev => {
+                  const next = !prev;
+                  triggerHaptic(next ? [40, 30, 80] : 30);
+                  return next;
+                });
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 22px',
+                borderRadius: 999,
+                background: isConfidenceBet
+                  ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)'
+                  : 'rgba(255, 255, 255, 0.08)',
+                border: isConfidenceBet
+                  ? '2px solid #fde047'
+                  : '1.5px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: isConfidenceBet
+                  ? '0 0 25px rgba(245, 158, 11, 0.6)'
+                  : 'none',
+                color: 'white',
+                fontWeight: 900,
+                fontSize: 14,
+                cursor: 'pointer',
+              }}
+            >
+              <Flame style={{ width: 16, height: 16, color: isConfidenceBet ? '#fef08a' : '#f59e0b', fill: isConfidenceBet ? '#fef08a' : 'transparent' }} />
+              <span>{isConfidenceBet ? '🔥 APOSTA 2X ATIVA (DOBRO OU NADA)' : 'Ativar Aposta 2x (Dobro ou Nada)'}</span>
+            </motion.button>
           </div>
         </motion.div>
       </div>
@@ -854,21 +891,68 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                 </span>
               </div>
 
-              {roomState.selected_category && (
-                <div style={{
-                  padding: '2px 10px',
-                  borderRadius: 999,
-                  background: `${roomState.selected_category.color || '#7C3AED'}25`,
-                  border: `1px solid ${roomState.selected_category.color || '#7C3AED'}60`,
-                  color: roomState.selected_category.color || '#C4B5FD',
-                  fontSize: 10,
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em'
-                }}>
-                  {roomState.selected_category.name}
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {isConfidenceBet ? (
+                  <div style={{
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                    border: '1px solid #fde047',
+                    color: 'white',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    boxShadow: '0 0 14px rgba(245, 158, 11, 0.6)'
+                  }}>
+                    <Flame style={{ width: 11, height: 11, fill: '#fef08a' }} />
+                    APOSTA 2X
+                  </div>
+                ) : (
+                  chosenIndex === null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsConfidenceBet(true);
+                        triggerHaptic([40, 30, 80]);
+                      }}
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 999,
+                        background: 'rgba(245, 158, 11, 0.15)',
+                        border: '1px solid rgba(245, 158, 11, 0.4)',
+                        color: '#fbbf24',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Flame style={{ width: 11, height: 11 }} />
+                      Apostar 2x
+                    </button>
+                  )
+                )}
+
+                {roomState.selected_category && (
+                  <div style={{
+                    padding: '2px 10px',
+                    borderRadius: 999,
+                    background: `${roomState.selected_category.color || '#7C3AED'}25`,
+                    border: `1px solid ${roomState.selected_category.color || '#7C3AED'}60`,
+                    color: roomState.selected_category.color || '#C4B5FD',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em'
+                  }}>
+                    {roomState.selected_category.name}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1132,6 +1216,33 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                   <span>+{pointsEarned} pontos</span>
                 </div>
 
+                {/* 🔥 BANNER DE APOSTA DE CONFIANÇA 2X */}
+                {isConfidenceBet && (
+                  <motion.div
+                    initial={{ y: 15, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.15 }}
+                    style={{
+                      marginTop: 10,
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 14,
+                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(239, 68, 68, 0.25) 100%)',
+                      border: '1.5px solid rgba(245, 158, 11, 0.7)',
+                      boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8
+                    }}
+                  >
+                    <Flame style={{ width: 18, height: 18, color: '#F59E0B', fill: '#F59E0B' }} />
+                    <p style={{ margin: 0, color: '#FDE68A', fontWeight: 900, fontSize: 12 }}>
+                      🔥 APOSTA DE CONFIANÇA 2X CONQUISTADA COM SUCESSO!
+                    </p>
+                  </motion.div>
+                )}
+
                 {/* 🔥 BANNER DE ACERTO EM CADEIA (STREAK) */}
                 {streak >= 2 && (
                   <motion.div
@@ -1171,6 +1282,20 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                 <p style={{ color: '#FCA5A5', fontSize: 13, marginTop: 4 }}>
                   Você não respondeu dentro do tempo limite.
                 </p>
+                {isConfidenceBet && (
+                  <div style={{
+                    marginTop: 8,
+                    padding: '4px 12px',
+                    borderRadius: 12,
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#F87171',
+                    fontSize: 11,
+                    fontWeight: 800
+                  }}>
+                    ⚠️ Aposta de Confiança perdida por tempo!
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1180,6 +1305,20 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                   <p style={{ color: '#94A3B8', fontSize: 13, marginTop: 4 }}>
                     Você escolheu <strong style={{ color: chosen.border }}>{chosen.name}</strong> ({chosen.label})
                   </p>
+                )}
+                {isConfidenceBet && (
+                  <div style={{
+                    marginTop: 8,
+                    padding: '4px 12px',
+                    borderRadius: 12,
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#F87171',
+                    fontSize: 11,
+                    fontWeight: 800
+                  }}>
+                    ⚠️ Aposta de Confiança não vingou desta vez!
+                  </div>
                 )}
               </div>
             )}

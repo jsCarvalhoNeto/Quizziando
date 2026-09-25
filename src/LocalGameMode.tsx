@@ -6,7 +6,7 @@ import {
   Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X,
-  Hand, Users, Zap, RotateCcw, Target, BarChart3
+  Hand, Users, Zap, RotateCcw, Target, BarChart3, Flame
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -347,11 +347,17 @@ export default function LocalGameMode({
     };
   }, [isSpinning]);
 
+  // 🔥 Sistema de Apostas de Confiança ("Aposta Cega / Dobro ou Nada")
+  const [isConfidenceBetActive, setIsConfidenceBetActive] = useState(false);
+  const [confidenceBetPlayerIndex, setConfidenceBetPlayerIndex] = useState<number | null>(null);
+
   const [roundResult, setRoundResult] = useState<{
     scorer: number | null;
     correct: boolean;
     participantName?: string;
     correctText?: string;
+    isConfidenceBet?: boolean;
+    pointsDelta?: number;
   } | null>(null);
   const [savedGame, setSavedGame] = useState<SavedLocalGame | null>(null);
   const [lastDecision, setLastDecision] = useState<Pick<SavedLocalGame, 'players' | 'firstFailed' | 'phase' | 'timeLeft'> | null>(null);
@@ -744,6 +750,8 @@ export default function LocalGameMode({
 
     setCurrentRound(1);
     setFirstFailed(false);
+    setIsConfidenceBetActive(false);
+    setConfidenceBetPlayerIndex(null);
     resetUsedQuestions();
     setPhase('idle');
     setIsCountingDown(false);
@@ -924,6 +932,23 @@ export default function LocalGameMode({
     ? (roundStarterIndex === 0 ? 1 : 0)
     : roundStarterIndex;
 
+  const toggleConfidenceBet = () => {
+    if (phase !== 'category-reveal' && phase !== 'question-reveal' && phase !== 'question-first') return;
+    setIsConfidenceBetActive(prev => {
+      const next = !prev;
+      if (next) {
+        setConfidenceBetPlayerIndex(currentResponderIndex);
+        sfx.playClick();
+        try {
+          confetti({ particleCount: 35, spread: 60, origin: { y: 0.65 } });
+        } catch {}
+      } else {
+        setConfidenceBetPlayerIndex(null);
+      }
+      return next;
+    });
+  };
+
   const handleJudge = (correct: boolean) => {
     if (phase !== 'question-first' && phase !== 'question-second') return;
     setLastDecision({ players, firstFailed, phase, timeLeft });
@@ -1046,6 +1071,8 @@ export default function LocalGameMode({
     }
     setRoundResult(null);
     setFirstFailed(false);
+    setIsConfidenceBetActive(false);
+    setConfidenceBetPlayerIndex(null);
 
     if (quizFormat === 'blocks') {
       const remaining = blocks.filter(b => b.id !== activeBlockId && b.status === 'unrevealed');
@@ -1101,19 +1128,23 @@ export default function LocalGameMode({
   const finishRound = (scorerIndex: number | null) => {
     setTimerActive(false);
     setPhase('round-result');
-    const awardedPoints = firstFailed ? pointsOnPass : pointsPerCorrect;
+    const basePoints = firstFailed ? pointsOnPass : pointsPerCorrect;
+    const awardedPoints = isConfidenceBetActive ? basePoints * 2 : basePoints;
 
     if (quizFormat === 'boss_raid') {
       if (scorerIndex !== null) {
         const baseDmg = Math.max(800, Math.round(bossMaxHp / (totalRounds || 10)));
         const crit = firstFailed ? false : Math.random() < 0.35;
-        const finalDmg = crit ? Math.round(baseDmg * 1.45) : baseDmg;
+        const finalDmg = isConfidenceBetActive
+          ? Math.round(baseDmg * 2.2)
+          : (crit ? Math.round(baseDmg * 1.45) : baseDmg);
         setBossHp(prev => Math.max(0, prev - finalDmg));
         setLastBossDamage(finalDmg);
-        setIsBossDamageCritical(crit);
-        setLastBossDamageDealer(players[scorerIndex]?.name || 'Equipe');
+        setIsBossDamageCritical(isConfidenceBetActive || crit);
+        setLastBossDamageDealer(isConfidenceBetActive ? `${players[scorerIndex]?.name || 'Equipe'} (Aposta 2x)` : (players[scorerIndex]?.name || 'Equipe'));
       } else {
-        const attack = Math.max(600, Math.round(teamShieldMaxHp / ((totalRounds || 10) * 0.7)));
+        const baseAttack = Math.max(600, Math.round(teamShieldMaxHp / ((totalRounds || 10) * 0.7)));
+        const attack = isConfidenceBetActive ? Math.round(baseAttack * 1.5) : baseAttack;
         setTeamShieldHp(prev => Math.max(0, prev - attack));
         setLastBossDamage(null);
         setLastBossDamageDealer(null);
@@ -1140,10 +1171,13 @@ export default function LocalGameMode({
         updated[0] = { ...updated[0], roundResults: [...updated[0].roundResults] };
         updated[1] = { ...updated[1], roundResults: [...updated[1].roundResults] };
         if (scorerIndex !== null) {
-          updated[scorerIndex].score += firstFailed ? pointsOnPass : pointsPerCorrect;
+          updated[scorerIndex].score += awardedPoints;
           updated[scorerIndex].roundResults.push({ answered: true, correct: true });
           updated[scorerIndex === 0 ? 1 : 0].roundResults.push({ answered: false, correct: null });
         } else {
+          if (isConfidenceBetActive && confidenceBetPlayerIndex !== null && playMode === 'teams') {
+            updated[confidenceBetPlayerIndex].score = Math.max(0, updated[confidenceBetPlayerIndex].score - pointsPerCorrect);
+          }
           updated[roundStarterIndex].roundResults.push({ answered: true, correct: false });
           const other = roundStarterIndex === 0 ? 1 : 0;
           updated[other].roundResults.push({ answered: firstFailed, correct: firstFailed ? false : null });
@@ -1152,7 +1186,12 @@ export default function LocalGameMode({
       return updated;
     });
 
-    setRoundResult({ scorer: scorerIndex, correct: scorerIndex !== null });
+    setRoundResult({
+      scorer: scorerIndex,
+      correct: scorerIndex !== null,
+      isConfidenceBet: isConfidenceBetActive,
+      pointsDelta: scorerIndex !== null ? awardedPoints : (isConfidenceBetActive && playMode === 'teams' ? -pointsPerCorrect : 0)
+    });
 
     roundCompletionTimerRef.current = setTimeout(() => {
       roundCompletionTimerRef.current = null;
@@ -1253,6 +1292,8 @@ export default function LocalGameMode({
     setRoundResult(null);
     setTimerActive(false);
     setFirstFailed(false);
+    setIsConfidenceBetActive(false);
+    setConfidenceBetPlayerIndex(null);
     setLastDecision(null);
     discardSavedGame();
     sfx.playClick();
@@ -2372,6 +2413,40 @@ export default function LocalGameMode({
                     Revelar Alternativas e Iniciar Tempo
                   </button>
                 )}
+
+                {/* Botão de Aposta de Confiança na tela de Question Reveal */}
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={toggleConfidenceBet}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '12px 28px',
+                    borderRadius: 999,
+                    background: isConfidenceBetActive
+                      ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)'
+                      : 'rgba(255, 255, 255, 0.08)',
+                    border: isConfidenceBetActive
+                      ? '2px solid #fde047'
+                      : '1.5px solid rgba(255, 255, 255, 0.2)',
+                    boxShadow: isConfidenceBetActive
+                      ? '0 0 35px rgba(245, 158, 11, 0.6), 0 4px 14px rgba(0, 0, 0, 0.4)'
+                      : 'none',
+                    color: 'white',
+                    fontWeight: 900,
+                    fontSize: 16,
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    transition: 'all 0.3s ease',
+                    marginTop: 8,
+                  }}
+                >
+                  <Flame style={{ width: 20, height: 20, color: isConfidenceBetActive ? '#fef08a' : '#f59e0b', fill: isConfidenceBetActive ? '#fef08a' : 'transparent' }} />
+                  <span>{isConfidenceBetActive ? '🔥 APOSTA 2X ATIVA (DOBRO OU NADA)' : 'Ativar Aposta de Confiança (2x Pontos)'}</span>
+                </motion.button>
               </motion.div>
             )}
 
@@ -2404,6 +2479,39 @@ export default function LocalGameMode({
                         ⚡ SEGUNDA CHANCE
                       </motion.span>
                     )}
+
+                    {/* Badge ou Botão de Aposta de Confiança */}
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={toggleConfidenceBet}
+                      disabled={phase === 'question-second'}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 12px',
+                        borderRadius: 999,
+                        background: isConfidenceBetActive
+                          ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)'
+                          : 'rgba(245, 158, 11, 0.12)',
+                        border: isConfidenceBetActive
+                          ? '1.5px solid #fde047'
+                          : '1px solid rgba(245, 158, 11, 0.35)',
+                        boxShadow: isConfidenceBetActive
+                          ? '0 0 20px rgba(245, 158, 11, 0.6)'
+                          : 'none',
+                        color: isConfidenceBetActive ? '#ffffff' : '#fbbf24',
+                        fontSize: 12,
+                        fontWeight: 900,
+                        cursor: phase === 'question-second' ? 'default' : 'pointer',
+                        marginLeft: 8,
+                      }}
+                    >
+                      <Flame style={{ width: 14, height: 14, color: isConfidenceBetActive ? '#fef08a' : '#f59e0b', fill: isConfidenceBetActive ? '#fef08a' : 'transparent' }} />
+                      <span>{isConfidenceBetActive ? 'DOBRO OU NADA (2X ATIVO)' : 'Apostar 2x'}</span>
+                    </motion.button>
                   </div>
                   {/* Timer circular */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -2442,6 +2550,25 @@ export default function LocalGameMode({
                     <span style={{ fontSize: 20, fontWeight: 800, color: TEAM_LIGHT[respIdx] }}>
                       {players[respIdx]?.name} — responda em voz alta!
                     </span>
+                    {isConfidenceBetActive && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        padding: '4px 14px',
+                        borderRadius: 999,
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                        color: 'white',
+                        fontWeight: 900,
+                        fontSize: 12,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        boxShadow: '0 0 18px rgba(245, 158, 11, 0.6)',
+                        border: '1px solid #fde047'
+                      }}>
+                        <Flame style={{ width: 14, height: 14, fill: '#fef08a' }} />
+                        VALENDO O DOBRO (2X)
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -2611,12 +2738,35 @@ export default function LocalGameMode({
                     <>
                       <div style={{ fontSize: 110 }}>🎉</div>
                       <div>
+                        {roundResult.isConfidenceBet && (
+                          <motion.div
+                            initial={{ scale: 0, y: -10 }}
+                            animate={{ scale: 1, y: 0 }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '6px 18px',
+                              borderRadius: 999,
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+                              color: '#ffffff',
+                              fontWeight: 900,
+                              fontSize: 14,
+                              boxShadow: '0 0 25px rgba(245, 158, 11, 0.6)',
+                              border: '1.5px solid #fde047',
+                              marginBottom: 12,
+                            }}
+                          >
+                            <Flame style={{ width: 16, height: 16, color: '#fef08a', fill: '#fef08a' }} />
+                            <span>🔥 APOSTA DE CONFIANÇA 2X CONQUISTADA!</span>
+                          </motion.div>
+                        )}
                         <p style={{ margin: '0 0 10px', fontSize: 22, fontWeight: 700, color: 'rgba(148,163,184,0.6)', textTransform: 'uppercase' }}>Acertou!</p>
                         <h3 style={{ margin: '0 0 10px', fontSize: 64, fontWeight: 900, color: TEAM_COLORS[roundResult.scorer] }}>
                           {players[roundResult.scorer]?.name}
                         </h3>
                         <p style={{ margin: 0, fontSize: 48, fontWeight: 900, color: '#34D399' }}>
-                          +{firstFailed ? pointsOnPass : pointsPerCorrect} pontos
+                          +{roundResult.pointsDelta ?? (firstFailed ? pointsOnPass : pointsPerCorrect)} pontos
                         </p>
                       </div>
                       {correctAnswer && (
@@ -2643,12 +2793,40 @@ export default function LocalGameMode({
                     <>
                       <div style={{ fontSize: 100 }}>😅</div>
                       <div>
+                        {roundResult.isConfidenceBet && (
+                          <motion.div
+                            initial={{ scale: 0, y: -10 }}
+                            animate={{ scale: 1, y: 0 }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              padding: '6px 18px',
+                              borderRadius: 999,
+                              background: 'rgba(239, 68, 68, 0.2)',
+                              color: '#f87171',
+                              fontWeight: 900,
+                              fontSize: 14,
+                              border: '1.5px solid rgba(239, 68, 68, 0.5)',
+                              boxShadow: '0 0 20px rgba(239, 68, 68, 0.3)',
+                              marginBottom: 12,
+                            }}
+                          >
+                            <Flame style={{ width: 16, height: 16, color: '#f87171' }} />
+                            <span>⚠️ APOSTA FALHOU: PENALIDADE DE RISCO APLICADA!</span>
+                          </motion.div>
+                        )}
                         <h3 style={{ margin: '0 0 10px', fontSize: 48, fontWeight: 900, color: '#F87171' }}>
                           Ninguém acertou
                         </h3>
-                        <p style={{ margin: 0, fontSize: 22, color: 'rgba(148,163,184,0.7)' }}>
+                        <p style={{ margin: '0 0 8px', fontSize: 22, color: 'rgba(148,163,184,0.7)' }}>
                           Ambos os times erraram esta rodada
                         </p>
+                        {roundResult.isConfidenceBet && (
+                          <p style={{ margin: 0, fontSize: 24, fontWeight: 900, color: '#EF4444' }}>
+                            {roundResult.pointsDelta ?? -pointsPerCorrect} pontos
+                          </p>
+                        )}
                       </div>
                       {correctAnswer && (
                         <motion.div
