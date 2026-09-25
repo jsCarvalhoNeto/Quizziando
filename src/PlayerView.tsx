@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Trophy, CheckCircle, XCircle, Clock, Users, 
-  Flame, Sparkles, AlertCircle, Award
+  Flame, Sparkles, AlertCircle, Award, Heart
 } from 'lucide-react';
+import { heartbeatAudio, triggerHeartbeatHaptic } from './lib/heartbeatAudio';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -314,13 +315,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     return () => window.clearInterval(timer);
   }, [roomState?.question_deadline, roomState?.paused_remaining_ms, serverOffset]);
 
-  // Vibração nos últimos 3 segundos para criar tensão saudável
+  // 💓 Efeito de Batimento Cardíaco (Áudio + Háptico) nos últimos 5 segundos de tensão
   useEffect(() => {
-    if (playerScreen === 'question' && secondsLeft > 0 && secondsLeft <= 3 && lastHapticSecond.current !== secondsLeft) {
+    if (playerScreen === 'question' && chosenIndex === null && secondsLeft > 0 && secondsLeft <= 5 && lastHapticSecond.current !== secondsLeft) {
       lastHapticSecond.current = secondsLeft;
-      triggerHaptic(25);
+      triggerHeartbeatHaptic(secondsLeft);
+      heartbeatAudio.playBeat(secondsLeft);
     }
-  }, [secondsLeft, playerScreen]);
+  }, [secondsLeft, playerScreen, chosenIndex]);
 
   // Evitar que a tela do celular apague durante o jogo (Screen Wake Lock API)
   useEffect(() => {
@@ -880,9 +882,19 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             {/* Linha com Timer Numérico & Status */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Clock style={{ width: 14, height: 14, color: secondsLeft <= 3 ? '#EF4444' : '#94A3B8' }} />
+                {secondsLeft <= 5 && secondsLeft > 0 ? (
+                  <motion.div
+                    animate={{ scale: [1, 1.35, 1.08, 1.45, 1] }}
+                    transition={{ duration: 0.75, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    <Heart style={{ width: 15, height: 15, color: '#ef4444', fill: '#ef4444', filter: 'drop-shadow(0 0 6px rgba(239,68,68,0.8))' }} />
+                  </motion.div>
+                ) : (
+                  <Clock style={{ width: 14, height: 14, color: '#94A3B8' }} />
+                )}
                 <span style={{ 
-                  color: secondsLeft <= 3 ? '#F87171' : '#CBD5E1', 
+                  color: secondsLeft <= 5 ? '#F87171' : '#CBD5E1', 
                   fontSize: 13, 
                   fontWeight: 800,
                   fontFamily: 'Outfit, monospace'

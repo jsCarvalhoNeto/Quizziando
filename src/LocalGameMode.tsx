@@ -6,8 +6,9 @@ import {
   Trophy, Home,
   Clock, Volume2, VolumeX, AlertCircle, ArrowLeft, Play, Crown,
   Settings, Upload, Image as ImageIcon, X,
-  Hand, Users, Zap, RotateCcw, Target, BarChart3, Flame
+  Hand, Users, Zap, RotateCcw, Target, BarChart3, Flame, Heart
 } from 'lucide-react';
+import { heartbeatAudio } from './lib/heartbeatAudio';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -141,6 +142,10 @@ class LocalSfx {
     }
   }
   playTimeout() { this.tone(120, 0.6, 'sawtooth', 0.1); }
+  playHeartbeat(sec: number) {
+    if (!this.enabled) return;
+    heartbeatAudio.playBeat(sec);
+  }
 
   playSpin() {
     if (!this.spinAudio) return;
@@ -266,6 +271,7 @@ export default function LocalGameMode({
   onToggleSound
 }: Props) {
   sfx.enabled = soundEnabled;
+  heartbeatAudio.enabled = soundEnabled;
 
   const [localScreen, setLocalScreen] = useState<LocalScreen>('loading');
   const [playMode, setPlayMode]       = useState<'teams' | 'individual'>(initialPlayMode || 'teams');
@@ -720,6 +726,21 @@ export default function LocalGameMode({
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timerActive]);
+
+  // 💓 Efeito Sonoro de Batimento Cardíaco (Lub-Dub) nos últimos 5 segundos de pergunta presencial
+  const lastHeartbeatSec = useRef<number>(-1);
+  useEffect(() => {
+    if (
+      (phase === 'question-first' || phase === 'question-second') &&
+      timerActive &&
+      timeLeft > 0 &&
+      timeLeft <= 5 &&
+      lastHeartbeatSec.current !== timeLeft
+    ) {
+      lastHeartbeatSec.current = timeLeft;
+      sfx.playHeartbeat(timeLeft);
+    }
+  }, [phase, timerActive, timeLeft]);
 
   useEffect(() => {
     if (timeLeft === 0 && (phase === 'question-first' || phase === 'question-second')) {
@@ -2578,13 +2599,31 @@ export default function LocalGameMode({
                       <span>{isConfidenceBetActive ? 'DOBRO OU NADA (2X ATIVO)' : 'Apostar 2x'}</span>
                     </motion.button>
                   </div>
-                  {/* Timer circular */}
+                  {/* Timer circular com Batimento Cardíaco */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Clock style={{ width: 22, height: 22, color: 'rgba(148,163,184,0.6)' }} />
+                    {timeLeft <= 5 && timeLeft > 0 ? (
+                      <motion.div
+                        animate={{ scale: [1, 1.35, 1.08, 1.45, 1] }}
+                        transition={{ duration: 0.65, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ display: 'flex', alignItems: 'center' }}
+                      >
+                        <Heart style={{ width: 24, height: 24, color: '#ef4444', fill: '#ef4444', filter: 'drop-shadow(0 0 10px rgba(239,68,68,0.9))' }} />
+                      </motion.div>
+                    ) : (
+                      <Clock style={{ width: 22, height: 22, color: 'rgba(148,163,184,0.6)' }} />
+                    )}
                     <motion.span
                       key={timeLeft}
-                      initial={{ scale: timeLeft <= 5 ? 1.3 : 1 }} animate={{ scale: 1 }}
-                      style={{ fontSize: 44, fontWeight: 900, color: timerCol, fontFamily: 'monospace', minWidth: 72, textAlign: 'right' }}>
+                      initial={{ scale: timeLeft <= 5 ? 1.35 : 1 }} animate={{ scale: 1 }}
+                      style={{
+                        fontSize: 44,
+                        fontWeight: 900,
+                        color: timerCol,
+                        fontFamily: 'monospace',
+                        minWidth: 72,
+                        textAlign: 'right',
+                        textShadow: timeLeft <= 5 ? '0 0 18px rgba(239, 68, 68, 0.85)' : 'none'
+                      }}>
                       {timeLeft}s
                     </motion.span>
                     <button onClick={toggleTimer}

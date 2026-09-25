@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { supabase } from './lib/supabaseClient';
 import { remainingSeconds } from './lib/gameRules';
 import type { OnlineRoom } from './lib/onlineGame';
-import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone, Crown } from 'lucide-react';
+import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone, Crown, Heart } from 'lucide-react';
+import { heartbeatAudio } from './lib/heartbeatAudio';
 import confetti from 'canvas-confetti';
 import { getAvatarUrl } from './lib/avatars';
 import KahootCountdown from './components/KahootCountdown';
@@ -151,6 +152,15 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [room?.question_deadline, room?.paused_remaining_ms]);
+
+  // 💓 Efeito Sonoro de Batimento Cardíaco (Lub-Dub) nos últimos 5 segundos da questão no telão
+  const lastHeartbeatSecond = useRef<number>(-1);
+  useEffect(() => {
+    if (room?.round_state === 'question' && seconds > 0 && seconds <= 5 && lastHeartbeatSecond.current !== seconds) {
+      lastHeartbeatSecond.current = seconds;
+      heartbeatAudio.playBeat(seconds);
+    }
+  }, [room?.round_state, seconds]);
 
   // Celebração de Pódio com Canhões de Fogos e Confetes
   const hasTriggeredPodiumFireworks = useRef(false);
@@ -485,36 +495,47 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
                 </div>
               )}
 
-              {/* Cronômetro Gigante com Suspense Cinematográfico */}
+              {/* Cronômetro Gigante com Batimento Cardíaco e Suspense Cinematográfico */}
               {room.round_state === 'question' && (
                 <motion.div
                   animate={{
-                    scale: seconds <= 5 && seconds > 0 ? [1, 1.08, 1] : 1,
+                    scale: seconds <= 5 && seconds > 0 ? [1, 1.12, 1.04, 1.18, 1] : 1,
                   }}
-                  transition={{ duration: 0.45, ease: 'easeInOut' }}
+                  transition={{ duration: 0.65, ease: 'easeInOut' }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px',
-                    background: seconds <= 5 ? 'rgba(239, 68, 68, 0.28)' : 'rgba(255, 255, 255, 0.08)',
+                    gap: '12px',
+                    background: seconds <= 5 ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.35), rgba(153, 27, 27, 0.45))' : 'rgba(255, 255, 255, 0.08)',
                     border: `2px solid ${seconds <= 5 ? '#ef4444' : 'rgba(255, 255, 255, 0.15)'}`,
                     borderRadius: '999px',
                     padding: '8px 24px',
-                    boxShadow: seconds <= 5 ? '0 0 30px rgba(239, 68, 68, 0.55)' : 'none',
+                    boxShadow: seconds <= 5 ? '0 0 35px rgba(239, 68, 68, 0.7), inset 0 0 15px rgba(239, 68, 68, 0.3)' : 'none',
                     transition: 'all 0.3s',
                   }}
                 >
-                  <Clock style={{ width: '22px', height: '22px', color: seconds <= 5 ? '#f87171' : '#fbbf24' }} />
+                  {seconds <= 5 && seconds > 0 ? (
+                    <motion.div
+                      animate={{ scale: [1, 1.35, 1.08, 1.45, 1] }}
+                      transition={{ duration: 0.65, repeat: Infinity, ease: 'easeInOut' }}
+                      style={{ display: 'flex', alignItems: 'center' }}
+                    >
+                      <Heart style={{ width: '24px', height: '24px', color: '#ef4444', fill: '#ef4444', filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.9))' }} />
+                    </motion.div>
+                  ) : (
+                    <Clock style={{ width: '22px', height: '22px', color: '#fbbf24' }} />
+                  )}
                   <motion.span
                     key={seconds}
-                    initial={seconds <= 5 ? { scale: 1.28, opacity: 0.7 } : false}
+                    initial={seconds <= 5 ? { scale: 1.3, opacity: 0.7 } : false}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.25 }}
+                    transition={{ duration: 0.2 }}
                     style={{
-                      fontSize: '32px',
+                      fontSize: '34px',
                       fontWeight: 900,
                       fontFamily: 'monospace',
-                      color: seconds <= 5 ? '#f87171' : '#ffffff',
+                      color: seconds <= 5 ? '#fecaca' : '#ffffff',
+                      textShadow: seconds <= 5 ? '0 0 12px rgba(239, 68, 68, 0.8)' : 'none',
                     }}
                   >
                     {seconds}s

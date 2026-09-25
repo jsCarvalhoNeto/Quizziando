@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/generate-offline-manifest.mjs",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test tests/gameRules.test.ts tests/recovery.test.ts tests/offline-sw.test.mjs",
+    "test": "node --experimental-strip-types --test tests/gameRules.test.ts tests/recovery.test.ts tests/offline-sw.test.mjs tests/heartbeat.test.ts",
     "test:db": "node tests/run-server-gameplay.mjs",
     "preview": "vite preview"
   },
