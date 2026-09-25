@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Trophy, CheckCircle, XCircle, Clock, Users, 
-  Flame, Sparkles, AlertCircle, Award, Heart
+  Flame, Sparkles, AlertCircle, Award, Heart, RefreshCw
 } from 'lucide-react';
+import { useRoomSubscription } from './hooks/useRoomSubscription';
+import { NetworkStatusBadge } from './components/game/NetworkStatusBadge';
 import { heartbeatAudio, triggerHeartbeatHaptic } from './lib/heartbeatAudio';
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -142,7 +144,6 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
   const [pointsEarned, setPointsEarned] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
-  const [connected, setConnected] = useState(false);
 
   // ── 🔥 Mecânica de Acerto em Cadeia (Streaks) ──
   const [streak, setStreak] = useState<number>(0);
@@ -201,7 +202,6 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     setPlayerRank(players.findIndex(p => p.id === player.id) + 1);
     setIsWinner(players.length > 0 && player.score > 0 && player.score === players[0].score);
     setServerOffset(stamp - Date.now());
-    setConnected(true);
 
     // ── Atualização do Streak e Efeitos Hápticos ──
     if (room.round_state === 'answered' && lastStreakRound.current !== room.current_round) {
@@ -261,50 +261,30 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     return () => { cancelled = true; };
   }, [roomCode, applySnapshot]);
 
-  // Subscribe once per session, resync on reconnect, and recover missed events by polling.
-  useEffect(() => {
-    if (!session) return;
-    let stopped = false;
-    let loading = false;
-    let queued = false;
-    const refresh = async () => {
-      if (stopped) return;
-      if (loading) { queued = true; return; }
-      loading = true;
-      try {
-        const snapshot = await gameRpc<PlayerSnapshot>('quiz_player_state', { p_code: roomCode, p_token: session.token });
-        if (!stopped) applySnapshot(snapshot);
-      } catch { if (!stopped) setConnected(false); }
-      finally {
-        loading = false;
-        if (queued && !stopped) { queued = false; void refresh(); }
+  // Subscribe once per session, resync on reconnect, and recover missed events with Heartbeat.
+  const {
+    status: connectionStatus,
+    latencyMs,
+    isOnline
+  } = useRoomSubscription<PlayerSnapshot>({
+    roomCode: session ? roomCode : null,
+    enabled: Boolean(session),
+    pollIntervalMs: 2000,
+    presenceKey: playerId || undefined,
+    presencePayload: playerId ? { player_id: playerId, joined_at: new Date().toISOString() } : undefined,
+    tables: [
+      {
+        table: 'game_rooms',
+        filter: `code=eq.${roomCode}`,
+        event: 'UPDATE'
       }
-    };
-    const channel = supabase.channel(`room-${roomCode}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_rooms', filter: `code=eq.${roomCode}` }, () => void refresh())
-      .subscribe(status => { if (status === 'SUBSCRIBED') void refresh(); else if (!stopped) setConnected(false); });
-    void refresh();
-    const poll = window.setInterval(() => void refresh(), 2000);
-    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
-    window.addEventListener('online', refresh);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      stopped = true;
-      window.clearInterval(poll);
-      window.removeEventListener('online', refresh);
-      document.removeEventListener('visibilitychange', onVisible);
-      void supabase.removeChannel(channel);
-    };
-  }, [session, roomCode, applySnapshot]);
+    ],
+    fetchState: () => gameRpc<PlayerSnapshot>('quiz_player_state', { p_code: roomCode, p_token: session!.token }),
+    onState: (snapshot) => {
+      applySnapshot(snapshot);
+    }
+  });
 
-  useEffect(() => {
-    if (!session || !playerId) return;
-    const channel = supabase.channel(`presence-${roomCode}`, { config: { presence: { key: playerId } } });
-    channel.subscribe(status => {
-      if (status === 'SUBSCRIBED') void channel.track({ player_id: playerId, joined_at: new Date().toISOString() });
-    });
-    return () => { void supabase.removeChannel(channel); };
-  }, [session, playerId, roomCode]);
 
   useEffect(() => {
     const tick = () => setSecondsLeft(roomState?.paused_remaining_ms != null
@@ -415,7 +395,29 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
     if (playerScreen === 'join') return null;
 
     return (
-      <header style={styles.topHud}>
+      <>
+        {(!isOnline || connectionStatus === 'reconnecting') && (
+          <div
+            style={{
+              backgroundColor: '#d97706',
+              color: '#ffffff',
+              padding: '6px 12px',
+              fontSize: 11,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              zIndex: 9999,
+              width: '100%'
+            }}
+          >
+            <RefreshCw style={{ width: 13, height: 13, animation: 'spin 1.5s linear infinite' }} />
+            <span>Oscilação no Wi-Fi. Reconectando à rodada... Seus pontos continuam salvos!</span>
+          </div>
+        )}
+        <header style={styles.topHud}>
         {/* Jogador Info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           <div style={{ position: 'relative' }}>
@@ -439,15 +441,23 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
                 width: 9,
                 height: 9,
                 borderRadius: '50%',
-                backgroundColor: connected ? '#10B981' : '#EF4444',
+                backgroundColor: connectionStatus === 'connected' ? '#10B981' : connectionStatus === 'reconnecting' ? '#F59E0B' : '#EF4444',
                 border: '1.5px solid #0b1021'
               }}
             />
           </div>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-            <span style={{ color: '#F1F5F9', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>
-              {nickname}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: '#F1F5F9', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85px' }}>
+                {nickname}
+              </span>
+              <NetworkStatusBadge
+                status={connectionStatus}
+                latencyMs={latencyMs}
+                isOnline={isOnline}
+                compact={true}
+              />
+            </div>
             <span style={{ color: '#94A3B8', fontSize: 10, fontWeight: 600 }}>
               {roomState ? `Rodada ${roomState.current_round}/${roomState.rounds}` : 'Conectado'}
             </span>
@@ -493,6 +503,7 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
           </div>
         </div>
       </header>
+      </>
     );
   };
 
