@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import { useState } from 'react';
 import { Pencil, Trash2, Shield, ShieldOff, Search, UserPlus } from 'lucide-react';
 
 interface UserData {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Users, Activity, PlayCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
