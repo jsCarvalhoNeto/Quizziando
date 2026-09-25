@@ -35,6 +35,7 @@ import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
 import TeacherRemoteView from './components/teacher/TeacherRemoteView';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 import AmbientBorderGlow from './components/game/AmbientBorderGlow';
+import AdminLayout from './components/admin/AdminLayout';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -504,7 +505,7 @@ export default function App() {
   };
 
   // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
-  const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'>('welcome');
+  const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium' | 'admin-dashboard'>('welcome');
   const [hostRooms, setHostRooms] = useState<HostRoomSummary[]>([]);
   const [hostRoomsLoading, setHostRoomsLoading] = useState(false);
   const [hostRoomsError, setHostRoomsError] = useState('');
@@ -3515,7 +3516,14 @@ Garanta que:
             1. TELA DE ENTRADA (WELCOME)
             ========================================== */}
         {screen === 'welcome' && (
-          <WelcomeView
+          <>
+            <button 
+              onClick={() => setScreen('admin-dashboard')}
+              style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold' }}
+            >
+              Acessar Painel Admin
+            </button>
+            <WelcomeView
             role={role}
             onRoleChange={(newRole) => {
               setRole(newRole);
@@ -3532,6 +3540,7 @@ Garanta que:
             onStartGame={handleStartGameSetup}
             onOpenManagerLogin={handleOpenManagerLogin}
           />
+          </>
         )}
 
         {/* ==========================================
@@ -4890,6 +4899,10 @@ Garanta que:
         {/* ==========================================
             5. O PÓDIO DE CAMPEÕES (PODIUM)
             ========================================== */}
+        {screen === 'admin-dashboard' && (
+          <AdminLayout onExit={() => setScreen('welcome')} currentUser={{ name: 'Administrador', role: 'admin' }} />
+        )}
+
         {screen === 'podium' && (
           <div style={{ width: '100%', maxWidth: '850px', margin: '60px auto 0', position: 'relative' }}>
             
