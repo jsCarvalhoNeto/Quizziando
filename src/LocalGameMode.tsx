@@ -28,6 +28,7 @@ import { BlocksBoardView } from './components/game/BlocksBoardView';
 import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
 import { BossRaidBoardView } from './components/game/BossRaidBoardView';
 import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
+import AmbientBorderGlow from './components/game/AmbientBorderGlow';
 
 // ─── Cores das alternativas (igual ao modo online) ──────────────────────────
 
@@ -2884,6 +2885,16 @@ export default function LocalGameMode({
             </div>
           </div>
         )}
+
+        {/* ─── ILUMINAÇÃO PERIFÉRICA REATIVA (AMBIENT BORDER GLOW) ─── */}
+        <AmbientBorderGlow
+          active={phase === 'question-first' || phase === 'question-second' || phase === 'round-result'}
+          remainingSeconds={timeLeft}
+          totalSeconds={currentQuestion?.time_limit || turnTimeLimit || 20}
+          isPaused={!timerActive && (phase === 'question-first' || phase === 'question-second')}
+          isAnswered={phase === 'round-result'}
+          intensity="cinematic"
+        />
       </div>
     );
   }

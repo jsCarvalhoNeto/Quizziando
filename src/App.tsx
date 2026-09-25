@@ -34,6 +34,7 @@ import { BossRaidBoardView } from './components/game/BossRaidBoardView';
 import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
 import TeacherRemoteView from './components/teacher/TeacherRemoteView';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
+import AmbientBorderGlow from './components/game/AmbientBorderGlow';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -6903,6 +6904,16 @@ Garanta que:
         roomCode={roomCode}
         pairingPin={hostPairingPin}
         isSmartphoneConnected={isSmartphoneConnected}
+      />
+
+      {/* ─── ILUMINAÇÃO PERIFÉRICA REATIVA (AMBIENT BORDER GLOW) ─── */}
+      <AmbientBorderGlow
+        active={screen === 'game-play' && (roundState === 'question' || roundState === 'answered')}
+        remainingSeconds={timeLeft}
+        totalSeconds={currentQuestion?.time_limit || gameTimeLimit || 20}
+        isPaused={pausedRemaining !== null}
+        isAnswered={roundState === 'answered'}
+        intensity="cinematic"
       />
     </div>
   );

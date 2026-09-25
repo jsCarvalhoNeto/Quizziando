@@ -5,6 +5,7 @@ import type { OnlineRoom } from './lib/onlineGame';
 import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone } from 'lucide-react';
 import KahootCountdown from './components/KahootCountdown';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
+import AmbientBorderGlow from './components/game/AmbientBorderGlow';
 
 interface SpectatorPlayer {
   id: string;
@@ -718,6 +719,16 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
           </div>
         )}
       </div>
+
+      {/* ─── ILUMINAÇÃO PERIFÉRICA REATIVA (AMBIENT BORDER GLOW) ─── */}
+      <AmbientBorderGlow
+        active={room?.round_state === 'question' || room?.round_state === 'answered'}
+        remainingSeconds={seconds}
+        totalSeconds={room?.time_limit || room?.current_question?.time_limit || 20}
+        isPaused={room?.paused_remaining_ms != null}
+        isAnswered={room?.round_state === 'answered'}
+        intensity="cinematic"
+      />
 
       <TeacherRemoteModal
         isOpen={showRemoteModal}

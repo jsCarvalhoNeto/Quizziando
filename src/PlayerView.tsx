@@ -13,6 +13,7 @@ import {
 } from './lib/onlineGame';
 import { remainingSeconds } from './lib/gameRules';
 import KahootCountdown from './components/KahootCountdown';
+import AmbientBorderGlow from './components/game/AmbientBorderGlow';
 
 // ==========================================
 // 📳 UTILITÁRIO DE VIBRAÇÃO HÁPTICA (MOBILE)
@@ -991,6 +992,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             </p>
           </div>
         </main>
+
+        <AmbientBorderGlow
+          active={true}
+          remainingSeconds={secondsLeft}
+          totalSeconds={roomState.time_limit || roomState.current_question?.time_limit || 20}
+          isPaused={isPaused}
+          intensity="subtle"
+        />
       </div>
     );
   }
@@ -1063,6 +1072,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             {answeredCount} de {totalPlayers} já confirmaram
           </p>
         </motion.div>
+
+        <AmbientBorderGlow
+          active={true}
+          remainingSeconds={secondsLeft}
+          totalSeconds={roomState?.time_limit || 20}
+          isPaused={roomState?.paused_remaining_ms != null}
+          intensity="subtle"
+        />
       </div>
     );
   }
@@ -1256,6 +1273,14 @@ export default function PlayerView({ roomCode }: PlayerViewProps) {
             <span style={{ color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>Aguardando próxima rodada...</span>
           </div>
         </motion.div>
+
+        <AmbientBorderGlow
+          active={true}
+          remainingSeconds={0}
+          isAnswered={true}
+          isCorrect={wasCorrect}
+          intensity="subtle"
+        />
       </div>
     );
   }
