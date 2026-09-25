@@ -6778,6 +6778,15 @@ Garanta que:
         isAnswered={roundState === 'answered'}
         intensity="cinematic"
       />
+
+      {screen !== 'admin-dashboard' && (
+        <button 
+          onClick={() => setScreen('admin-dashboard')}
+          style={{ position: 'fixed', bottom: 24, left: 24, zIndex: 2147483647, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', cursor: 'pointer' }}
+        >
+          ⚙️ Acessar Painel Admin
+        </button>
+      )}
     </div>
   );
 }
