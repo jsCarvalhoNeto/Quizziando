@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient';
 import { remainingSeconds } from './lib/gameRules';
 import type { OnlineRoom } from './lib/onlineGame';
-import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode } from 'lucide-react';
+import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone } from 'lucide-react';
 import KahootCountdown from './components/KahootCountdown';
+import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 
 interface SpectatorPlayer {
   id: string;
@@ -25,6 +26,18 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
   const [error, setError] = useState('');
   const [seconds, setSeconds] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showRemoteModal, setShowRemoteModal] = useState(false);
+  const [pairingPin] = useState<string>(() => {
+    try {
+      const saved = sessionStorage.getItem(`quiz_host_pin_${roomCode}`);
+      if (saved) return saved;
+      const gen = Math.floor(1000 + Math.random() * 9000).toString();
+      sessionStorage.setItem(`quiz_host_pin_${roomCode}`, gen);
+      return gen;
+    } catch {
+      return '4819';
+    }
+  });
   const [countdownSeconds] = useState<number>(() => {
     try {
       const saved = localStorage.getItem('quizziando_countdown_seconds');
@@ -200,6 +213,29 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
               Rodada {room.current_round} de {room.rounds}
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowRemoteModal(true)}
+            style={{
+              background: 'rgba(124, 58, 237, 0.25)',
+              border: '1px solid rgba(139, 92, 246, 0.45)',
+              color: '#c4b5fd',
+              borderRadius: '10px',
+              padding: '7px 14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 800,
+              transition: 'background 0.2s',
+            }}
+            title="Abrir Controle do Professor no Smartphone"
+          >
+            <Smartphone style={{ width: '15px', height: '15px' }} />
+            <span>Controle Celular</span>
+          </button>
 
           <button
             type="button"
@@ -682,6 +718,13 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
           </div>
         )}
       </div>
+
+      <TeacherRemoteModal
+        isOpen={showRemoteModal}
+        onClose={() => setShowRemoteModal(false)}
+        roomCode={roomCode}
+        pairingPin={pairingPin}
+      />
     </main>
   );
 }

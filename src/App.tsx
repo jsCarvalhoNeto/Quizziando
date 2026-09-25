@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download, Play, Zap
+  ArrowLeft, Search, Download, Play, Zap, Smartphone
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -32,6 +32,8 @@ import { BlocksBoardView } from './components/game/BlocksBoardView';
 import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
 import { BossRaidBoardView } from './components/game/BossRaidBoardView';
 import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
+import TeacherRemoteView from './components/teacher/TeacherRemoteView';
+import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -1197,6 +1199,21 @@ Garanta que:
   // Contagem de respostas por alternativa para o operador [A, B, C, D]
   const [roomAnswers, setRoomAnswers] = useState<number[]>([0, 0, 0, 0]);
   const [totalAnswered, setTotalAnswered] = useState(0);
+
+  // Estados do Controle Remoto do Professor (Smartphone Host)
+  const [showTeacherRemoteModal, setShowTeacherRemoteModal] = useState(false);
+  const [isSmartphoneConnected, setIsSmartphoneConnected] = useState(false);
+  const [hostPairingPin] = useState<string>(() => {
+    try {
+      const saved = sessionStorage.getItem('quiz_host_active_pin');
+      if (saved) return saved;
+      const gen = Math.floor(1000 + Math.random() * 9000).toString();
+      sessionStorage.setItem('quiz_host_active_pin', gen);
+      return gen;
+    } catch {
+      return '4819';
+    }
+  });
 
   // Controle de expansão do painel de Lobby (retrátil)
   const [isLobbyExpanded, setIsLobbyExpanded] = useState(false);
@@ -3181,6 +3198,78 @@ Garanta que:
     await publishRoomState({ paused: pausedRemaining === null });
   });
 
+  // ─── Sincronização e Comandos do Controle Remoto do Professor (Smartphone Host) ───
+  useEffect(() => {
+    if (!roomCode || role !== 'operator' || !useRealSupabase) return;
+    const channelName = `host-remote-${roomCode.toUpperCase()}`;
+    const channel = supabase.channel(channelName, {
+      config: { broadcast: { self: false } }
+    });
+
+    channel
+      .on('broadcast', { event: 'host-auth-request' }, ({ payload }) => {
+        const token = payload?.token;
+        if (token === hostPairingPin) {
+          setIsSmartphoneConnected(true);
+          void channel.send({
+            type: 'broadcast',
+            event: 'host-auth-response',
+            payload: { success: true, token: hostPairingPin }
+          });
+        } else {
+          void channel.send({
+            type: 'broadcast',
+            event: 'host-auth-response',
+            payload: { success: false, message: 'PIN incorreto.' }
+          });
+        }
+      })
+      .on('broadcast', { event: 'remote-action' }, async ({ payload }) => {
+        if (payload?.token !== hostPairingPin) return;
+        const action = payload?.action;
+
+        switch (action) {
+          case 'START_MATCH':
+            void handleStartMatch();
+            break;
+          case 'SPIN':
+            if (quizFormat === 'roulette') {
+              void handleSpinRoulette();
+            } else {
+              void handleStartClassicQuestion();
+            }
+            break;
+          case 'REVEAL_ANSWER':
+            void revealAnswer();
+            break;
+          case 'TOGGLE_PAUSE':
+            void toggleTimerPause();
+            break;
+          case 'ADJUST_TIME':
+            void adjustTimer(Number(payload?.amount) || 10);
+            break;
+          case 'SHOW_RANKING':
+            void handleGoToRanking();
+            break;
+          case 'NEXT_ROUND':
+            void handleNextRound();
+            break;
+          case 'TOGGLE_JOIN_LOCK':
+            setJoinLocked(prev => {
+              const next = !prev;
+              void saveRoomControls({ join_locked: next });
+              return next;
+            });
+            break;
+        }
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [roomCode, role, hostPairingPin, quizFormat, useRealSupabase, isSpinning, roundState]);
+
   // Ordenação de vencedores
   // ── Leaderboard animado: mostra o placar anterior primeiro, depois revela o novo ──
   const [prevScores, setPrevScores] = useState<Record<string, number> | null>(null);
@@ -3229,6 +3318,17 @@ Garanta que:
   if (URL_ROOM_CODE || studentRoomCode) {
     const activeRoom = (URL_ROOM_CODE || studentRoomCode)!;
     if (urlParams.get('view') === 'spectator') return <SpectatorView roomCode={activeRoom} />;
+    if (urlParams.get('view') === 'remote') {
+      return (
+        <TeacherRemoteView
+          roomCode={activeRoom}
+          initialToken={urlParams.get('token') || ''}
+          onExit={() => {
+            window.location.href = window.location.origin;
+          }}
+        />
+      );
+    }
     return (
       <div className="relative w-full min-h-screen">
         {!URL_ROOM_CODE && (
@@ -3817,6 +3917,9 @@ Garanta que:
             nickname={nickname}
             getAvatarUrl={getAvatarUrl}
             quizFormat={quizFormat}
+            onOpenRemoteModal={() => setShowTeacherRemoteModal(true)}
+            pairingPin={hostPairingPin}
+            isSmartphoneConnected={isSmartphoneConnected}
           />
         )}
 
@@ -3842,15 +3945,27 @@ Garanta que:
                     Rodada {currentRoundIndex} de {gameRounds}
                   </span>
 
-                  {/* Botão de Controle do Lobby Retrátil */}
-                  <button
-                    onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md hover:border-purple-500/30"
-                    title={isLobbyExpanded ? "Ocultar lista de jogadores" : "Mostrar lista de jogadores"}
-                  >
-                    <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
-                    {isLobbyExpanded ? 'Recolher Lobby' : 'Expandir Lobby'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowTeacherRemoteModal(true); sfx.playClick(); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-xs font-bold text-purple-200 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md"
+                      title="Abrir QR Code do Controle do Professor no Smartphone"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-purple-300" />
+                      <span>{isSmartphoneConnected ? '📱 Conectado' : 'Controle Celular'}</span>
+                    </button>
+
+                    {/* Botão de Controle do Lobby Retrátil */}
+                    <button
+                      onClick={() => { setIsLobbyExpanded(!isLobbyExpanded); sfx.playClick(); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.08)] bg-white/5 hover:bg-white/10 text-xs font-bold text-white transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md hover:border-purple-500/30"
+                      title={isLobbyExpanded ? "Ocultar lista de jogadores" : "Mostrar lista de jogadores"}
+                    >
+                      <Users className="w-4 h-4 text-[hsl(var(--primary))]" />
+                      {isLobbyExpanded ? 'Recolher Lobby' : 'Expandir Lobby'}
+                    </button>
+                  </div>
 
                   <span className="px-3 py-1 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-xs font-extrabold rounded-full tracking-wider uppercase">
                     Modo {gameMode === 'duel' ? 'Duelo' : gameMode === 'team' ? 'Times' : 'Aberto'}
@@ -6780,6 +6895,15 @@ Garanta que:
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* MODAL DO CONTROLE REMOTO DO PROFESSOR (SMARTPHONE HOST) */}
+      <TeacherRemoteModal
+        isOpen={showTeacherRemoteModal}
+        onClose={() => setShowTeacherRemoteModal(false)}
+        roomCode={roomCode}
+        pairingPin={hostPairingPin}
+        isSmartphoneConnected={isSmartphoneConnected}
+      />
     </div>
   );
 }

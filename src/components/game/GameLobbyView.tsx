@@ -18,7 +18,8 @@ import {
   User,
   Zap,
   LayoutGrid,
-  X
+  X,
+  Smartphone
 } from 'lucide-react';
 import { type GamePlayer } from '../../App';
 
@@ -58,6 +59,9 @@ interface GameLobbyViewProps {
   getAvatarUrl: (nickname: string) => string;
   quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
   totalAnswered?: number;
+  onOpenRemoteModal?: () => void;
+  pairingPin?: string;
+  isSmartphoneConnected?: boolean;
 }
 
 export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
@@ -88,7 +92,9 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
   onToggleAutoReveal,
   nickname,
   getAvatarUrl,
-  quizFormat = 'classic'
+  quizFormat = 'classic',
+  onOpenRemoteModal,
+  isSmartphoneConnected = false
 }) => {
   const [codeCopied, setCodeCopied] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -389,6 +395,31 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 <QrCode style={{ width: '13px', height: '13px' }} />
                 <span>QR Code</span>
               </button>
+
+              {role === 'operator' && onOpenRemoteModal && (
+                <button
+                  type="button"
+                  onClick={onOpenRemoteModal}
+                  style={{
+                    height: '32px',
+                    padding: '0 10px',
+                    borderRadius: '8px',
+                    backgroundColor: isSmartphoneConnected ? '#ecfdf5' : '#faf5ff',
+                    border: `1px solid ${isSmartphoneConnected ? '#a7f3d0' : '#d8b4fe'}`,
+                    color: isSmartphoneConnected ? '#059669' : '#7e22ce',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                  title="Abrir Controle Remoto do Professor no Smartphone"
+                >
+                  <Smartphone style={{ width: '13px', height: '13px' }} />
+                  <span>{isSmartphoneConnected ? '📱 Celular Conectado' : '📱 Controle Celular'}</span>
+                </button>
+              )}
             </div>
           </div>
         ) : (
