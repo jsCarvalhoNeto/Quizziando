@@ -504,8 +504,22 @@ export default function App() {
     }
   };
 
-  // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium'
-  const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium' | 'admin-dashboard'>('welcome');
+  // Telas: 'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium' | 'admin-dashboard'
+  const [screen, setScreen] = useState<'welcome' | 'operator-dashboard' | 'game-lobby' | 'game-play' | 'podium' | 'admin-dashboard'>(
+    urlParams.get('admin') === 'true' || window.location.hash === '#admin' ? 'admin-dashboard' : 'welcome'
+  );
+
+  // Atalho global de teclado para Admin: Ctrl + Shift + A
+  useEffect(() => {
+    const handleAdminKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        setScreen(prev => prev === 'admin-dashboard' ? 'welcome' : 'admin-dashboard');
+      }
+    };
+    window.addEventListener('keydown', handleAdminKey);
+    return () => window.removeEventListener('keydown', handleAdminKey);
+  }, []);
   const [hostRooms, setHostRooms] = useState<HostRoomSummary[]>([]);
   const [hostRoomsLoading, setHostRoomsLoading] = useState(false);
   const [hostRoomsError, setHostRoomsError] = useState('');
@@ -3180,6 +3194,18 @@ Garanta que:
       time_limit: q.time_limit || 20, explanation: q.explanation, reference_url: q.reference_url,
       difficulty: q.difficulty, tags: q.tags, alternatives: q.alternatives }))} />;
 
+  if (screen === 'admin-dashboard') {
+    return (
+      <AdminLayout
+        onExit={() => {
+          setScreen(authUser ? 'operator-dashboard' : 'welcome');
+          setAppMode(authUser ? 'online' : 'portal');
+        }}
+        currentUser={authUser ? { name: authUser.email || 'Admin', role: 'admin' } : { name: 'Administrador', role: 'admin' }}
+      />
+    );
+  }
+
   if (appMode === 'portal') {
     return (
       <LoginPortal
@@ -3187,6 +3213,7 @@ Garanta que:
         onGoToPractice={() => setAppMode('practice')}
         onTeacherLogin={handleTeacherLoginFromPortal}
         onDemoLogin={handleDemoLoginFromPortal}
+        onGoToAdmin={() => setScreen('admin-dashboard')}
         initialPin={URL_ROOM_CODE || ''}
       />
     );
@@ -4899,10 +4926,6 @@ Garanta que:
         {/* ==========================================
             5. O PÓDIO DE CAMPEÕES (PODIUM)
             ========================================== */}
-        {screen === 'admin-dashboard' && (
-          <AdminLayout onExit={() => setScreen('welcome')} currentUser={{ name: 'Administrador', role: 'admin' }} />
-        )}
-
         {screen === 'podium' && (
           <div style={{ width: '100%', maxWidth: '850px', margin: '60px auto 0', position: 'relative' }}>
             
@@ -6779,14 +6802,12 @@ Garanta que:
         intensity="cinematic"
       />
 
-      {screen !== 'admin-dashboard' && (
-        <button 
-          onClick={() => setScreen('admin-dashboard')}
-          style={{ position: 'fixed', bottom: 24, left: 24, zIndex: 2147483647, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', cursor: 'pointer' }}
-        >
-          ⚙️ Acessar Painel Admin
-        </button>
-      )}
+      <button 
+        onClick={() => setScreen('admin-dashboard')}
+        style={{ position: 'fixed', bottom: 24, left: 24, zIndex: 2147483647, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', cursor: 'pointer' }}
+      >
+        ⚙️ Acessar Painel Admin
+      </button>
     </div>
   );
 }
