@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from './lib/supabaseClient';
 import { remainingSeconds } from './lib/gameRules';
 import type { OnlineRoom } from './lib/onlineGame';
-import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone } from 'lucide-react';
+import { Trophy, Clock, CheckCircle2, Maximize2, Minimize2, Users, Sparkles, QrCode, Smartphone, Crown } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { getAvatarUrl } from './lib/avatars';
 import KahootCountdown from './components/KahootCountdown';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 import AmbientBorderGlow from './components/game/AmbientBorderGlow';
@@ -21,6 +23,58 @@ const KAHOOT_COLORS = [
   { bg: 'linear-gradient(135deg, #d89e00 0%, #a37700 100%)', symbol: '●', label: 'C' },
   { bg: 'linear-gradient(135deg, #26890c 0%, #1a5f08 100%)', symbol: '◼', label: 'D' },
 ];
+
+// Contagem animada de pontos do pódio (0 → valor final com desaceleração cúbica)
+function ScoreCountUp({ value, duration = 1400, style }: { value: number; duration?: number; style?: React.CSSProperties }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(value * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <span style={style}>{display} pts</span>;
+}
+
+// Pirotecnia contínua e canhões de confetes de celebração do pódio
+function triggerPodiumCelebration() {
+  try {
+    const end = Date.now() + 5000;
+    const colors = ['#f59e0b', '#ec4899', '#3b82f6', '#10b981', '#8b5cf6'];
+    const frame = () => {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 65,
+        origin: { x: 0, y: 0.8 },
+        colors,
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 65,
+        origin: { x: 1, y: 0.8 },
+        colors,
+      });
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+    frame();
+    confetti({
+      particleCount: 85,
+      spread: 100,
+      origin: { y: 0.5 },
+      colors,
+    });
+  } catch {}
+}
 
 export default function SpectatorView({ roomCode }: { roomCode: string }) {
   const [room, setRoom] = useState<OnlineRoom | null>(null);
@@ -97,6 +151,19 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
     const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [room?.question_deadline, room?.paused_remaining_ms]);
+
+  // Celebração de Pódio com Canhões de Fogos e Confetes
+  const hasTriggeredPodiumFireworks = useRef(false);
+  useEffect(() => {
+    if (room?.round_state === 'ranking' || room?.status === 'finished') {
+      if (!hasTriggeredPodiumFireworks.current) {
+        hasTriggeredPodiumFireworks.current = true;
+        triggerPodiumCelebration();
+      }
+    } else {
+      hasTriggeredPodiumFireworks.current = false;
+    }
+  }, [room?.round_state, room?.status]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -660,123 +727,395 @@ export default function SpectatorView({ roomCode }: { roomCode: string }) {
           </div>
         )}
 
-        {/* ESTADO 4: RANKING / PLACAR DA RODADA OU FIM DE JOGO */}
+        {/* ESTADO 4: RANKING / PÓDIO 3D REAL-TIME OU FIM DE JOGO */}
         {(room?.round_state === 'ranking' || room?.status === 'finished') && (
           <div
             style={{
-              maxWidth: '820px',
+              maxWidth: '1100px',
               margin: '0 auto',
               width: '100%',
-              background: 'rgba(30, 27, 75, 0.75)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '28px',
+              background: 'linear-gradient(170deg, rgba(30, 27, 75, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '32px',
               padding: '36px 40px',
-              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.15)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '24px',
+              gap: '28px',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Header do Pódio */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div
                   style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #fbbf24, #d97706)',
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 16px rgba(251, 191, 36, 0.4)',
+                    boxShadow: '0 6px 20px rgba(251, 191, 36, 0.45)',
                   }}
                 >
-                  <Trophy style={{ width: '26px', height: '26px', color: 'white' }} />
+                  <Trophy style={{ width: '30px', height: '30px', color: 'white' }} />
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 900 }}>
-                    {room?.status === 'finished' ? 'Classificação Final' : 'Placar da Rodada'}
+                  <h2 style={{ margin: 0, fontSize: '30px', fontWeight: 900, letterSpacing: '-0.02em', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+                    {room?.status === 'finished' ? '🏆 Pódio dos Campeões' : 'Placar da Rodada'}
                   </h2>
-                  <span style={{ fontSize: '12px', color: '#a5b4fc', fontWeight: 700, textTransform: 'uppercase' }}>
-                    Top Competidores
+                  <span style={{ fontSize: '13px', color: '#a5b4fc', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {room?.status === 'finished' ? 'Classificação Final da Partida' : 'Top Competidores em Tempo Real'}
                   </span>
                 </div>
               </div>
 
-              <span style={{ fontSize: '13px', fontWeight: 800, color: '#e2e8f0', background: 'rgba(255, 255, 255, 0.08)', padding: '6px 14px', borderRadius: '999px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 800, color: '#f1f5f9', background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '8px 18px', borderRadius: '999px' }}>
                 Rodada {room?.current_round} de {room?.rounds}
               </span>
             </div>
 
-            {/* Times se houver */}
+            {/* PÓDIO 3D COM PEDESTAIS METÁLICOS */}
+            {players.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                  gap: '20px',
+                  minHeight: '380px',
+                  width: '100%',
+                  padding: '20px 0 10px',
+                  perspective: '1200px',
+                }}
+              >
+                {/* 2º LUGAR — PRATA (ESQUERDA) */}
+                {players[1] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.2 }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      flex: 1,
+                      maxWidth: '220px',
+                    }}
+                  >
+                    {/* Avatar e Nome */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '14px' }}>
+                      <div
+                        style={{
+                          width: '70px',
+                          height: '70px',
+                          borderRadius: '50%',
+                          border: '3.5px solid #cbd5e1',
+                          boxShadow: '0 8px 24px rgba(148, 163, 184, 0.45)',
+                          position: 'relative',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <img
+                          src={getAvatarUrl(players[1].nickname)}
+                          alt=""
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0f172a' }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            right: '-6px',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #cbd5e1, #64748b)',
+                            border: '2px solid #334155',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: '14px',
+                            color: 'white',
+                          }}
+                        >
+                          2
+                        </div>
+                      </div>
+                      <span style={{ fontWeight: 900, fontSize: '18px', color: 'white', textAlign: 'center', wordBreak: 'break-word', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        {players[1].nickname}
+                      </span>
+                      {players[1].team_name && (
+                        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700 }}>
+                          {players[1].team_name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bloco do Pedestal 2º Lugar */}
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '150px',
+                        background: 'linear-gradient(180deg, #94a3b8 0%, #475569 50%, #334155 100%)',
+                        border: '3.5px solid #cbd5e1',
+                        borderBottom: 'none',
+                        borderTopLeftRadius: '20px',
+                        borderTopRightRadius: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 35px rgba(148, 163, 184, 0.35), inset 0 3px 0 rgba(255,255,255,0.4)',
+                        padding: '12px',
+                      }}
+                    >
+                      <span style={{ fontSize: '38px', fontWeight: 900, color: '#f1f5f9', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>2º</span>
+                      <ScoreCountUp value={players[1].score} duration={1200} style={{ fontSize: '24px', fontFamily: 'monospace', fontWeight: 900, color: '#e2e8f0' }} />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* 1º LUGAR — OURO (CENTRO - CAMPEÃO) */}
+                {players[0] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 60, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 20, delay: 0.35 }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      flex: 1.25,
+                      maxWidth: '260px',
+                      zIndex: 10,
+                    }}
+                  >
+                    {/* Avatar, Coroa Flutuante e Nome */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                      <div
+                        style={{
+                          width: '88px',
+                          height: '88px',
+                          borderRadius: '50%',
+                          border: '4.5px solid #fde047',
+                          boxShadow: '0 0 30px rgba(245, 158, 11, 0.6), 0 10px 25px rgba(0,0,0,0.5)',
+                          position: 'relative',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <motion.div
+                          animate={{ y: [-4, 3, -4], rotate: [-2, 2, -2] }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+                          style={{ position: 'absolute', top: '-38px', left: '50%', transform: 'translateX(-50%)', zIndex: 2 }}
+                        >
+                          <Crown style={{ width: '44px', height: '44px', color: '#fbbf24', fill: '#f59e0b', filter: 'drop-shadow(0 4px 12px rgba(245,158,11,0.8))' }} />
+                        </motion.div>
+                        <img
+                          src={getAvatarUrl(players[0].nickname)}
+                          alt=""
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0f172a' }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            right: '-6px',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #fbbf24, #d97706)',
+                            border: '2.5px solid #78350f',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: '16px',
+                            color: 'white',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                          }}
+                        >
+                          1
+                        </div>
+                      </div>
+                      <span style={{ fontWeight: 900, fontSize: '22px', color: '#fef08a', textAlign: 'center', wordBreak: 'break-word', textShadow: '0 0 20px rgba(245,158,11,0.5)' }}>
+                        {players[0].nickname}
+                      </span>
+                      {players[0].team_name && (
+                        <span style={{ fontSize: '12px', color: '#fde68a', fontWeight: 800 }}>
+                          {players[0].team_name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bloco do Pedestal 1º Lugar */}
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '210px',
+                        background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 45%, #92400e 100%)',
+                        border: '4.5px solid #fde047',
+                        borderBottom: 'none',
+                        borderTopLeftRadius: '24px',
+                        borderTopRightRadius: '24px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 50px rgba(245, 158, 11, 0.6), inset 0 4px 0 rgba(255,255,255,0.45)',
+                        padding: '16px',
+                      }}
+                    >
+                      <span style={{ fontSize: '48px', fontWeight: 900, color: '#fef3c7', textShadow: '0 4px 12px rgba(0,0,0,0.6)' }}>1º</span>
+                      <ScoreCountUp value={players[0].score} duration={1600} style={{ fontSize: '32px', fontFamily: 'monospace', fontWeight: 900, color: '#ffffff', textShadow: '0 2px 8px rgba(0,0,0,0.6)' }} />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* 3º LUGAR — BRONZE (DIREITA) */}
+                {players[2] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 260, damping: 22, delay: 0.1 }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      flex: 1,
+                      maxWidth: '210px',
+                    }}
+                  >
+                    {/* Avatar e Nome */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '14px' }}>
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '50%',
+                          border: '3.5px solid #fdba74',
+                          boxShadow: '0 8px 24px rgba(234, 88, 12, 0.45)',
+                          position: 'relative',
+                          marginBottom: '10px',
+                        }}
+                      >
+                        <img
+                          src={getAvatarUrl(players[2].nickname)}
+                          alt=""
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: '#0f172a' }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            right: '-6px',
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #ea580c, #9a3412)',
+                            border: '2px solid #431407',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 900,
+                            fontSize: '13px',
+                            color: 'white',
+                          }}
+                        >
+                          3
+                        </div>
+                      </div>
+                      <span style={{ fontWeight: 900, fontSize: '17px', color: 'white', textAlign: 'center', wordBreak: 'break-word', textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        {players[2].nickname}
+                      </span>
+                      {players[2].team_name && (
+                        <span style={{ fontSize: '11px', color: '#fed7aa', fontWeight: 700 }}>
+                          {players[2].team_name}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bloco do Pedestal 3º Lugar */}
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '115px',
+                        background: 'linear-gradient(180deg, #ea580c 0%, #c2410c 50%, #7c2d12 100%)',
+                        border: '3.5px solid #fdba74',
+                        borderBottom: 'none',
+                        borderTopLeftRadius: '20px',
+                        borderTopRightRadius: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 30px rgba(234, 88, 12, 0.35), inset 0 3px 0 rgba(255,255,255,0.3)',
+                        padding: '12px',
+                      }}
+                    >
+                      <span style={{ fontSize: '34px', fontWeight: 900, color: '#fed7aa', textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>3º</span>
+                      <ScoreCountUp value={players[2].score} duration={1000} style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 900, color: '#ffedd5' }} />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {/* Times no Modo Equipes */}
             {room?.game_mode === 'team' && teams.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '10px' }}>
                 {teams.map(([name, score], idx) => (
-                  <div key={name} style={{ background: 'rgba(124, 58, 237, 0.2)', border: '1px solid rgba(124, 58, 237, 0.4)', borderRadius: '14px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 800, fontSize: '15px' }}>{idx + 1}º {name}</span>
-                    <span style={{ fontWeight: 900, fontSize: '18px', color: '#fbbf24', fontFamily: 'monospace' }}>{score} pts</span>
+                  <div key={name} style={{ background: 'rgba(124, 58, 237, 0.25)', border: '1.5px solid rgba(167, 139, 250, 0.4)', borderRadius: '16px', padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 18px rgba(0,0,0,0.3)' }}>
+                    <span style={{ fontWeight: 900, fontSize: '17px', color: '#ffffff' }}>{idx + 1}º {name}</span>
+                    <ScoreCountUp value={score} duration={1200} style={{ fontWeight: 900, fontSize: '20px', color: '#fbbf24', fontFamily: 'monospace' }} />
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Lista dos Jogadores */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {players.slice(0, 6).map((player, index) => {
-                const isLeader = index === 0;
-                let badgeBg = 'rgba(255, 255, 255, 0.1)';
-                if (index === 0) badgeBg = 'linear-gradient(135deg, #fbbf24, #d97706)';
-                else if (index === 1) badgeBg = 'linear-gradient(135deg, #cbd5e1, #94a3b8)';
-                else if (index === 2) badgeBg = 'linear-gradient(135deg, #fb923c, #ea580c)';
-
-                return (
-                  <div
-                    key={player.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      background: isLeader ? 'rgba(251, 191, 36, 0.12)' : 'rgba(255, 255, 255, 0.04)',
-                      border: isLeader ? '1.5px solid rgba(251, 191, 36, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: '16px',
-                      padding: '14px 20px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {/* Demais Competidores (4º colocado em diante) */}
+            {players.length > 3 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '20px' }}>
+                <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Demais Colocados
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                  {players.slice(3, 9).map((player, index) => {
+                    const rank = index + 4;
+                    return (
                       <div
+                        key={player.id}
                         style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '10px',
-                          background: badgeBg,
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 900,
-                          fontSize: '16px',
-                          color: 'white',
+                          justifyContent: 'space-between',
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          borderRadius: '14px',
+                          padding: '12px 18px',
                         }}
                       >
-                        {index + 1}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px', color: '#cbd5e1' }}>
+                            {rank}º
+                          </span>
+                          <span style={{ fontSize: '15px', fontWeight: 700, color: 'white' }}>
+                            {player.nickname}
+                            {player.team_name ? ` (${player.team_name})` : ''}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '16px', fontWeight: 800, fontFamily: 'monospace', color: '#cbd5e1' }}>
+                          {player.score} pts
+                        </span>
                       </div>
-                      <span style={{ fontSize: '18px', fontWeight: 800, color: 'white' }}>
-                        {player.nickname}
-                        {player.team_name ? ` (${player.team_name})` : ''}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                      <span style={{ fontSize: '24px', fontWeight: 900, fontFamily: 'monospace', color: isLeader ? '#fbbf24' : 'white' }}>
-                        {player.score}
-                      </span>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase' }}>
-                        pts
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

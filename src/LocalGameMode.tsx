@@ -198,6 +198,58 @@ const TEAM_COLORS = ['#EF4444', '#3B82F6'] as const;
 const TEAM_LIGHT  = ['#FCA5A5', '#93C5FD'] as const;
 const TEAM_BG     = ['rgba(239,68,68,0.15)', 'rgba(59,130,246,0.15)'] as const;
 
+// Contagem animada de pontos do pódio (0 → valor final com desaceleração cúbica)
+function ScoreCountUp({ value, duration = 1400, style }: { value: number; duration?: number; style?: React.CSSProperties }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(value * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <span style={style}>{display} pts</span>;
+}
+
+// Pirotecnia de fogos e estrelas contínuas no pódio
+function triggerPodiumCelebration() {
+  try {
+    const end = Date.now() + 5000;
+    const colors = ['#f59e0b', '#ec4899', '#3b82f6', '#10b981', '#8b5cf6'];
+    const frame = () => {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 65,
+        origin: { x: 0, y: 0.8 },
+        colors,
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 65,
+        origin: { x: 1, y: 0.8 },
+        colors,
+      });
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+    frame();
+    confetti({
+      particleCount: 90,
+      spread: 100,
+      origin: { y: 0.5 },
+      colors,
+    });
+  } catch {}
+}
+
 // ─── Componente Principal ────────────────────────────────────────────────────
 
 export default function LocalGameMode({
@@ -374,6 +426,19 @@ export default function LocalGameMode({
       }
     }
   }, [soundEnabled, localScreen, phase]);
+
+  // Celebração de Pódio no Modo Local
+  const hasTriggeredLocalPodium = useRef(false);
+  useEffect(() => {
+    if (localScreen === 'podium') {
+      if (!hasTriggeredLocalPodium.current) {
+        hasTriggeredLocalPodium.current = true;
+        triggerPodiumCelebration();
+      }
+    } else {
+      hasTriggeredLocalPodium.current = false;
+    }
+  }, [localScreen]);
 
   useEffect(() => {
     return () => {
@@ -3279,43 +3344,135 @@ export default function LocalGameMode({
               </div>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, position: 'relative', zIndex: 1 }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-end',
+              gap: 24,
+              position: 'relative',
+              zIndex: 1,
+              minHeight: 380,
+              padding: '20px 0 10px',
+              perspective: '1200px',
+            }}>
               {[0, 1].map(i => {
                 const isWinner = !isTie && players[i]?.name === winner.name;
-                return (
-                  <motion.div key={i}
-                    initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: i * 0.15 }}
-                    style={{
-                      padding: '36px 28px', borderRadius: 24,
-                      background: isWinner ? TEAM_BG[i] : '#1e293b',
-                      border: `2px solid ${isWinner ? TEAM_COLORS[i] : 'rgba(255,255,255,0.08)'}`,
-                      textAlign: 'center', position: 'relative',
-                      boxShadow: isWinner ? `0 10px 30px ${TEAM_COLORS[i]}35` : '0 6px 20px rgba(0,0,0,0.25)'
-                    }}>
-                    {isWinner && (
-                      <div style={{ position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%)',
-                        background: TEAM_COLORS[i], borderRadius: 999, padding: '4px 22px',
-                        fontSize: 16, fontWeight: 900, color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap',
-                        boxShadow: `0 4px 14px ${TEAM_COLORS[i]}60` }}>
-                        🏆 Vencedor
-                      </div>
-                    )}
-                    <p style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: TEAM_LIGHT[i], textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      {players[i]?.name}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 80, fontWeight: 900, color: isWinner ? TEAM_COLORS[i] : '#ffffff', fontFamily: 'monospace', lineHeight: 1 }}>
-                      {players[i]?.score}
-                    </p>
-                    <p style={{ margin: '4px 0 0', fontSize: 16, color: '#94a3b8', fontWeight: 600 }}>pontos</p>
+                const pedestalHeight = isWinner ? 180 : 130;
 
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20 }}>
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 22, delay: i * 0.15 }}
+                    style={{
+                      flex: isWinner ? 1.15 : 1,
+                      maxWidth: 420,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      position: 'relative',
+                    }}
+                  >
+                    {/* Header da Equipe com Troféu/Coroa */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
+                      {isWinner ? (
+                        <motion.div
+                          animate={{ y: [-4, 3, -4], rotate: [-2, 2, -2] }}
+                          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+                        >
+                          <Crown style={{ width: 48, height: 48, color: '#fbbf24', fill: '#f59e0b', filter: 'drop-shadow(0 4px 14px rgba(245,158,11,0.8))' }} />
+                        </motion.div>
+                      ) : (
+                        <div style={{ width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Trophy style={{ width: 34, height: 34, color: TEAM_LIGHT[i], opacity: 0.8 }} />
+                        </div>
+                      )}
+
+                      <div style={{
+                        marginTop: 6,
+                        padding: '4px 18px',
+                        borderRadius: 999,
+                        background: isWinner ? 'linear-gradient(135deg, #fbbf24, #d97706)' : 'rgba(255,255,255,0.08)',
+                        border: isWinner ? '1.5px solid #fde047' : '1px solid rgba(255,255,255,0.15)',
+                        color: isWinner ? '#78350f' : TEAM_LIGHT[i],
+                        fontWeight: 900,
+                        fontSize: 13,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        boxShadow: isWinner ? '0 0 20px rgba(251, 191, 36, 0.5)' : 'none',
+                      }}>
+                        {isWinner ? '🏆 Campeão' : isTie ? '🤝 Empate' : 'Vice-Campeão'}
+                      </div>
+
+                      <h3 style={{
+                        margin: '10px 0 0',
+                        fontSize: isWinner ? 30 : 26,
+                        fontWeight: 900,
+                        color: isWinner ? '#ffffff' : TEAM_LIGHT[i],
+                        textShadow: isWinner ? `0 0 25px ${TEAM_COLORS[i]}80` : 'none',
+                        letterSpacing: '-0.01em',
+                      }}>
+                        {players[i]?.name}
+                      </h3>
+                    </div>
+
+                    {/* Bloco do Pedestal 3D */}
+                    <div style={{
+                      width: '100%',
+                      height: pedestalHeight,
+                      background: isWinner
+                        ? `linear-gradient(180deg, ${TEAM_COLORS[i]} 0%, #b45309 60%, #78350f 100%)`
+                        : `linear-gradient(180deg, ${TEAM_BG[i]} 0%, #1e293b 80%, #0f172a 100%)`,
+                      border: isWinner ? '4px solid #fde047' : `3px solid ${TEAM_COLORS[i]}80`,
+                      borderBottom: 'none',
+                      borderTopLeftRadius: 24,
+                      borderTopRightRadius: 24,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: isWinner
+                        ? `0 0 50px ${TEAM_COLORS[i]}50, 0 -10px 30px rgba(245,158,11,0.35), inset 0 4px 0 rgba(255,255,255,0.4)`
+                        : `0 -6px 20px rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.15)`,
+                      padding: 16,
+                    }}>
+                      <span style={{
+                        fontSize: isWinner ? 54 : 44,
+                        fontWeight: 900,
+                        color: isWinner ? '#fef3c7' : '#ffffff',
+                        fontFamily: 'monospace',
+                        lineHeight: 1,
+                        textShadow: '0 4px 12px rgba(0,0,0,0.6)',
+                      }}>
+                        <ScoreCountUp value={players[i]?.score || 0} duration={1400} />
+                      </span>
+                    </div>
+
+                    {/* Histórico das rodadas (bolinhas) */}
+                    <div style={{
+                      display: 'flex',
+                      gap: 8,
+                      justifyContent: 'center',
+                      width: '100%',
+                      padding: '14px 16px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      borderRadius: '0 0 16px 16px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      borderTop: 'none',
+                    }}>
                       {players[i]?.roundResults.map((r, ri) => (
-                        <div key={ri} style={{
-                          width: 22, height: 22, borderRadius: 6,
-                          background: r.correct ? TEAM_COLORS[i] : r.answered ? '#ef4444' : 'rgba(255,255,255,0.1)',
-                          border: `1.5px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? '#f87171' : 'rgba(255,255,255,0.15)'}`
-                        }} title={`R${ri + 1}: ${r.correct ? 'Acertou' : r.answered ? 'Errou' : '-'}`} />
+                        <div
+                          key={ri}
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: 6,
+                            background: r.correct ? TEAM_COLORS[i] : r.answered ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                            border: `1.5px solid ${r.correct ? TEAM_COLORS[i] : r.answered ? '#f87171' : 'rgba(255,255,255,0.15)'}`,
+                          }}
+                          title={`R${ri + 1}: ${r.correct ? 'Acertou' : r.answered ? 'Errou' : '-'}`}
+                        />
                       ))}
                     </div>
                   </motion.div>
