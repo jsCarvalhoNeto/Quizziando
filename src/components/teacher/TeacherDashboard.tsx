@@ -29,7 +29,8 @@ import {
   ExternalLink,
   BookOpen,
   Loader2,
-  Clock
+  Clock,
+  ShieldAlert
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, GAME_THEMES, sfx } from '../../App';
@@ -38,6 +39,8 @@ import { LaunchGameHub } from './LaunchGameHub';
 
 interface TeacherDashboardProps {
   teacherEmail: string;
+  onOpenAdmin?: () => void;
+  isAdmin?: boolean;
   quizzes: SavedQuiz[];
   folders: Array<{ id: string; name: string; color?: string }>;
   categories: Category[];
@@ -101,6 +104,8 @@ const FOLDER_COLORS = [
 
 export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   teacherEmail,
+  onOpenAdmin,
+  isAdmin = false,
   quizzes,
   folders = [],
   categories = [],
@@ -319,6 +324,43 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             <Sparkles style={{ width: '15px', height: '15px', color: '#8b5cf6' }} />
             <span>Criar Questões</span>
           </button>
+
+          {/* Botão Painel Admin (Apenas para o Administrador) */}
+          {(isAdmin || teacherEmail === 'santoscarvalhobs@gmail.com') && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenAdmin) onOpenAdmin();
+                sfx.playClick();
+              }}
+              style={{
+                backgroundColor: '#fffbeb',
+                border: '1px solid #fcd34d',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                color: '#b45309',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#fef3c7';
+                e.currentTarget.style.color = '#78350f';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#fffbeb';
+                e.currentTarget.style.color = '#b45309';
+              }}
+              title="Acessar o Painel de Controle de Administrador"
+            >
+              <ShieldAlert style={{ width: '15px', height: '15px', color: '#d97706' }} />
+              <span>Painel Admin</span>
+            </button>
+          )}
 
           {/* Divisor Vertical */}
           <div style={{ height: '28px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 4px' }} />
@@ -1796,6 +1838,45 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               <Settings style={{ width: '16px', height: '16px', color: '#64748b' }} />
               <span>Configurações</span>
             </button>
+
+            {/* Atalho Painel Admin na Sidebar */}
+            {(isAdmin || teacherEmail === 'santoscarvalhobs@gmail.com') && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenAdmin) onOpenAdmin();
+                  sfx.playClick();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#b45309',
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #fde68a',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  marginTop: '4px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fde68a';
+                  e.currentTarget.style.color = '#78350f';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fef3c7';
+                  e.currentTarget.style.color = '#b45309';
+                }}
+                title="Acessar o Painel de Controle de Administrador"
+              >
+                <ShieldAlert style={{ width: '16px', height: '16px', color: '#d97706' }} />
+                <span>Painel Admin</span>
+              </button>
+            )}
           </div>
 
           {/* Dica Pedagógica no Rodapé da Sidebar */}

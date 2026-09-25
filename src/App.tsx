@@ -3213,7 +3213,6 @@ Garanta que:
         onGoToPractice={() => setAppMode('practice')}
         onTeacherLogin={handleTeacherLoginFromPortal}
         onDemoLogin={handleDemoLoginFromPortal}
-        onGoToAdmin={() => setScreen('admin-dashboard')}
         initialPin={URL_ROOM_CODE || ''}
       />
     );
@@ -3543,14 +3542,7 @@ Garanta que:
             1. TELA DE ENTRADA (WELCOME)
             ========================================== */}
         {screen === 'welcome' && (
-          <>
-            <button 
-              onClick={() => setScreen('admin-dashboard')}
-              style={{ position: 'fixed', top: 24, right: 24, zIndex: 9999, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold' }}
-            >
-              Acessar Painel Admin
-            </button>
-            <WelcomeView
+          <WelcomeView
             role={role}
             onRoleChange={(newRole) => {
               setRole(newRole);
@@ -3567,7 +3559,6 @@ Garanta que:
             onStartGame={handleStartGameSetup}
             onOpenManagerLogin={handleOpenManagerLogin}
           />
-          </>
         )}
 
         {/* ==========================================
@@ -3577,6 +3568,8 @@ Garanta que:
           <div className="w-full flex-1 flex flex-col">
             <TeacherDashboard
               teacherEmail={authUser?.email || 'professor@quizziando.com'}
+              onOpenAdmin={() => setScreen('admin-dashboard')}
+              isAdmin={authUser?.email === 'santoscarvalhobs@gmail.com'}
               quizzes={savedQuizzes}
               folders={folders.map(f => ({ id: f.id, name: f.name, color: f.color }))}
               categories={categories}
@@ -6801,13 +6794,6 @@ Garanta que:
         isAnswered={roundState === 'answered'}
         intensity="cinematic"
       />
-
-      <button 
-        onClick={() => setScreen('admin-dashboard')}
-        style={{ position: 'fixed', bottom: 24, left: 24, zIndex: 2147483647, background: '#fbbf24', color: '#0f172a', padding: '12px 24px', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.5)', cursor: 'pointer' }}
-      >
-        ⚙️ Acessar Painel Admin
-      </button>
     </div>
   );
 }

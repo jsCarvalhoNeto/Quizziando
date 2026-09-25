@@ -13,8 +13,7 @@ import {
   Mail, 
   ArrowRight,
   Eye,
-  EyeOff,
-  ShieldAlert
+  EyeOff
 } from 'lucide-react';
 
 interface LoginPortalProps {
@@ -22,7 +21,6 @@ interface LoginPortalProps {
   onGoToPractice: () => void;
   onTeacherLogin: (email: string, pass: string, isSignUp: boolean) => Promise<{ success: boolean; error?: string; info?: string; needsConfirmation?: boolean }>;
   onDemoLogin: () => void;
-  onGoToAdmin?: () => void;
   initialPin?: string;
 }
 
@@ -31,7 +29,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   onGoToPractice,
   onTeacherLogin,
   onDemoLogin,
-  onGoToAdmin,
   initialPin = '',
 }) => {
   const [activeTab, setActiveTab] = useState<'student' | 'teacher'>('student');
@@ -85,19 +82,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
         background: 'radial-gradient(circle at 50% 20%, #151b2e 0%, #080b13 70%, #04060a 100%)',
       }}
     >
-      {/* Botão Superior para Painel Admin */}
-      {onGoToAdmin && (
-        <button
-          type="button"
-          onClick={onGoToAdmin}
-          className="fixed top-4 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold backdrop-blur-md transition-all cursor-pointer shadow-lg"
-          title="Acessar Painel do Administrador"
-        >
-          <ShieldAlert style={{ width: '14px', height: '14px' }} />
-          <span>Painel Admin</span>
-        </button>
-      )}
-
       {/* Luzes decorativas sutis de fundo */}
       <div 
         style={{
@@ -523,55 +507,16 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                     <Sparkles style={{ width: '12px', height: '12px' }} />
                     <span>Acesso Demo</span>
                   </button>
-
-                  {onGoToAdmin && (
-                    <button
-                      type="button"
-                      onClick={onGoToAdmin}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        padding: '4px 10px',
-                        borderRadius: '8px',
-                        background: 'rgba(251, 191, 36, 0.15)',
-                        border: '1px solid rgba(251, 191, 36, 0.35)',
-                        color: '#fbbf24',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        transition: 'background 0.2s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(251, 191, 36, 0.25)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(251, 191, 36, 0.15)')}
-                      title="Acessar o Painel Administrativo"
-                    >
-                      <ShieldAlert style={{ width: '12px', height: '12px' }} />
-                      <span>Painel Admin</span>
-                    </button>
-                  )}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
 
-        {/* Rodapé Discreto com link para Admin */}
-        <div className="mt-6 flex flex-col items-center justify-center gap-2">
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-            <ShieldCheck style={{ width: '14px', height: '14px', color: '#a855f7' }} />
-            <span>Ambiente Seguro Quizziando</span>
-          </div>
-          {onGoToAdmin && (
-            <button
-              type="button"
-              onClick={onGoToAdmin}
-              className="text-[11px] text-amber-400/80 hover:text-amber-300 font-semibold flex items-center gap-1 transition-all cursor-pointer underline decoration-amber-500/40"
-              title="Acessar Painel Administrativo"
-            >
-              <span>⚙️ Acessar Painel do Administrador</span>
-            </button>
-          )}
+        {/* Rodapé Discreto */}
+        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-medium">
+          <ShieldCheck style={{ width: '14px', height: '14px', color: '#a855f7' }} />
+          <span>Ambiente Seguro Quizziando</span>
         </div>
 
       </div>
