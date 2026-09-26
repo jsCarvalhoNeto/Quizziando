@@ -8,7 +8,9 @@ import {
   CheckCircle2, 
   Clock, 
   Flame,
-  Radio
+  Radio,
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 import { fetchAdminStats, type AdminStats } from '../../lib/adminService';
 
@@ -231,6 +233,56 @@ export default function AdminDashboard({ onNavigateTab }: AdminDashboardProps) {
           </div>
           <div style={{ fontSize: '0.8rem', color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: '8px' }}>
             Aguardando ou em jogo agora
+          </div>
+        </div>
+
+        {/* Card 5: Quizzes e Categorias */}
+        <div 
+          className="admin-stat-card"
+          onClick={() => onNavigateTab && onNavigateTab('settings')}
+          style={{ cursor: onNavigateTab ? 'pointer' : 'default' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="admin-stat-icon" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>
+              <BookOpen size={24} />
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#c084fc', backgroundColor: 'rgba(168, 85, 247, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+              Supabase
+            </span>
+          </div>
+          <div>
+            <div className="admin-stat-value">
+              {loading && !stats ? '...' : (stats?.totalCategories?.toLocaleString('pt-BR') || '0')}
+            </div>
+            <div className="admin-stat-label">Quizzes & Categorias</div>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: '8px' }}>
+            Total na tabela <code style={{ color: '#c084fc' }}>categories</code>
+          </div>
+        </div>
+
+        {/* Card 6: Questões Criadas */}
+        <div 
+          className="admin-stat-card"
+          onClick={() => onNavigateTab && onNavigateTab('settings')}
+          style={{ cursor: onNavigateTab ? 'pointer' : 'default' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div className="admin-stat-icon" style={{ backgroundColor: 'rgba(14, 165, 233, 0.2)', color: '#38bdf8' }}>
+              <HelpCircle size={24} />
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#38bdf8', backgroundColor: 'rgba(14, 165, 233, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+              Banco
+            </span>
+          </div>
+          <div>
+            <div className="admin-stat-value">
+              {loading && !stats ? '...' : (stats?.totalQuestions?.toLocaleString('pt-BR') || '0')}
+            </div>
+            <div className="admin-stat-label">Questões Criadas</div>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: '8px' }}>
+            Total na tabela <code style={{ color: '#38bdf8' }}>questions</code>
           </div>
         </div>
       </div>

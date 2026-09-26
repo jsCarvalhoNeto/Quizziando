@@ -35,10 +35,19 @@ export interface AdminStats {
   totalPlayers: number;
   playersToday: number;
   activeRooms: number;
+  totalCategories: number;
+  totalQuestions: number;
+  totalFolders: number;
   recentRooms: GameRoomRecord[];
   recentPlayers: RoomPlayerRecord[];
   pingMs: number;
   connected: boolean;
+}
+
+export interface ContentStats {
+  totalCategories: number;
+  totalQuestions: number;
+  totalFolders: number;
 }
 
 /**
@@ -58,6 +67,9 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       activeRoomsRes,
       playersTotalRes,
       playersTodayRes,
+      categoriesRes,
+      questionsRes,
+      foldersRes,
       recentRoomsRes,
       recentPlayersRes
     ] = await Promise.all([
@@ -67,6 +79,9 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       supabase.from('game_rooms').select('*', { count: 'exact', head: true }).in('status', ['waiting', 'playing']),
       supabase.from('room_players').select('*', { count: 'exact', head: true }),
       supabase.from('room_players').select('*', { count: 'exact', head: true }).gte('joined_at', startOfDayIso),
+      supabase.from('categories').select('*', { count: 'exact', head: true }),
+      supabase.from('questions').select('*', { count: 'exact', head: true }),
+      supabase.from('category_folders').select('*', { count: 'exact', head: true }),
       supabase.from('game_rooms')
         .select('id, code, status, game_mode, rounds, created_at, operator_email, host_id')
         .order('created_at', { ascending: false })
@@ -86,6 +101,9 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       activeRooms: activeRoomsRes.count ?? 0,
       totalPlayers: playersTotalRes.count ?? 0,
       playersToday: playersTodayRes.count ?? 0,
+      totalCategories: categoriesRes.count ?? 0,
+      totalQuestions: questionsRes.count ?? 0,
+      totalFolders: foldersRes.count ?? 0,
       recentRooms: (recentRoomsRes.data as GameRoomRecord[]) || [],
       recentPlayers: (recentPlayersRes.data as RoomPlayerRecord[]) || [],
       pingMs,
@@ -100,10 +118,39 @@ export async function fetchAdminStats(): Promise<AdminStats> {
       activeRooms: 0,
       totalPlayers: 0,
       playersToday: 0,
+      totalCategories: 0,
+      totalQuestions: 0,
+      totalFolders: 0,
       recentRooms: [],
       recentPlayers: [],
       pingMs: -1,
       connected: false
+    };
+  }
+}
+
+/**
+ * Busca estatísticas específicas de conteúdo (quizzes, categorias e perguntas)
+ */
+export async function fetchContentStats(): Promise<ContentStats> {
+  try {
+    const [categoriesRes, questionsRes, foldersRes] = await Promise.all([
+      supabase.from('categories').select('*', { count: 'exact', head: true }),
+      supabase.from('questions').select('*', { count: 'exact', head: true }),
+      supabase.from('category_folders').select('*', { count: 'exact', head: true })
+    ]);
+
+    return {
+      totalCategories: categoriesRes.count ?? 0,
+      totalQuestions: questionsRes.count ?? 0,
+      totalFolders: foldersRes.count ?? 0
+    };
+  } catch (err) {
+    console.error('Erro ao buscar contagens de conteúdo do Supabase:', err);
+    return {
+      totalCategories: 0,
+      totalQuestions: 0,
+      totalFolders: 0
     };
   }
 }
