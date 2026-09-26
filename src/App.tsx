@@ -224,24 +224,12 @@ const DEFAULT_QUESTIONS: Question[] = [
 export default function App() {
   const [authUser, setAuthUser] = useState<{ id?: string, email: string, username?: string } | null>(null);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const email = session.user.email || '';
         const metaUser = session.user.user_metadata?.username;
         const initialUser = metaUser || email.split('@')[0];
         setAuthUser({ id: session.user.id, email, username: initialUser });
-
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('username, nickname')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (profile?.username) {
-            setAuthUser(prev => prev ? { ...prev, username: profile.username } : null);
-          }
-        } catch {}
       } else {
         setAuthUser(null);
       }
@@ -416,10 +404,10 @@ export default function App() {
           // 1. Carregar Categorias e Perfis de Criadores
           const [catRes, profRes] = await Promise.all([
             supabase.from('categories').select('*'),
-            supabase.from('profiles').select('id, nickname, username, email')
+            supabase.from('profiles').select('*')
           ]);
           const catData = catRes.data;
-          const profMap = new Map((profRes.data || []).map(p => [p.id, p]));
+          const profMap = new Map(((profRes.data || []) as any[]).map(p => [p.id, p]));
 
           if (catData && catData.length > 0) {
             const todayIso = new Date().toISOString();

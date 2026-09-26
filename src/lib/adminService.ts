@@ -409,7 +409,7 @@ export async function fetchAdminCategories(): Promise<AdminCategory[]> {
       supabase.from('categories').select('*').order('name', { ascending: true }),
       supabase.from('category_folders').select('id, name'),
       supabase.from('questions').select('category_id'),
-      supabase.from('profiles').select('id, nickname, username, email')
+      supabase.from('profiles').select('*')
     ]);
 
     if (catsRes.error) throw catsRes.error;
