@@ -396,6 +396,16 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 <form onSubmit={handleTeacherSubmit} className="flex flex-col gap-3">
                   {/* Campo de E-mail / Identificador */}
                   <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', paddingLeft: '2px' }}>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#cbd5e1' }}>
+                        {isSignUp ? 'E-mail do Professor' : 'E-mail ou Nome de Usuário'}
+                      </label>
+                      {!isSignUp && (
+                        <span style={{ fontSize: '10.5px', color: '#c084fc', fontWeight: 600, backgroundColor: 'rgba(192, 132, 252, 0.12)', padding: '1px 6px', borderRadius: '4px' }}>
+                          aceita @usuario
+                        </span>
+                      )}
+                    </div>
                     <div 
                       style={{
                         position: 'relative',
@@ -409,7 +419,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                         required
                         value={loginIdentifier}
                         onChange={(e) => setLoginIdentifier(e.target.value)}
-                        placeholder={isSignUp ? 'professor@escola.com' : 'E-mail ou @usuário'}
+                        placeholder={isSignUp ? 'professor@escola.com' : 'professor@escola.com ou @usuario'}
                         style={{
                           width: '100%',
                           height: '44px',
@@ -432,6 +442,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   {/* Campo de Nome de Usuário Único (@username) - Exibido apenas no Cadastro */}
                   {isSignUp && (
                     <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', paddingLeft: '2px' }}>
+                        <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#c084fc' }}>
+                          Nome de Usuário Único (@)
+                        </label>
+                      </div>
                       <div 
                         style={{
                           position: 'relative',
@@ -488,6 +503,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   )}
 
                   <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', paddingLeft: '2px' }}>
+                      <label style={{ fontSize: '11.5px', fontWeight: 600, color: '#cbd5e1' }}>
+                        Senha de Acesso
+                      </label>
+                    </div>
                     <div 
                       style={{
                         position: 'relative',
