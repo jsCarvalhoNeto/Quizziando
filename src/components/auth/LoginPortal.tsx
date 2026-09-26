@@ -121,13 +121,18 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
     setIsLoading(true);
     setTeacherError('');
     setTeacherInfo('');
-    const result = await onTeacherLogin(cleanIdentifier, password, isSignUp, finalUsername || undefined);
-    setIsLoading(false);
-    if (result.needsConfirmation && result.info) {
-      setTeacherInfo(result.info);
-      setIsSignUp(false);
-    } else if (!result.success && result.error) {
-      setTeacherError(result.error);
+    try {
+      const result = await onTeacherLogin(cleanIdentifier, password, isSignUp, finalUsername || undefined);
+      if (result.needsConfirmation && result.info) {
+        setTeacherInfo(result.info);
+        setIsSignUp(false);
+      } else if (!result.success && result.error) {
+        setTeacherError(result.error);
+      }
+    } catch (err: any) {
+      setTeacherError(err?.message || 'Falha ao autenticar. Verifique sua conexão.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -593,7 +598,20 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                     onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
                   >
                     {isLoading ? (
-                      <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        <span 
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            border: '2px solid rgba(255, 255, 255, 0.3)',
+                            borderTopColor: '#ffffff',
+                            display: 'inline-block',
+                            animation: 'spin 0.8s linear infinite'
+                          }} 
+                        />
+                        <span>{isSignUp ? 'Cadastrando...' : 'Entrando...'}</span>
+                      </div>
                     ) : isSignUp ? (
                       <>
                         <UserPlus style={{ width: '16px', height: '16px' }} />

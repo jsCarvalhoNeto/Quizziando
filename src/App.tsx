@@ -1442,21 +1442,28 @@ Garanta que:
         }
         if (data.user) {
           const userEmail = data.user.email || targetEmail;
-          let userUsername = data.user.user_metadata?.username || userEmail.split('@')[0];
-          try {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('username, nickname')
-              .eq('id', data.user.id)
-              .maybeSingle();
-
-            if (prof?.username) userUsername = prof.username;
-          } catch {}
+          const userUsername = data.user.user_metadata?.username || userEmail.split('@')[0];
 
           setAuthUser({ id: data.user.id, email: userEmail, username: userUsername });
           setAppMode('online');
           setScreen('operator-dashboard');
-          sfx.playCorrect();
+          try { sfx.playCorrect(); } catch {}
+
+          // Sincroniza dados adicionais do perfil em segundo plano
+          void (async () => {
+            try {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('username, nickname')
+                .eq('id', data.user.id)
+                .maybeSingle();
+
+              if (prof?.username) {
+                setAuthUser(prev => prev ? { ...prev, username: prof.username } : null);
+              }
+            } catch {}
+          })();
+
           return { success: true };
         }
       } else {
