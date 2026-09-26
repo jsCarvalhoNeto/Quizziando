@@ -13,13 +13,19 @@ import {
   Mail, 
   ArrowRight,
   Eye,
-  EyeOff
+  ArrowRight,
+  Eye,
+  EyeOff,
+  AtSign,
+  User,
+  CheckCircle2
 } from 'lucide-react';
+import { checkUsernameAvailable } from '../../lib/adminService';
 
 interface LoginPortalProps {
   onJoinAsStudent: (pin: string) => void;
   onGoToPractice: () => void;
-  onTeacherLogin: (email: string, pass: string, isSignUp: boolean) => Promise<{ success: boolean; error?: string; info?: string; needsConfirmation?: boolean }>;
+  onTeacherLogin: (loginIdentifier: string, pass: string, isSignUp: boolean, username?: string) => Promise<{ success: boolean; error?: string; info?: string; needsConfirmation?: boolean }>;
   onDemoLogin: () => void;
   initialPin?: string;
 }
@@ -36,7 +42,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   const [pinError, setPinError] = useState('');
 
   // Professor Auth State
-  const [email, setEmail] = useState('');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+  const [usernameMsg, setUsernameMsg] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -55,17 +65,66 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
     onJoinAsStudent(cleanPin);
   };
 
+  const handleUsernameChange = (val: string) => {
+    const clean = val.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    setUsername(clean);
+    setUsernameStatus('idle');
+    setUsernameMsg('');
+  };
+
+  const validateUsernameAvailability = async (valToTest?: string) => {
+    const val = (valToTest !== undefined ? valToTest : username).trim().toLowerCase();
+    if (!val) {
+      setUsernameStatus('idle');
+      setUsernameMsg('');
+      return false;
+    }
+    if (val.length < 3) {
+      setUsernameStatus('invalid');
+      setUsernameMsg('Mínimo de 3 caracteres.');
+      return false;
+    }
+    setUsernameChecking(true);
+    const res = await checkUsernameAvailable(val);
+    setUsernameChecking(false);
+    if (!res.available) {
+      setUsernameStatus('invalid');
+      setUsernameMsg(res.error || 'Nome de usuário já está em uso.');
+      return false;
+    } else {
+      setUsernameStatus('valid');
+      setUsernameMsg('Nome de usuário disponível!');
+      return true;
+    }
+  };
+
   const handleTeacherSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setTeacherError('Preencha o e-mail e a senha para continuar.');
+    const cleanIdentifier = loginIdentifier.trim();
+    if (!cleanIdentifier || !password.trim()) {
+      setTeacherError(isSignUp ? 'Preencha o e-mail, usuário e a senha.' : 'Preencha seu e-mail/usuário e a senha para continuar.');
       setTeacherInfo('');
       return;
     }
+
+    let finalUsername = '';
+    if (isSignUp) {
+      finalUsername = username.trim().toLowerCase().replace(/^@/, '');
+      if (!finalUsername || finalUsername.length < 3) {
+        setTeacherError('Escolha um nome de usuário com no mínimo 3 caracteres (apenas letras minúsculas, números e underline).');
+        return;
+      }
+      const isAvailable = await validateUsernameAvailability(finalUsername);
+      if (!isAvailable) {
+        setTeacherError('Por favor escolha outro nome de usuário disponível.');
+        return;
+      }
+    }
+
     setIsLoading(true);
     setTeacherError('');
     setTeacherInfo('');
-    const result = await onTeacherLogin(email.trim(), password, isSignUp);
+    const result = await onTeacherLogin(cleanIdentifier, password, isSignUp, finalUsername || undefined);
     setIsLoading(false);
     if (result.needsConfirmation && result.info) {
       setTeacherInfo(result.info);
@@ -335,6 +394,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
 
                 {/* Form do Professor */}
                 <form onSubmit={handleTeacherSubmit} className="flex flex-col gap-3">
+                  {/* Campo de E-mail / Identificador */}
                   <div>
                     <div 
                       style={{
@@ -345,11 +405,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                     >
                       <Mail style={{ width: '16px', height: '16px', color: '#94a3b8', position: 'absolute', left: '14px', pointerEvents: 'none' }} />
                       <input
-                        type="email"
+                        type={isSignUp ? 'email' : 'text'}
                         required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="professor@escola.com"
+                        value={loginIdentifier}
+                        onChange={(e) => setLoginIdentifier(e.target.value)}
+                        placeholder={isSignUp ? 'professor@escola.com' : 'E-mail ou @usuário'}
                         style={{
                           width: '100%',
                           height: '44px',
@@ -368,6 +428,64 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Campo de Nome de Usuário Único (@username) - Exibido apenas no Cadastro */}
+                  {isSignUp && (
+                    <div>
+                      <div 
+                        style={{
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <AtSign style={{ width: '16px', height: '16px', color: '#c084fc', position: 'absolute', left: '14px', pointerEvents: 'none' }} />
+                        <input
+                          type="text"
+                          required
+                          value={username}
+                          onChange={(e) => handleUsernameChange(e.target.value)}
+                          onBlur={() => validateUsernameAvailability()}
+                          placeholder="usuario_unico (ex: prof_carlos)"
+                          maxLength={30}
+                          style={{
+                            width: '100%',
+                            height: '44px',
+                            paddingLeft: '40px',
+                            paddingRight: '36px',
+                            borderRadius: '12px',
+                            background: 'rgba(0, 0, 0, 0.45)',
+                            border: `1px solid ${
+                              usernameStatus === 'valid'
+                                ? 'rgba(52, 211, 153, 0.6)'
+                                : usernameStatus === 'invalid'
+                                ? 'rgba(248, 113, 113, 0.6)'
+                                : 'rgba(255, 255, 255, 0.12)'
+                            }`,
+                            color: '#ffffff',
+                            fontSize: '13px',
+                            outline: 'none',
+                            transition: 'border-color 0.2s ease',
+                          }}
+                          onFocus={(e) => {
+                            if (usernameStatus === 'idle') e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.7)';
+                          }}
+                        />
+                        <div style={{ position: 'absolute', right: '12px', display: 'flex', alignItems: 'center' }}>
+                          {usernameChecking ? (
+                            <span className="animate-spin w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full" />
+                          ) : usernameStatus === 'valid' ? (
+                            <CheckCircle2 style={{ width: '15px', height: '15px', color: '#34d399' }} />
+                          ) : null}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingLeft: '4px', paddingRight: '4px' }}>
+                        <span style={{ fontSize: '11px', color: usernameStatus === 'invalid' ? '#f87171' : usernameStatus === 'valid' ? '#34d399' : '#94a3b8' }}>
+                          {usernameMsg || 'Identificador único para seus quizzes (@usuario)'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <div 
@@ -477,7 +595,13 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs text-slate-400">
                   <button
                     type="button"
-                    onClick={() => { setIsSignUp(!isSignUp); setTeacherError(''); setTeacherInfo(''); }}
+                    onClick={() => { 
+                      setIsSignUp(!isSignUp); 
+                      setTeacherError(''); 
+                      setTeacherInfo(''); 
+                      setUsernameStatus('idle'); 
+                      setUsernameMsg(''); 
+                    }}
                     className="text-purple-300 hover:text-purple-200 underline font-medium cursor-pointer"
                   >
                     {isSignUp ? 'Já possui conta? Entrar' : 'Criar nova conta'}

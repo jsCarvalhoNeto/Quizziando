@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   BookOpen, 
   Search, 
@@ -8,7 +8,10 @@ import {
   Trash2, 
   ArrowRight,
   Filter,
-  Calendar
+  Calendar,
+  User,
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { 
   fetchAdminCategories, 
@@ -28,6 +31,7 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState<string>('all');
+  const [selectedCreator, setSelectedCreator] = useState<string>('all');
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -50,6 +54,24 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
     loadData();
   }, [loadData]);
 
+  // Lista agregada de criadores ordenados pelos mais ativos
+  const creatorsList = useMemo(() => {
+    const map = new Map<string, { username: string; name: string; quizzesCount: number; questionsCount: number }>();
+    categories.forEach(c => {
+      const u = c.creator_username || 'quizziando';
+      const existing = map.get(u) || {
+        username: u,
+        name: c.creator_name || u,
+        quizzesCount: 0,
+        questionsCount: 0
+      };
+      existing.quizzesCount += 1;
+      existing.questionsCount += (c.questions_count || 0);
+      map.set(u, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.quizzesCount - a.quizzesCount);
+  }, [categories]);
+
   const handleDelete = async (categoryId: string, name: string) => {
     if (!window.confirm(`Tem certeza que deseja excluir o quiz "${name}"? Todas as perguntas deste quiz também poderão ser excluídas ou desvinculadas no banco.`)) {
       return;
@@ -69,13 +91,18 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
   const filteredCategories = categories.filter(c => {
     const matchesSearch = 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.folder_name && c.folder_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      (c.folder_name && c.folder_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (c.creator_username && c.creator_username.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesFolder = 
       selectedFolderId === 'all' || 
       (selectedFolderId === 'none' ? !c.folder_id : c.folder_id === selectedFolderId);
 
-    return matchesSearch && matchesFolder;
+    const matchesCreator =
+      selectedCreator === 'all' ||
+      (c.creator_username || 'quizziando') === selectedCreator;
+
+    return matchesSearch && matchesFolder && matchesCreator;
   });
 
   const totalQuestions = categories.reduce((sum, c) => sum + (c.questions_count || 0), 0);
@@ -129,6 +156,81 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
         </div>
       </div>
 
+      {/* Widget de Ranking de Educadores / Criadores Mais Ativos */}
+      {creatorsList.length > 0 && (
+        <div 
+          style={{
+            background: 'rgba(30, 41, 59, 0.7)',
+            border: '1px solid #334155',
+            borderRadius: '12px',
+            padding: '14px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Crown size={18} style={{ color: '#fbbf24' }} />
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>
+              Educadores Mais Ativos:
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {creatorsList.slice(0, 5).map((cr, idx) => {
+              const isSelected = selectedCreator === cr.username;
+              return (
+                <button
+                  key={cr.username}
+                  type="button"
+                  onClick={() => setSelectedCreator(isSelected ? 'all' : cr.username)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: isSelected ? '1px solid #a855f7' : '1px solid #334155',
+                    backgroundColor: isSelected ? 'rgba(168, 85, 247, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                    color: isSelected ? '#d8b4fe' : '#cbd5e1',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title={`Filtrar quizzes de @${cr.username}`}
+                >
+                  <span>{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '👤'}</span>
+                  <span>@{cr.username}</span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.85, backgroundColor: 'rgba(255,255,255,0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                    {cr.quizzesCount} {cr.quizzesCount === 1 ? 'quiz' : 'quizzes'}
+                  </span>
+                </button>
+              );
+            })}
+            {selectedCreator !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setSelectedCreator('all')}
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#f87171',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontWeight: 600
+                }}
+              >
+                Limpar filtro
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Controles de Filtro e Busca */}
       <div 
         style={{ 
@@ -140,11 +242,11 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
         }}
       >
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-          <div style={{ position: 'relative', minWidth: '260px', flex: 1, maxWidth: '420px' }}>
+          <div style={{ position: 'relative', minWidth: '240px', flex: 1, maxWidth: '380px' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '11px', color: '#94a3b8' }} />
             <input 
               type="text" 
-              placeholder="Buscar por nome do quiz ou pasta..." 
+              placeholder="Buscar quiz, pasta ou @usuário..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -180,6 +282,32 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
               <option value="none">Sem Pasta Vinculada</option>
               {folders.map(f => (
                 <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro por Usuário Criador */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <User size={16} style={{ color: '#c084fc' }} />
+            <select
+              value={selectedCreator}
+              onChange={(e) => setSelectedCreator(e.target.value)}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: selectedCreator !== 'all' ? '1px solid #c084fc' : '1px solid #334155',
+                backgroundColor: selectedCreator !== 'all' ? '#1e1b4b' : '#0f172a',
+                color: '#f8fafc',
+                fontSize: '0.875rem',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="all">Todos os Criadores ({creatorsList.length})</option>
+              {creatorsList.map(cr => (
+                <option key={cr.username} value={cr.username}>
+                  @{cr.username} ({cr.quizzesCount} {cr.quizzesCount === 1 ? 'quiz' : 'quizzes'})
+                </option>
               ))}
             </select>
           </div>
@@ -302,17 +430,40 @@ export default function AdminQuizzes({ onSelectCategoryQuestions }: AdminQuizzes
                   </span>
                 </div>
 
-                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '12px' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Calendar size={12} />
-                    {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : 'Data não informada'}
-                  </span>
+                <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #334155', paddingTop: '12px', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCreator(c.creator_username || 'quizziando')}
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        color: '#c084fc', 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        cursor: 'pointer',
+                        backgroundColor: 'rgba(192, 132, 252, 0.12)',
+                        border: '1px solid rgba(192, 132, 252, 0.25)',
+                        padding: '2px 7px',
+                        borderRadius: '5px',
+                        fontWeight: 600
+                      }}
+                      title={`Filtrar apenas quizzes criados por @${c.creator_username || 'quizziando'}`}
+                    >
+                      <User size={11} /> @{c.creator_username || 'quizziando'}
+                    </button>
+
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Calendar size={12} />
+                      {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : 'Data não informada'}
+                    </span>
+                  </div>
 
                   {onSelectCategoryQuestions && (
                     <button
                       onClick={() => onSelectCategoryQuestions(c.id)}
                       className="admin-btn outline"
-                      style={{ fontSize: '0.75rem', padding: '4px 10px', gap: '4px' }}
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', gap: '4px', flexShrink: 0 }}
                     >
                       Ver Questões <ArrowRight size={12} />
                     </button>

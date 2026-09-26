@@ -21,6 +21,8 @@ import {
   Star,
   Zap,
   Calendar,
+  User,
+  Lock
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, sfx } from '../../App';
@@ -1308,45 +1310,84 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                         </span>
                       </div>
 
-                      {/* Metadado de Data de Criação no Card */}
-                      <span 
-                        style={{
-                          fontSize: '11px',
-                          color: '#94a3b8',
-                          fontWeight: 500,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          flexShrink: 0
-                        }}
-                        title={`Criado em: ${formatQuizDate(cat.created_at)}`}
-                      >
-                        <Calendar style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
-                        {formatQuizDate(cat.created_at)}
-                      </span>
+                      {/* Metadados: Tag de Privacidade e Data de Criação no Card */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span 
+                          style={{
+                            fontSize: '10px',
+                            color: '#64748b',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            backgroundColor: '#f1f5f9',
+                            padding: '1px 5px',
+                            borderRadius: '4px'
+                          }}
+                          title="Quiz privado (visível para o seu usuário)"
+                        >
+                          <Lock style={{ width: '9px', height: '9px' }} />
+                          Privado
+                        </span>
+
+                        <span 
+                          style={{
+                            fontSize: '11px',
+                            color: '#94a3b8',
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            flexShrink: 0
+                          }}
+                          title={`Criado em: ${formatQuizDate(cat.created_at)}`}
+                        >
+                          <Calendar style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
+                          {formatQuizDate(cat.created_at)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Rodapé do Bloco: Jogar Convencional ou Criar Perguntas se Vazio */}
+                  {/* Rodapé do Bloco: + Roleta, Nome do Usuário Criador (@autor) e Botão Jogar */}
                   <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSelectQuiz(cat.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        color: isSelectedForRoulette ? '#1368ce' : '#94a3b8',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <RotateCw style={{ width: '12px', height: '12px' }} />
-                      <span>{isSelectedForRoulette ? 'Na Roleta' : '+ Roleta'}</span>
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'flex-start' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelectQuiz(cat.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: isSelectedForRoulette ? '#1368ce' : '#94a3b8',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <RotateCw style={{ width: '12px', height: '12px' }} />
+                        <span>{isSelectedForRoulette ? 'Na Roleta' : '+ Roleta'}</span>
+                      </button>
+
+                      {/* Identificação do Usuário Criador (conforme marcado na área inferior do card) */}
+                      <span 
+                        style={{ 
+                          fontSize: '10.5px', 
+                          color: '#6366f1', 
+                          fontWeight: 700, 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '3px',
+                          cursor: 'default'
+                        }}
+                        title={`Quiz criado por @${cat.author_name || 'quizziando'}`}
+                      >
+                        <User style={{ width: '10px', height: '10px' }} />
+                        @{cat.author_name || 'quizziando'}
+                      </span>
+                    </div>
 
                     {/* Botão Principal: Criar Perguntas (se 0 perguntas) ou Jogar Convencional */}
                     {totalQ === 0 ? (

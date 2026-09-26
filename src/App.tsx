@@ -36,6 +36,7 @@ import TeacherRemoteView from './components/teacher/TeacherRemoteView';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 import AmbientBorderGlow from './components/game/AmbientBorderGlow';
 import AdminLayout from './components/admin/AdminLayout';
+import { getEmailByUsername } from './lib/adminService';
 import './App.css';
 
 // Contagem animada de pontos (0 → valor final) usada no pódio
@@ -93,6 +94,8 @@ export interface Category {
   icon: string;
   folder_id?: string | null;
   created_at?: string;
+  created_by?: string;
+  author_name?: string;
 }
 
 export interface Question {
@@ -219,10 +222,29 @@ const DEFAULT_QUESTIONS: Question[] = [
 ];
 
 export default function App() {
-  const [authUser, setAuthUser] = useState<{ id?: string, email: string } | null>(null);
+  const [authUser, setAuthUser] = useState<{ id?: string, email: string, username?: string } | null>(null);
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ? { id: session.user.id, email: session.user.email || '' } : null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const email = session.user.email || '';
+        const metaUser = session.user.user_metadata?.username;
+        const initialUser = metaUser || email.split('@')[0];
+        setAuthUser({ id: session.user.id, email, username: initialUser });
+
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username, nickname')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (profile?.username) {
+            setAuthUser(prev => prev ? { ...prev, username: profile.username } : null);
+          }
+        } catch {}
+      } else {
+        setAuthUser(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -391,20 +413,32 @@ export default function App() {
             setFolders([]);
           }
 
-          // 1. Carregar Categorias
-          const { data: catData } = await supabase
-            .from('categories')
-            .select('*');
+          // 1. Carregar Categorias e Perfis de Criadores
+          const [catRes, profRes] = await Promise.all([
+            supabase.from('categories').select('*'),
+            supabase.from('profiles').select('id, nickname, username, email')
+          ]);
+          const catData = catRes.data;
+          const profMap = new Map((profRes.data || []).map(p => [p.id, p]));
+
           if (catData && catData.length > 0) {
             const todayIso = new Date().toISOString();
-            const mappedCats = catData.map(c => ({
-              id: c.id,
-              name: c.name,
-              color: c.color,
-              icon: c.icon,
-              folder_id: c.folder_id,
-              created_at: c.created_at || todayIso
-            }));
+            const mappedCats = catData.map(c => {
+              const creator = c.created_by ? profMap.get(c.created_by) : undefined;
+              const rawAuthor = creator?.username || creator?.nickname || (creator?.email ? creator.email.split('@')[0] : '');
+              const cleanAuthor = rawAuthor ? rawAuthor.replace(/^@/, '') : 'quizziando';
+
+              return {
+                id: c.id,
+                name: c.name,
+                color: c.color,
+                icon: c.icon,
+                folder_id: c.folder_id,
+                created_by: c.created_by,
+                author_name: cleanAuthor,
+                created_at: c.created_at || todayIso
+              };
+            });
             setCategories(mappedCats);
             setSelectedCategoryIds(mappedCats.slice(0, 14).map(c => c.id));
 
@@ -1349,11 +1383,17 @@ Garanta que:
     setRole('player');
   };
 
-  const handleTeacherLoginFromPortal = async (email: string, pass: string, isSignUp: boolean) => {
+  const handleTeacherLoginFromPortal = async (
+    loginIdentifier: string, 
+    pass: string, 
+    isSignUp: boolean, 
+    chosenUsername?: string
+  ) => {
     setRole('operator');
+    const cleanIdentifier = loginIdentifier.trim();
     if (!useRealSupabase) {
-      if (email === 'admin@quizziando.com' && pass === 'admin123') {
-        setAuthUser({ id: 'demo-id', email });
+      if ((cleanIdentifier === 'admin@quizziando.com' || cleanIdentifier === 'admin') && pass === 'admin123') {
+        setAuthUser({ id: 'demo-id', email: 'admin@quizziando.com', username: 'admin' });
         setAppMode('online');
         setScreen('operator-dashboard');
         sfx.playCorrect();
@@ -1365,8 +1405,23 @@ Garanta que:
 
     try {
       if (!isSignUp) {
+        let targetEmail = cleanIdentifier;
+
+        // Se o usuário digitou um nome de usuário (sem @ de e-mail)
+        if (!targetEmail.includes('@')) {
+          const resolvedEmail = await getEmailByUsername(targetEmail);
+          if (resolvedEmail) {
+            targetEmail = resolvedEmail;
+          } else {
+            return {
+              success: false,
+              error: 'Nome de usuário não encontrado. Verifique seu @usuário ou informe o e-mail cadastrado.'
+            };
+          }
+        }
+
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: targetEmail,
           password: pass,
         });
         if (error) {
@@ -1380,22 +1435,42 @@ Garanta que:
           if (error.message?.toLowerCase().includes('invalid login credentials')) {
             return {
               success: false,
-              error: 'E-mail ou senha incorretos. Se acabou de criar a conta, certifique-se de ter clicado no link de confirmação enviado para seu e-mail.'
+              error: 'Credenciais incorretas. Verifique seu e-mail/usuário e senha.'
             };
           }
           return { success: false, error: error.message || 'E-mail ou senha incorretos. Tente novamente.' };
         }
         if (data.user) {
-          setAuthUser({ id: data.user.id, email: data.user.email || email });
+          const userEmail = data.user.email || targetEmail;
+          let userUsername = data.user.user_metadata?.username || userEmail.split('@')[0];
+          try {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('username, nickname')
+              .eq('id', data.user.id)
+              .maybeSingle();
+
+            if (prof?.username) userUsername = prof.username;
+          } catch {}
+
+          setAuthUser({ id: data.user.id, email: userEmail, username: userUsername });
           setAppMode('online');
           setScreen('operator-dashboard');
           sfx.playCorrect();
           return { success: true };
         }
       } else {
+        const finalUsername = (chosenUsername || cleanIdentifier.split('@')[0]).trim().toLowerCase().replace(/^@/, '');
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: cleanIdentifier,
           password: pass,
+          options: {
+            data: {
+              username: finalUsername,
+              nickname: finalUsername,
+              role: 'operator'
+            }
+          }
         });
         if (error) {
           console.warn('[Supabase Auth SignUp Error]', error);
@@ -1410,9 +1485,24 @@ Garanta que:
           };
         }
 
+        // Garante que o profile do operador seja salvo com o username
+        if (data.user) {
+          try {
+            await supabase.from('profiles').upsert({
+              id: data.user.id,
+              username: finalUsername,
+              nickname: finalUsername,
+              email: cleanIdentifier,
+              role: 'operator'
+            });
+          } catch (e) {
+            console.warn('Erro ao registrar profile na tabela profiles:', e);
+          }
+        }
+
         // Se o Supabase retornou sessão ativa imediatamente (confirmação de email desligada)
         if (data.session && data.user) {
-          setAuthUser({ id: data.user.id, email: data.user.email || email });
+          setAuthUser({ id: data.user.id, email: data.user.email || cleanIdentifier, username: finalUsername });
           setAppMode('online');
           setScreen('operator-dashboard');
           sfx.playCorrect();
@@ -1463,13 +1553,16 @@ Garanta que:
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
     const todayIso = new Date().toISOString();
+    const currentAuthor = (authUser?.username || authUser?.email?.split('@')[0] || 'quizziando').replace(/^@/, '');
     let newCat: Category = {
       id: Math.random().toString(),
       name: newCatName.trim(),
       color: newCatColor,
       icon: 'HelpCircle',
       folder_id: null,
-      created_at: todayIso
+      created_at: todayIso,
+      created_by: authUser?.id,
+      author_name: currentAuthor
     };
 
     if (useRealSupabase) {
@@ -1496,6 +1589,8 @@ Garanta que:
               color: data.color,
               icon: data.icon,
               folder_id: data.folder_id,
+              created_by: data.created_by || userId,
+              author_name: currentAuthor,
               created_at: data.created_at || todayIso
             };
           }
@@ -2450,13 +2545,16 @@ Garanta que:
     // 1. Criar e registrar a nova Categoria correspondente a este Quiz com a data de criação
     const newCategoryId = crypto.randomUUID();
     const todayIso = new Date().toISOString();
+    const currentAuthor = (authUser?.username || authUser?.email?.split('@')[0] || 'quizziando').replace(/^@/, '');
     let newCategory: Category = {
       id: newCategoryId,
       name: trimmedName,
       color: '#7c3aed',
       icon: 'HelpCircle',
       folder_id: quizData.folderId || null,
-      created_at: todayIso
+      created_at: todayIso,
+      created_by: authUser?.id,
+      author_name: currentAuthor
     };
 
     if (useRealSupabase) {
@@ -2485,6 +2583,8 @@ Garanta que:
               color: data.color,
               icon: data.icon,
               folder_id: data.folder_id,
+              created_by: data.created_by || userId,
+              author_name: currentAuthor,
               created_at: data.created_at || todayIso
             };
           } else if (error) {
@@ -3201,7 +3301,7 @@ Garanta que:
           setScreen(authUser ? 'operator-dashboard' : 'welcome');
           setAppMode(authUser ? 'online' : 'portal');
         }}
-        currentUser={authUser ? { name: authUser.email || 'Admin', role: 'admin' } : { name: 'Administrador', role: 'admin' }}
+        currentUser={authUser ? { name: authUser.username ? `@${authUser.username}` : (authUser.email || 'Admin'), role: 'admin' } : { name: 'Administrador', role: 'admin' }}
       />
     );
   }

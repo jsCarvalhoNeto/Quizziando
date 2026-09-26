@@ -398,9 +398,14 @@ grant execute on function public.admin_reset_user_password(uuid, text) to authen
                     <tr key={user.id}>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {user.nickname || 'Sem Apelido'}
-                            {currentUser?.name === user.nickname && (
+                          <span style={{ fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            {user.nickname || user.username || 'Sem Apelido'}
+                            {user.username && (
+                              <span style={{ fontSize: '0.75rem', color: '#c084fc', backgroundColor: 'rgba(192, 132, 252, 0.1)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                @{user.username}
+                              </span>
+                            )}
+                            {(currentUser?.name === user.nickname || currentUser?.name === `@${user.username}`) && (
                               <span style={{ fontSize: '0.7rem', color: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', padding: '1px 6px', borderRadius: '4px' }}>
                                 Você
                               </span>

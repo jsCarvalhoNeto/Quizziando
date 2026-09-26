@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 export interface ProfileUser {
   id: string;
   nickname: string;
+  username?: string;
   email?: string;
   role: 'admin' | 'operator' | 'player';
   created_at: string;
@@ -367,6 +368,8 @@ export interface AdminCategory {
   icon?: string;
   folder_id?: string | null;
   created_by?: string;
+  creator_username?: string;
+  creator_name?: string;
   created_at?: string;
   folder_name?: string;
   questions_count?: number;
@@ -398,19 +401,21 @@ export interface AdminQuestion {
 }
 
 /**
- * Busca todas as categorias com contagem de perguntas e nome da pasta
+ * Busca todas as categorias com contagem de perguntas, nome da pasta e dados do criador
  */
 export async function fetchAdminCategories(): Promise<AdminCategory[]> {
   try {
-    const [catsRes, foldersRes, questionsRes] = await Promise.all([
+    const [catsRes, foldersRes, questionsRes, profilesRes] = await Promise.all([
       supabase.from('categories').select('*').order('name', { ascending: true }),
       supabase.from('category_folders').select('id, name'),
-      supabase.from('questions').select('category_id')
+      supabase.from('questions').select('category_id'),
+      supabase.from('profiles').select('id, nickname, username, email')
     ]);
 
     if (catsRes.error) throw catsRes.error;
 
     const folderMap = new Map((foldersRes.data || []).map(f => [f.id, f.name]));
+    const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
     const qCountMap = new Map<string, number>();
     (questionsRes.data || []).forEach(q => {
       if (q.category_id) {
@@ -418,11 +423,19 @@ export async function fetchAdminCategories(): Promise<AdminCategory[]> {
       }
     });
 
-    return (catsRes.data || []).map(c => ({
-      ...c,
-      folder_name: c.folder_id ? folderMap.get(c.folder_id) || 'Sem Pasta' : 'Sem Pasta',
-      questions_count: qCountMap.get(c.id) || 0
-    }));
+    return (catsRes.data || []).map(c => {
+      const creator = c.created_by ? profileMap.get(c.created_by) : undefined;
+      const rawUser = creator?.username || creator?.nickname || (creator?.email ? creator.email.split('@')[0] : '');
+      const cleanUsername = rawUser ? rawUser.replace(/^@/, '') : 'quizziando';
+
+      return {
+        ...c,
+        folder_name: c.folder_id ? folderMap.get(c.folder_id) || 'Sem Pasta' : 'Sem Pasta',
+        questions_count: qCountMap.get(c.id) || 0,
+        creator_username: cleanUsername,
+        creator_name: creator?.nickname || cleanUsername
+      };
+    });
   } catch (err) {
     console.error('Erro ao buscar categorias do admin:', err);
     return [];
@@ -534,4 +547,72 @@ export async function deleteAdminCategory(categoryId: string): Promise<{ success
     return { success: false, error: err?.message || 'Erro ao excluir categoria' };
   }
 }
+
+/**
+ * Verifica se um nome de usuário está disponível para cadastro
+ */
+export async function checkUsernameAvailable(username: string): Promise<{ available: boolean; error?: string }> {
+  const clean = username.trim().toLowerCase().replace(/^@/, '');
+  if (!clean || clean.length < 3) {
+    return { available: false, error: 'O nome de usuário deve ter no mínimo 3 caracteres.' };
+  }
+  if (!/^[a-z0-9_]+$/.test(clean)) {
+    return { available: false, error: 'Use apenas letras minúsculas, números e underline (_).' };
+  }
+
+  try {
+    // Tenta via RPC primeiro caso a migration esteja aplicada
+    const { data: rpcData, error: rpcError } = await supabase.rpc('check_username_available', { p_username: clean });
+    if (!rpcError && typeof rpcData === 'boolean') {
+      return { available: rpcData };
+    }
+
+    // Fallback: consulta direta na tabela profiles
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike('username', clean)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn('Erro ao verificar username:', error.message);
+    }
+
+    return { available: !data };
+  } catch (err) {
+    console.error('Falha ao checar username:', err);
+    return { available: true };
+  }
+}
+
+/**
+ * Busca o e-mail de um usuário pelo seu @username (permite login com username)
+ */
+export async function getEmailByUsername(identifier: string): Promise<string | null> {
+  const clean = identifier.trim().toLowerCase().replace(/^@/, '');
+  if (!clean) return null;
+
+  try {
+    // Tenta via RPC get_email_by_username
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_email_by_username', { p_username: clean });
+    if (!rpcError && rpcData) {
+      return rpcData;
+    }
+
+    // Fallback: consulta direta na tabela profiles
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('email, nickname')
+      .ilike('username', clean)
+      .maybeSingle();
+
+    if (!error && data?.email) {
+      return data.email;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 
