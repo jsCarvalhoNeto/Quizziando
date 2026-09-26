@@ -14,7 +14,9 @@ import {
   Loader2,
   AlertCircle,
   Key,
-  CheckCircle2
+  CheckCircle2,
+  Lock,
+  Globe
 } from 'lucide-react';
 import type { Question } from '../../App';
 import { 
@@ -35,6 +37,7 @@ export interface CreateQuizModalProps {
     folderId: string | null;
     description?: string;
     timeLimit: number;
+    isPublic?: boolean;
     questionIds: string[];
     categoryIds: string[];
     newQuestions?: Array<Omit<Question, 'id'>>;
@@ -56,6 +59,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
   const [folderId, setFolderId] = useState<string>('');
   const [description, setDescription] = useState('');
   const [timeLimit, setTimeLimit] = useState(20);
+  const [isPublic, setIsPublic] = useState(false);
 
   // Modo de Adição de Questões: 'existing' (acervo) ou 'ai' (gerar com Gemini)
   const [activeTab, setActiveTab] = useState<'existing' | 'ai'>('existing');
@@ -237,6 +241,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
       folderId: folderId ? folderId : null,
       description: description.trim() || undefined,
       timeLimit: Math.max(5, Math.min(120, timeLimit || 20)),
+      isPublic,
       questionIds: selectedQuestionIds,
       categoryIds: involvedCategoryIds,
       newQuestions: newQuestionsToCreate.length > 0 ? newQuestionsToCreate : undefined
@@ -247,6 +252,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
     setFolderId('');
     setDescription('');
     setTimeLimit(20);
+    setIsPublic(false);
     setSelectedQuestionIds([]);
     setGeneratedQuestions([]);
     setSelectedGeneratedIndexes([]);
@@ -424,6 +430,64 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                   <span>
                     Data de Criação: <strong style={{ color: '#14532d' }}>{new Date().toLocaleDateString('pt-BR')}</strong> (Automática)
                   </span>
+                </div>
+
+                {/* Modo de Visibilidade do Quiz: Público vs Privado */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#334155', marginBottom: '6px' }}>
+                    Visibilidade do Quiz
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPublic(false)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: !isPublic ? '2px solid #46178f' : '1px solid #e2e8f0',
+                        backgroundColor: !isPublic ? '#f3e8ff' : '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: !isPublic ? '#46178f' : '#475569' }}>
+                        <Lock style={{ width: '13px', height: '13px', color: !isPublic ? '#46178f' : '#64748b' }} />
+                        <span>Privado</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: !isPublic ? '#6b21a8' : '#94a3b8', textAlign: 'left', lineHeight: 1.2 }}>
+                        Apenas você tem acesso
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPublic(true)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: isPublic ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                        backgroundColor: isPublic ? '#e0f2fe' : '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: isPublic ? '#0284c7' : '#475569' }}>
+                        <Globe style={{ width: '13px', height: '13px', color: isPublic ? '#0284c7' : '#64748b' }} />
+                        <span>Público</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: isPublic ? '#0369a1' : '#94a3b8', textAlign: 'left', lineHeight: 1.2 }}>
+                        Para todos os operadores
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pasta de Destino */}

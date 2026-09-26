@@ -22,7 +22,8 @@ import {
   Zap,
   Calendar,
   User,
-  Lock
+  Lock,
+  Globe
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, sfx } from '../../App';
@@ -52,6 +53,9 @@ interface QuizLibraryProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
+  onToggleCategoryPrivacy?: (categoryId: string, isPublic: boolean) => Promise<void> | void;
+  currentUserId?: string;
+  isAdmin?: boolean;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
   onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid', totalBlocks?: number, selectedBossId?: string) => void;
@@ -106,6 +110,9 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   onToggleFavorite,
   onDeleteQuiz,
   onDeleteCategory,
+  onToggleCategoryPrivacy,
+  currentUserId,
+  isAdmin,
   onCreateNewQuiz,
   onStartRouletteGame,
   onStartClassicGame,
@@ -114,6 +121,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'popular' | 'favorites'>('all');
+  const [privacyFilter, setPrivacyFilter] = useState<'all' | 'public' | 'private'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [openMenuCatId, setOpenMenuCatId] = useState<string | null>(null);
 
@@ -207,6 +215,10 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         if (!favoriteCategoryIds.includes(cat.id)) return false;
       }
 
+      // Filtro de Privacidade (Todos / Público / Privado)
+      if (privacyFilter === 'public' && !cat.is_public) return false;
+      if (privacyFilter === 'private' && cat.is_public) return false;
+
       // Filtro de Busca
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -225,7 +237,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       }
       return a.name.localeCompare(b.name);
     });
-  }, [categories, selectedFolderId, searchQuery, activeTab, favoriteCategoryIds, questionCountByCategory, folderMap]);
+  }, [categories, selectedFolderId, searchQuery, activeTab, privacyFilter, favoriteCategoryIds, questionCountByCategory, folderMap]);
 
   // Alternar seleção de um quiz para o jogo
   const handleToggleSelectQuiz = (catId: string, e?: React.MouseEvent) => {
@@ -345,6 +357,21 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     const favQuizCount = quizzes.filter(q => q.isFavorite).length;
     return favCatCount + (selectedFolderId === null ? favQuizCount : 0);
   }, [categories, favoriteCategoryIds, quizzes, selectedFolderId]);
+
+  // Contagens para os filtros de visibilidade (Públicos e Privados)
+  const publicCount = useMemo(() => {
+    return categories.filter(c => {
+      if (selectedFolderId !== null && c.folder_id !== selectedFolderId) return false;
+      return c.is_public === true;
+    }).length;
+  }, [categories, selectedFolderId]);
+
+  const privateCount = useMemo(() => {
+    return categories.filter(c => {
+      if (selectedFolderId !== null && c.folder_id !== selectedFolderId) return false;
+      return !c.is_public;
+    }).length;
+  }, [categories, selectedFolderId]);
 
   // Total de itens exibidos
   const totalItemsCount = categories.length + (selectedFolderId === null ? quizzes.length : 0);
@@ -772,6 +799,113 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             <Check style={{ width: '13px', height: '13px' }} />
             <span>{selectedQuizIds.length === filteredCategories.length && filteredCategories.length > 0 ? 'Desmarcar Todos' : 'Selecionar para Roleta'}</span>
           </button>
+
+          {/* Separador vertical sutil */}
+          <div style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 4px', flexShrink: 0 }} />
+
+          {/* Filtro de Visibilidade do Quiz: Todos, Públicos, Privados */}
+          <div 
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              backgroundColor: '#f1f5f9', 
+              padding: '3px', 
+              borderRadius: '12px', 
+              gap: '3px',
+              flexShrink: 0
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPrivacyFilter('all')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: 'none',
+                backgroundColor: privacyFilter === 'all' ? '#ffffff' : 'transparent',
+                color: privacyFilter === 'all' ? '#1e293b' : '#64748b',
+                boxShadow: privacyFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+              title="Exibir todos os quizzes (públicos e privados)"
+            >
+              <span>Todos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPrivacyFilter('public')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: 'none',
+                backgroundColor: privacyFilter === 'public' ? '#ffffff' : 'transparent',
+                color: privacyFilter === 'public' ? '#0284c7' : '#64748b',
+                boxShadow: privacyFilter === 'public' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title="Filtrar apenas quizzes públicos disponíveis para todos os operadores"
+            >
+              <Globe style={{ width: '13px', height: '13px', color: privacyFilter === 'public' ? '#0284c7' : '#94a3b8' }} />
+              <span>Públicos</span>
+              <span style={{ 
+                fontSize: '10.5px', 
+                padding: '1px 6px', 
+                borderRadius: '10px', 
+                backgroundColor: privacyFilter === 'public' ? '#e0f2fe' : '#e2e8f0', 
+                color: privacyFilter === 'public' ? '#0284c7' : '#64748b',
+                fontWeight: 800 
+              }}>
+                {publicCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPrivacyFilter('private')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '9px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                border: 'none',
+                backgroundColor: privacyFilter === 'private' ? '#ffffff' : 'transparent',
+                color: privacyFilter === 'private' ? '#46178f' : '#64748b',
+                boxShadow: privacyFilter === 'private' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title="Filtrar apenas meus quizzes privados"
+            >
+              <Lock style={{ width: '12px', height: '12px', color: privacyFilter === 'private' ? '#46178f' : '#94a3b8' }} />
+              <span>Privados</span>
+              <span style={{ 
+                fontSize: '10.5px', 
+                padding: '1px 6px', 
+                borderRadius: '10px', 
+                backgroundColor: privacyFilter === 'private' ? '#f3e8ff' : '#e2e8f0', 
+                color: privacyFilter === 'private' ? '#46178f' : '#64748b',
+                fontWeight: 800 
+              }}>
+                {privateCount}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Busca e Alternância Grade / Lista */}
@@ -879,6 +1013,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
             const isMenuOpen = openMenuCatId === cat.id;
             const isSelectedForRoulette = selectedQuizIds.includes(cat.id);
             const isCatFavorite = favoriteCategoryIds.includes(cat.id);
+            const isOwner = !cat.created_by || cat.created_by === currentUserId || isAdmin;
 
             return (
               <div
@@ -1231,6 +1366,47 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                               </button>
                             )}
 
+                            {/* Alternar Modo: Público / Privado (Apenas para o criador do quiz) */}
+                            {isOwner && onToggleCategoryPrivacy && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuCatId(null);
+                                  onToggleCategoryPrivacy(cat.id, !cat.is_public);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  padding: '8px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  color: cat.is_public ? '#475569' : '#0284c7',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = cat.is_public ? '#f1f5f9' : '#e0f2fe')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                                title={cat.is_public ? 'Tornar este quiz privado (restrito a você)' : 'Tornar este quiz público (disponível para todos os operadores)'}
+                              >
+                                {cat.is_public ? (
+                                  <>
+                                    <Lock style={{ width: '14px', height: '14px', color: '#64748b' }} />
+                                    <span>Tornar Privado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Globe style={{ width: '14px', height: '14px', color: '#0284c7' }} />
+                                    <span>Tornar Público</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+
                             {/* Separador */}
                             <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
 
@@ -1310,25 +1486,59 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                         </span>
                       </div>
 
-                      {/* Metadados: Tag de Privacidade e Data de Criação no Card */}
+                      {/* Metadados: Tag de Privacidade Interativa e Data de Criação no Card */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                        <span 
-                          style={{
-                            fontSize: '10px',
-                            color: '#64748b',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '2px',
-                            backgroundColor: '#f1f5f9',
-                            padding: '1px 5px',
-                            borderRadius: '4px'
-                          }}
-                          title="Quiz privado (visível para o seu usuário)"
-                        >
-                          <Lock style={{ width: '9px', height: '9px' }} />
-                          Privado
-                        </span>
+                        {cat.is_public ? (
+                          <span 
+                            onClick={isOwner && onToggleCategoryPrivacy ? (e) => {
+                              e.stopPropagation();
+                              onToggleCategoryPrivacy(cat.id, false);
+                            } : undefined}
+                            style={{
+                              fontSize: '10px',
+                              color: '#0284c7',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              backgroundColor: '#e0f2fe',
+                              border: '1px solid #bae6fd',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              cursor: isOwner && onToggleCategoryPrivacy ? 'pointer' : 'default',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isOwner && onToggleCategoryPrivacy ? "Quiz público (visível para todos os operadores). Clique para torná-lo privado." : "Quiz público (visível para todos os operadores)"}
+                          >
+                            <Globe style={{ width: '10px', height: '10px', color: '#0284c7' }} />
+                            Público
+                          </span>
+                        ) : (
+                          <span 
+                            onClick={isOwner && onToggleCategoryPrivacy ? (e) => {
+                              e.stopPropagation();
+                              onToggleCategoryPrivacy(cat.id, true);
+                            } : undefined}
+                            style={{
+                              fontSize: '10px',
+                              color: '#475569',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              backgroundColor: '#f1f5f9',
+                              border: '1px solid #e2e8f0',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              cursor: isOwner && onToggleCategoryPrivacy ? 'pointer' : 'default',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isOwner && onToggleCategoryPrivacy ? "Quiz privado (visível apenas para você). Clique para torná-lo público para todos os operadores." : "Quiz privado"}
+                          >
+                            <Lock style={{ width: '9px', height: '9px', color: '#64748b' }} />
+                            Privado
+                          </span>
+                        )}
 
                         <span 
                           style={{

@@ -62,6 +62,8 @@ interface TeacherDashboardProps {
   onToggleFavorite: (quizId: string) => void;
   onDeleteQuiz: (quizId: string) => void;
   onDeleteCategory?: (categoryId: string) => Promise<void> | void;
+  onToggleCategoryPrivacy?: (categoryId: string, isPublic: boolean) => Promise<void> | void;
+  currentUserId?: string;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
   onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid', totalBlocks?: number, selectedBossId?: string) => void;
@@ -120,6 +122,8 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onToggleFavorite,
   onDeleteQuiz,
   onDeleteCategory,
+  onToggleCategoryPrivacy,
+  currentUserId,
   onCreateNewQuiz,
   onStartRouletteGame,
   onStartClassicGame,
@@ -1968,6 +1972,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               onToggleFavorite={onToggleFavorite}
               onDeleteQuiz={onDeleteQuiz}
               onDeleteCategory={onDeleteCategory}
+              onToggleCategoryPrivacy={onToggleCategoryPrivacy}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
               onCreateNewQuiz={onCreateNewQuiz}
               onStartRouletteGame={onStartRouletteGame}
               onStartClassicGame={onStartClassicGame}

@@ -96,6 +96,7 @@ export interface Category {
   created_at?: string;
   created_by?: string;
   author_name?: string;
+  is_public?: boolean;
 }
 
 export interface Question {
@@ -411,22 +412,29 @@ export default function App() {
 
           if (catData && catData.length > 0) {
             const todayIso = new Date().toISOString();
-            const mappedCats = catData.map(c => {
-              const creator = c.created_by ? profMap.get(c.created_by) : undefined;
-              const rawAuthor = creator?.username || creator?.nickname || (creator?.email ? creator.email.split('@')[0] : '');
-              const cleanAuthor = rawAuthor ? rawAuthor.replace(/^@/, '') : 'quizziando';
+            const mappedCats = catData
+              .filter(c => {
+                // Administrador mestre visualiza todos; operadores comuns vêem quizzes de sua autoria OU quizzes marcados como públicos
+                if (authUser?.email === 'santoscarvalhobs@gmail.com') return true;
+                return !authUser?.id || c.created_by === authUser.id || c.is_public === true || c.is_public === 'true';
+              })
+              .map(c => {
+                const creator = c.created_by ? profMap.get(c.created_by) : undefined;
+                const rawAuthor = creator?.username || creator?.nickname || (creator?.email ? creator.email.split('@')[0] : '');
+                const cleanAuthor = rawAuthor ? rawAuthor.replace(/^@/, '') : 'quizziando';
 
-              return {
-                id: c.id,
-                name: c.name,
-                color: c.color,
-                icon: c.icon,
-                folder_id: c.folder_id,
-                created_by: c.created_by,
-                author_name: cleanAuthor,
-                created_at: c.created_at || todayIso
-              };
-            });
+                return {
+                  id: c.id,
+                  name: c.name,
+                  color: c.color,
+                  icon: c.icon,
+                  folder_id: c.folder_id,
+                  created_by: c.created_by,
+                  author_name: cleanAuthor,
+                  created_at: c.created_at || todayIso,
+                  is_public: c.is_public === true || c.is_public === 'true'
+                };
+              });
             setCategories(mappedCats);
             setSelectedCategoryIds(mappedCats.slice(0, 14).map(c => c.id));
 
@@ -2198,6 +2206,7 @@ Garanta que:
     name: string;
     folderId: string | null;
     color?: string;
+    isPublic?: boolean;
     finalQuestionIds: string[];
     editedQuestions: Question[];
     newQuestions: Array<Omit<Question, 'id'>>;
@@ -2209,6 +2218,7 @@ Garanta que:
       name,
       folderId,
       color,
+      isPublic,
       finalQuestionIds,
       editedQuestions,
       newQuestions,
@@ -2219,13 +2229,17 @@ Garanta que:
     if (isCategory) {
       if (useRealSupabase) {
         try {
+          const updatePayload: Record<string, any> = {
+            name,
+            folder_id: folderId || null,
+            color: color || '#46178F'
+          };
+          if (isPublic !== undefined) {
+            updatePayload.is_public = isPublic;
+          }
           await supabase
             .from('categories')
-            .update({
-              name,
-              folder_id: folderId || null,
-              color: color || '#46178F'
-            })
+            .update(updatePayload)
             .eq('id', targetId);
         } catch (err) {
           console.error('Erro ao atualizar categoria no Supabase:', err);
@@ -2233,7 +2247,13 @@ Garanta que:
       }
 
       setCategories(prev => prev.map(c => 
-        c.id === targetId ? { ...c, name, folder_id: folderId || null, color: color || c.color } : c
+        c.id === targetId ? { 
+          ...c, 
+          name, 
+          folder_id: folderId || null, 
+          color: color || c.color,
+          ...(isPublic !== undefined ? { is_public: isPublic } : {})
+        } : c
       ));
     }
 
@@ -2525,11 +2545,38 @@ Garanta que:
     }
   };
 
+  const handleToggleQuizPrivacy = async (categoryId: string, isPublic: boolean) => {
+    // 1. Atualização otimista imediata na interface
+    setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, is_public: isPublic } : c));
+    sfx.playClick();
+
+    // 2. Persistência no banco Supabase
+    if (useRealSupabase) {
+      try {
+        const { error } = await supabase
+          .from('categories')
+          .update({ is_public: isPublic })
+          .eq('id', categoryId);
+
+        if (error) {
+          console.warn('Tentando alternar visibilidade via RPC toggle_quiz_privacy...', error);
+          await supabase.rpc('toggle_quiz_privacy', {
+            p_category_id: categoryId,
+            p_is_public: isPublic
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao alternar visibilidade do quiz no Supabase:', err);
+      }
+    }
+  };
+
   const handleCreateQuizSubmit = async (quizData: {
     name: string;
     folderId: string | null;
     description?: string;
     timeLimit: number;
+    isPublic?: boolean;
     questionIds: string[];
     categoryIds: string[];
     newQuestions?: Array<Omit<Question, 'id'>>;
@@ -2541,6 +2588,8 @@ Garanta que:
     const newCategoryId = crypto.randomUUID();
     const todayIso = new Date().toISOString();
     const currentAuthor = (authUser?.username || authUser?.email?.split('@')[0] || 'quizziando').replace(/^@/, '');
+    const isQuizPublic = quizData.isPublic === true;
+
     let newCategory: Category = {
       id: newCategoryId,
       name: trimmedName,
@@ -2549,7 +2598,8 @@ Garanta que:
       folder_id: quizData.folderId || null,
       created_at: todayIso,
       created_by: authUser?.id,
-      author_name: currentAuthor
+      author_name: currentAuthor,
+      is_public: isQuizPublic
     };
 
     if (useRealSupabase) {
@@ -2566,7 +2616,8 @@ Garanta que:
               icon: newCategory.icon,
               folder_id: newCategory.folder_id,
               created_by: userId,
-              created_at: todayIso
+              created_at: todayIso,
+              is_public: isQuizPublic
             })
             .select()
             .single();
@@ -2580,7 +2631,8 @@ Garanta que:
               folder_id: data.folder_id,
               created_by: data.created_by || userId,
               author_name: currentAuthor,
-              created_at: data.created_at || todayIso
+              created_at: data.created_at || todayIso,
+              is_public: data.is_public === true || data.is_public === 'true'
             };
           } else if (error) {
             console.error('Erro ao inserir categoria do quiz no Supabase:', error);
@@ -3679,6 +3731,8 @@ Garanta que:
               onToggleFavorite={handleToggleFavoriteFromDashboard}
               onDeleteQuiz={handleDeleteQuizFromDashboard}
               onDeleteCategory={handleDeleteCategoryQuiz}
+              onToggleCategoryPrivacy={handleToggleQuizPrivacy}
+              currentUserId={authUser?.id}
               onCreateNewQuiz={() => { setShowCreateQuizModal(true); sfx.playClick(); }}
               onStartRouletteGame={handleStartRouletteGame}
               onStartClassicGame={handleStartClassicGame}

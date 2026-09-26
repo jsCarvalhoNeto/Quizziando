@@ -9,7 +9,9 @@ import {
   Check, 
   Clock, 
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  Globe
 } from 'lucide-react';
 import type { Question, Category } from '../../App';
 import type { SavedQuiz } from '../../lib/savedQuizzes';
@@ -35,6 +37,7 @@ export interface EditQuizModalProps {
     name: string;
     folderId: string | null;
     color?: string;
+    isPublic?: boolean;
     // Lista final de IDs de perguntas que pertencem ao quiz
     finalQuestionIds: string[];
     // Perguntas que foram editadas durante o modal
@@ -73,6 +76,7 @@ export const EditQuizModal: React.FC<EditQuizModalProps> = ({
   const [name, setName] = useState('');
   const [folderId, setFolderId] = useState<string>('');
   const [color, setColor] = useState('#46178F');
+  const [isPublic, setIsPublic] = useState(false);
 
   // Gestão de Perguntas do Quiz
   // Lista local de questões que pertencem a este quiz
@@ -119,6 +123,7 @@ export const EditQuizModal: React.FC<EditQuizModalProps> = ({
       setName(category.name || '');
       setFolderId(category.folder_id || '');
       setColor(category.color || '#46178F');
+      setIsPublic(category.is_public === true || (category as any).is_public === 'true');
 
       // Buscar perguntas que pertencem a esta categoria
       const currentQuestions = allQuestions.filter(q => q.category_id === category.id);
@@ -127,6 +132,7 @@ export const EditQuizModal: React.FC<EditQuizModalProps> = ({
       setName(savedQuiz.name || '');
       setFolderId(savedQuiz.folderId || '');
       setColor('#1368CE');
+      setIsPublic(false);
 
       const savedIds = new Set(savedQuiz.questionIds || []);
       const currentQuestions = allQuestions.filter(q => savedIds.has(q.id));
@@ -315,6 +321,7 @@ export const EditQuizModal: React.FC<EditQuizModalProps> = ({
         name: trimmedName,
         folderId: folderId ? folderId : null,
         color,
+        isPublic,
         finalQuestionIds: persistentIds,
         editedQuestions: Array.from(editedQuestionsMap.values()),
         newQuestions: createdQuestions,
@@ -1288,6 +1295,64 @@ export const EditQuizModal: React.FC<EditQuizModalProps> = ({
                   <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
                     Mova este quiz para uma pasta temática ou mantenha na raiz geral.
                   </span>
+                </div>
+
+                {/* Modo de Visibilidade do Quiz */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#334155', marginBottom: '6px' }}>
+                    Visibilidade do Quiz
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsPublic(false)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: !isPublic ? '2px solid #46178f' : '1px solid #e2e8f0',
+                        backgroundColor: !isPublic ? '#f3e8ff' : '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: !isPublic ? '#46178f' : '#475569' }}>
+                        <Lock style={{ width: '13px', height: '13px', color: !isPublic ? '#46178f' : '#64748b' }} />
+                        <span>Privado</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: !isPublic ? '#6b21a8' : '#94a3b8', textAlign: 'left', lineHeight: 1.2 }}>
+                        Apenas você tem acesso a este quiz
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPublic(true)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        border: isPublic ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                        backgroundColor: isPublic ? '#e0f2fe' : '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '3px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 800, color: isPublic ? '#0284c7' : '#475569' }}>
+                        <Globe style={{ width: '13px', height: '13px', color: isPublic ? '#0284c7' : '#64748b' }} />
+                        <span>Público</span>
+                      </div>
+                      <span style={{ fontSize: '10px', color: isPublic ? '#0369a1' : '#94a3b8', textAlign: 'left', lineHeight: 1.2 }}>
+                        Visível para todos os operadores cadastrados
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Paleta de Cores */}
