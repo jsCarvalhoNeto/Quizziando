@@ -20,6 +20,8 @@ import './Admin.css';
 import AdminDashboard from './AdminDashboard';
 import AdminUsers from './AdminUsers';
 import AdminRooms from './AdminRooms';
+import AdminQuizzes from './AdminQuizzes';
+import AdminQuestions from './AdminQuestions';
 import { supabase } from '../../lib/supabaseClient';
 import { fetchContentStats, type ContentStats } from '../../lib/adminService';
 
@@ -28,10 +30,11 @@ interface AdminLayoutProps {
   currentUser: any;
 }
 
-type TabType = 'dashboard' | 'users' | 'rooms' | 'settings';
+type TabType = 'dashboard' | 'users' | 'rooms' | 'quizzes' | 'questions' | 'settings';
 
 export default function AdminLayout({ onExit, currentUser }: AdminLayoutProps) {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [selectedCategoryForQuestions, setSelectedCategoryForQuestions] = useState<string | null>(null);
   const [testingPing, setTestingPing] = useState(false);
   const [pingResult, setPingResult] = useState<{ status: 'idle' | 'ok' | 'fail'; ms?: number; message?: string }>({ status: 'idle' });
   const [contentStats, setContentStats] = useState<ContentStats>({
@@ -82,11 +85,21 @@ export default function AdminLayout({ onExit, currentUser }: AdminLayoutProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <AdminDashboard onNavigateTab={(tab) => setActiveTab(tab)} />;
+        return <AdminDashboard onNavigateTab={(tab) => {
+          if (tab === 'questions') setSelectedCategoryForQuestions(null);
+          setActiveTab(tab);
+        }} />;
       case 'users':
         return <AdminUsers currentUser={currentUser} />;
       case 'rooms':
         return <AdminRooms />;
+      case 'quizzes':
+        return <AdminQuizzes onSelectCategoryQuestions={(catId) => {
+          setSelectedCategoryForQuestions(catId);
+          setActiveTab('questions');
+        }} />;
+      case 'questions':
+        return <AdminQuestions initialCategoryId={selectedCategoryForQuestions} />;
       case 'settings':
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -295,6 +308,25 @@ export default function AdminLayout({ onExit, currentUser }: AdminLayoutProps) {
             <PlayCircle size={20} />
             Salas & Partidas
           </button>
+
+          <button 
+            className={`admin-nav-item ${activeTab === 'quizzes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('quizzes')}
+          >
+            <BookOpen size={20} />
+            Quizzes & Categorias
+          </button>
+
+          <button 
+            className={`admin-nav-item ${activeTab === 'questions' ? 'active' : ''}`}
+            onClick={() => {
+              setSelectedCategoryForQuestions(null);
+              setActiveTab('questions');
+            }}
+          >
+            <HelpCircle size={20} />
+            Banco de Questões
+          </button>
           
           <button 
             className={`admin-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
@@ -320,6 +352,8 @@ export default function AdminLayout({ onExit, currentUser }: AdminLayoutProps) {
             {activeTab === 'dashboard' && 'Visão Geral do Sistema'}
             {activeTab === 'users' && 'Controle de Usuários'}
             {activeTab === 'rooms' && 'Gerenciamento de Salas & Partidas'}
+            {activeTab === 'quizzes' && 'Quizzes & Categorias'}
+            {activeTab === 'questions' && 'Banco de Questões & Perguntas'}
             {activeTab === 'settings' && 'Configurações do Supabase'}
           </h1>
           

@@ -15,7 +15,7 @@ import {
 import { fetchAdminStats, type AdminStats } from '../../lib/adminService';
 
 interface AdminDashboardProps {
-  onNavigateTab?: (tab: 'dashboard' | 'users' | 'rooms' | 'settings') => void;
+  onNavigateTab?: (tab: 'dashboard' | 'users' | 'rooms' | 'quizzes' | 'questions' | 'settings') => void;
 }
 
 export default function AdminDashboard({ onNavigateTab }: AdminDashboardProps) {
@@ -239,7 +239,7 @@ export default function AdminDashboard({ onNavigateTab }: AdminDashboardProps) {
         {/* Card 5: Quizzes e Categorias */}
         <div 
           className="admin-stat-card"
-          onClick={() => onNavigateTab && onNavigateTab('settings')}
+          onClick={() => onNavigateTab && onNavigateTab('quizzes')}
           style={{ cursor: onNavigateTab ? 'pointer' : 'default' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -264,7 +264,7 @@ export default function AdminDashboard({ onNavigateTab }: AdminDashboardProps) {
         {/* Card 6: Questões Criadas */}
         <div 
           className="admin-stat-card"
-          onClick={() => onNavigateTab && onNavigateTab('settings')}
+          onClick={() => onNavigateTab && onNavigateTab('questions')}
           style={{ cursor: onNavigateTab ? 'pointer' : 'default' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
