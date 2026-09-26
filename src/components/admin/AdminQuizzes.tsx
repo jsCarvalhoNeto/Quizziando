@@ -10,8 +10,7 @@ import {
   Filter,
   Calendar,
   User,
-  Crown,
-  Sparkles
+  Crown
 } from 'lucide-react';
 import { 
   fetchAdminCategories, 

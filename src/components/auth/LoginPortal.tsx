@@ -13,11 +13,8 @@ import {
   Mail, 
   ArrowRight,
   Eye,
-  ArrowRight,
-  Eye,
   EyeOff,
   AtSign,
-  User,
   CheckCircle2
 } from 'lucide-react';
 import { checkUsernameAvailable } from '../../lib/adminService';
