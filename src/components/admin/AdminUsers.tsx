@@ -10,7 +10,11 @@ import {
   Gamepad2, 
   Check, 
   X, 
-  AlertCircle 
+  AlertCircle,
+  KeyRound,
+  Copy,
+  CheckCheck,
+  Code2
 } from 'lucide-react';
 import { 
   fetchProfiles, 
@@ -18,6 +22,8 @@ import {
   updateProfileRole, 
   deleteProfile, 
   createOrUpsertProfile,
+  resetOperatorPassword,
+  DEFAULT_OPERATOR_PASSWORD,
   type ProfileUser, 
   type RoomPlayerRecord 
 } from '../../lib/adminService';
@@ -39,6 +45,15 @@ export default function AdminUsers({ currentUser }: AdminUsersProps) {
   const [newNickname, setNewNickname] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'operator' | 'player'>('operator');
   const [savingUser, setSavingUser] = useState(false);
+
+  // Modal para resetar senha do operador
+  const [resetModalUser, setResetModalUser] = useState<ProfileUser | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetSuccessInfo, setResetSuccessInfo] = useState<string | null>(null);
+  const [resetErrorInfo, setResetErrorInfo] = useState<string | null>(null);
+  const [sqlInstructionsNeeded, setSqlInstructionsNeeded] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -119,6 +134,87 @@ export default function AdminUsers({ currentUser }: AdminUsersProps) {
     } else {
       setFeedbackMsg({ type: 'success', text: `Usuário "${name}" removido com sucesso!` });
     }
+  };
+
+  // Resetar Senha do Operador
+  const handleOpenResetModal = (user: ProfileUser) => {
+    setResetModalUser(user);
+    setResetSuccessInfo(null);
+    setResetErrorInfo(null);
+    setSqlInstructionsNeeded(false);
+    setCopiedPassword(false);
+    setCopiedSql(false);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resetModalUser) return;
+    setResettingPassword(true);
+    setResetErrorInfo(null);
+    setResetSuccessInfo(null);
+    setSqlInstructionsNeeded(false);
+
+    try {
+      const res = await resetOperatorPassword(resetModalUser.id, DEFAULT_OPERATOR_PASSWORD);
+      if (res.success) {
+        const msg = `Senha de "${resetModalUser.nickname}" redefinida com sucesso para "${DEFAULT_OPERATOR_PASSWORD}"!`;
+        setResetSuccessInfo(msg);
+        setFeedbackMsg({ type: 'success', text: msg });
+      } else {
+        if (res.sqlNeeded) {
+          setSqlInstructionsNeeded(true);
+        }
+        setResetErrorInfo(res.error || 'Falha ao redefinir a senha do operador.');
+      }
+    } catch (err: any) {
+      setResetErrorInfo(err?.message || 'Erro inesperado ao conectar com o Supabase.');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleCopyPassword = () => {
+    navigator.clipboard.writeText(DEFAULT_OPERATOR_PASSWORD);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2500);
+  };
+
+  const sqlMigrationCode = `-- Execute no Supabase (SQL Editor > New Query > Run) para habilitar o reset de senhas:
+create extension if not exists pgcrypto;
+
+create or replace function public.admin_reset_user_password(
+  target_user_id uuid,
+  new_password text default 'quizziando123'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_user_exists boolean;
+begin
+  select exists(select 1 from auth.users where id = target_user_id) into v_user_exists;
+  
+  if not v_user_exists then
+    return jsonb_build_object('success', false, 'error', 'Usuário com este ID não foi encontrado no Supabase Auth.');
+  end if;
+
+  update auth.users
+  set 
+    encrypted_password = extensions.crypt(new_password, extensions.gen_salt('bf')),
+    updated_at = now()
+  where id = target_user_id;
+
+  return jsonb_build_object('success', true, 'message', 'Senha redefinida para ' || new_password);
+end;
+$$;
+
+grant execute on function public.admin_reset_user_password(uuid, text) to authenticated, anon;`;
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(sqlMigrationCode);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2500);
   };
 
   // Adicionar Usuário Manualmente
@@ -341,7 +437,16 @@ export default function AdminUsers({ currentUser }: AdminUsersProps) {
                         {user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button 
+                            className="admin-btn warning" 
+                            style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                            title={`Resetar senha para "${DEFAULT_OPERATOR_PASSWORD}"`}
+                            onClick={() => handleOpenResetModal(user)}
+                          >
+                            <KeyRound size={14} />
+                            Resetar Senha
+                          </button>
                           <button 
                             className="admin-btn outline" 
                             style={{ padding: '6px 10px', fontSize: '0.8rem' }}
@@ -540,6 +645,241 @@ export default function AdminUsers({ currentUser }: AdminUsersProps) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Redefinir Senha do Operador */}
+      {resetModalUser && (
+        <div 
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+          onClick={() => {
+            if (!resettingPassword) setResetModalUser(null);
+          }}
+        >
+          <div 
+            style={{
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+              borderRadius: '16px',
+              padding: '28px',
+              width: '100%',
+              maxWidth: '480px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Cabeçalho */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ 
+                  width: '38px', 
+                  height: '38px', 
+                  borderRadius: '10px', 
+                  backgroundColor: 'rgba(234, 179, 8, 0.15)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#facc15'
+                }}>
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#f8fafc', fontWeight: 600 }}>
+                    Resetar Senha do Operador
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>
+                    Definir senha de acesso para o padrão do sistema
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setResetModalUser(null)}
+                disabled={resettingPassword}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Dados do Usuário Selecionado */}
+            <div style={{ 
+              backgroundColor: '#0f172a', 
+              borderRadius: '10px', 
+              padding: '14px 16px', 
+              marginBottom: '18px',
+              border: '1px solid #334155'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Operador Selecionado:</span>
+                <span className={`badge ${resetModalUser.role}`}>
+                  {resetModalUser.role === 'admin' ? 'Administrador' : 'Operador'}
+                </span>
+              </div>
+              <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '1rem' }}>
+                {resetModalUser.nickname || 'Sem Apelido'}
+              </div>
+              {resetModalUser.email && (
+                <div style={{ fontSize: '0.85rem', color: '#38bdf8', marginTop: '2px' }}>
+                  {resetModalUser.email}
+                </div>
+              )}
+              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', fontFamily: 'monospace' }}>
+                ID: {resetModalUser.id}
+              </div>
+            </div>
+
+            {/* Card com a Senha Padrão Destacada */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.1), rgba(202, 138, 4, 0.05))',
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '18px'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: '#fde047', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                Nova Senha Padrão a Ser Definida:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <div style={{
+                  fontFamily: 'monospace',
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                  color: '#fef08a',
+                  letterSpacing: '0.08em',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(234, 179, 8, 0.4)',
+                  flex: 1
+                }}>
+                  {DEFAULT_OPERATOR_PASSWORD}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className="admin-btn outline"
+                  style={{
+                    padding: '8px 14px',
+                    borderColor: 'rgba(234, 179, 8, 0.4)',
+                    color: copiedPassword ? '#4ade80' : '#fde047',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem'
+                  }}
+                  title="Copiar senha padrão"
+                >
+                  {copiedPassword ? <CheckCheck size={16} /> : <Copy size={16} />}
+                  {copiedPassword ? 'Copiada!' : 'Copiar'}
+                </button>
+              </div>
+              <p style={{ margin: '10px 0 0 0', fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+                Após o reset, o operador poderá fazer login diretamente com o seu e-mail e esta senha.
+              </p>
+            </div>
+
+            {/* Sucesso */}
+            {resetSuccessInfo && (
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+                color: '#4ade80',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '16px',
+                fontSize: '0.85rem'
+              }}>
+                <Check size={18} />
+                <span>{resetSuccessInfo}</span>
+              </div>
+            )}
+
+            {/* Erro */}
+            {resetErrorInfo && (
+              <div style={{
+                padding: '12px 14px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '16px',
+                fontSize: '0.85rem'
+              }}>
+                <AlertCircle size={18} />
+                <span>{resetErrorInfo}</span>
+              </div>
+            )}
+
+            {/* Instruções para criar função SQL se necessário */}
+            {sqlInstructionsNeeded && (
+              <div style={{
+                marginTop: '12px',
+                marginBottom: '16px',
+                padding: '14px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid #334155'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Code2 size={16} />
+                    Instalação no Supabase (1 clique)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopySql}
+                    className="admin-btn outline"
+                    style={{ padding: '4px 10px', fontSize: '0.75rem', gap: '4px' }}
+                  >
+                    {copiedSql ? <CheckCheck size={14} style={{ color: '#4ade80' }} /> : <Copy size={14} />}
+                    {copiedSql ? 'SQL Copiado!' : 'Copiar Script SQL'}
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '0 0 8px 0', lineHeight: '1.4' }}>
+                  Acesse seu <strong>Supabase Dashboard &gt; SQL Editor &gt; New query</strong>, cole o script copiado e clique em <strong>Run</strong>. O arquivo também está salvo em <code>supabase/migrations/20260925_admin_reset_password.sql</code>.
+                </p>
+              </div>
+            )}
+
+            {/* Ações */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+              <button 
+                type="button" 
+                onClick={() => setResetModalUser(null)} 
+                className="admin-btn outline"
+                disabled={resettingPassword}
+              >
+                {resetSuccessInfo ? 'Concluir' : 'Cancelar'}
+              </button>
+              {!resetSuccessInfo && (
+                <button 
+                  type="button" 
+                  onClick={handleConfirmResetPassword} 
+                  disabled={resettingPassword}
+                  className="admin-btn warning"
+                  style={{ fontWeight: 700 }}
+                >
+                  <RefreshCw size={16} style={{ animation: resettingPassword ? 'spin 1s linear infinite' : 'none' }} />
+                  {resettingPassword ? 'Redefinindo...' : 'Confirmar Reset'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -253,6 +253,17 @@
   background-color: rgba(239, 68, 68, 0.4);
 }
 
+.admin-btn.warning {
+  background-color: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+.admin-btn.warning:hover {
+  background-color: rgba(234, 179, 8, 0.25);
+  border-color: rgba(234, 179, 8, 0.6);
+  color: #fef08a;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

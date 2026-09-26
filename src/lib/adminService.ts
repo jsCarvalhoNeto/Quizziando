@@ -115,7 +115,7 @@ export async function fetchProfiles(): Promise<ProfileUser[]> {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, nickname, role, created_at')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -251,3 +251,65 @@ export async function deleteRoom(roomId: string): Promise<{ success: boolean; er
     return { success: false, error: err?.message || 'Falha ao excluir sala' };
   }
 }
+
+export const DEFAULT_OPERATOR_PASSWORD = 'quizziando123';
+
+/**
+ * Reseta a senha de um operador/usuário para a senha padrão 'quizziando123'
+ */
+export async function resetOperatorPassword(
+  userId: string,
+  newPassword = DEFAULT_OPERATOR_PASSWORD
+): Promise<{ success: boolean; message?: string; error?: string; sqlNeeded?: boolean }> {
+  try {
+    const { data, error } = await supabase.rpc('admin_reset_user_password', {
+      target_user_id: userId,
+      new_password: newPassword
+    });
+
+    if (error) {
+      const isMissingFunction = 
+        error.code === '42883' || 
+        error.code === 'PGRST202' ||
+        error.message?.toLowerCase().includes('function') || 
+        error.message?.toLowerCase().includes('admin_reset_user_password');
+
+      if (isMissingFunction) {
+        return {
+          success: false,
+          sqlNeeded: true,
+          error: 'A função SQL "admin_reset_user_password" precisa ser executada no Supabase para habilitar o reset de senhas direto no banco.'
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message || 'Falha ao redefinir a senha no Supabase.'
+      };
+    }
+
+    if (data && typeof data === 'object') {
+      if (data.success === false) {
+        return {
+          success: false,
+          error: data.error || 'Não foi possível redefinir a senha deste usuário.'
+        };
+      }
+      return {
+        success: true,
+        message: data.message || `Senha resetada com sucesso para ${newPassword}!`
+      };
+    }
+
+    return {
+      success: true,
+      message: `Senha redefinida com sucesso para "${newPassword}".`
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Erro inesperado ao conectar com o serviço de autenticação.'
+    };
+  }
+}
+
