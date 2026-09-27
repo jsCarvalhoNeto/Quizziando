@@ -57,7 +57,7 @@ interface GameLobbyViewProps {
   onToggleAutoReveal: () => void;
   nickname?: string;
   getAvatarUrl: (nickname: string) => string;
-  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
+  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
   totalAnswered?: number;
   onOpenRemoteModal?: () => void;
   pairingPin?: string;

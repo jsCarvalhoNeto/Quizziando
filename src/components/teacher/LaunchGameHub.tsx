@@ -21,22 +21,33 @@ import {
   Swords,
   Shield,
   Skull,
+  Compass,
 } from 'lucide-react';
 import { sfx } from '../../App';
 import { RAID_BOSSES } from '../../lib/bossRaid';
+import { CEARA_JOURNEY, AVAILABLE_JOURNEYS } from '../../lib/journey';
 
 export interface LaunchGameHubProps {
   categories: Array<{ id: string; name: string; color?: string; folder_id?: string | null; icon?: string }>;
   questions: Array<{ id: string; category_id: string; question_text: string }>;
   folders: Array<{ id: string; name: string; color?: string }>;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid', totalBlocks?: number, selectedBossId?: string) => void;
+  onStartClassicGame?: (
+    categoryIds: string[],
+    mode: 'online' | 'local' | 'hybrid',
+    localPlayMode?: 'teams' | 'individual',
+    format?: 'classic' | 'blocks' | 'boss_raid' | 'journey',
+    totalBlocks?: number,
+    selectedBossId?: string,
+    questionsPerStage?: number,
+    selectedJourneyId?: string
+  ) => void;
   onLaunchNewRoom?: (mode: 'online' | 'hybrid' | 'local') => void;
   deliveryFilter?: 'all' | 'hybrid' | 'online' | 'local';
   onDeliveryFilterChange?: (delivery: 'all' | 'hybrid' | 'online' | 'local') => void;
 }
 
-type GameFormat = 'classic' | 'roulette' | 'blocks' | 'boss_raid';
+type GameFormat = 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
 type DeliveryMode = 'hybrid' | 'online' | 'local_teams' | 'local_individual';
 
 interface GameModeCardDef {
@@ -68,7 +79,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   onDeliveryFilterChange,
 }) => {
   // Filtros de visualização
-  const [filterFormat, setFilterFormat] = useState<'all' | 'classic' | 'roulette' | 'blocks' | 'boss_raid'>('all');
+  const [filterFormat, setFilterFormat] = useState<'all' | 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey'>('all');
   const [filterDelivery, setFilterDelivery] = useState<'all' | 'hybrid' | 'online' | 'local'>(deliveryFilter || 'all');
 
   // Sincroniza filtro externo de ambiente (ex: vindo da barra lateral)
@@ -85,6 +96,9 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string>('all');
   const [selectedBlocksCount, setSelectedBlocksCount] = useState<number>(12);
   const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
+  const [isJourneyEnabled, setIsJourneyEnabled] = useState<boolean>(false);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string>(CEARA_JOURNEY.id);
+  const [journeyQuestionsPerStage, setJourneyQuestionsPerStage] = useState<number>(2);
   const [selectionWarning, setSelectionWarning] = useState<string>('');
 
   // Mapeamento de perguntas por categoria
@@ -375,6 +389,62 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
       buttonText: 'Criar Sala de Raid Online',
       icon: <Skull style={{ width: '26px', height: '26px' }} />,
     },
+
+    // ── 5. MODO JORNADA ──────────────────────────────────────────────────
+    {
+      id: 'journey_hybrid',
+      format: 'journey',
+      delivery: 'hybrid',
+      title: 'Jornada no Telão',
+      badge: 'Presencial c/ Celular',
+      badgeBg: '#fef3c7',
+      badgeColor: '#b45309',
+      gradient: 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%)',
+      accentColor: '#f59e0b',
+      iconBg: '#fffbeb',
+      iconColor: '#b45309',
+      description: 'Expedição em etapas pelo mapa! A turma responde no celular e, ao acertar as questões da etapa, o mapa da cidade avança no telão rumo a Fortaleza!',
+      tags: ['Telão Sala', 'Progressão de Mapas', 'Conquista de Cidades', 'Destino Fortaleza'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Lançar Jornada no Telão',
+      icon: <Compass style={{ width: '26px', height: '26px' }} />,
+    },
+    {
+      id: 'journey_online',
+      format: 'journey',
+      delivery: 'online',
+      title: 'Jornada Online Realtime',
+      badge: 'Multiplayer Remoto',
+      badgeBg: '#fef3c7',
+      badgeColor: '#b45309',
+      gradient: 'linear-gradient(135deg, #78350f 0%, #b45309 50%, #d97706 100%)',
+      accentColor: '#d97706',
+      iconBg: '#fffbeb',
+      iconColor: '#78350f',
+      description: 'Partida multiplayer com PIN onde os competidores cruzam o mapa etapa a etapa, liberando novos mapas de cidades a cada 100% de acertos!',
+      tags: ['Expedição Remota', 'Código PIN', 'Cidades Conquistadas'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Criar Jornada Online',
+      icon: <Compass style={{ width: '26px', height: '26px' }} />,
+    },
+    {
+      id: 'journey_teams',
+      format: 'journey',
+      delivery: 'local_teams',
+      title: 'Jornada Local (2 Times)',
+      badge: '100% Offline',
+      badgeBg: '#fef3c7',
+      badgeColor: '#b45309',
+      gradient: 'linear-gradient(135deg, #92400e 0%, #b45309 50%, #f59e0b 100%)',
+      accentColor: '#b45309',
+      iconBg: '#fffbeb',
+      iconColor: '#92400e',
+      description: 'Dois times competem no mesmo computador para cruzar o Ceará de Juazeiro a Fortaleza com resposta oral e visualização do avanço de mapa no telão!',
+      tags: ['Sem Internet', 'Batalha 2 Times', 'Avanço de Mapas'],
+      minQuizzesText: 'Pelo menos 1 quiz',
+      buttonText: 'Iniciar Jornada 2 Times',
+      icon: <Compass style={{ width: '26px', height: '26px' }} />,
+    },
   ];
 
   // Filtro dos cards exibidos
@@ -432,6 +502,12 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
     setSearchQuizQuery('');
     setSelectedFolderFilter('all');
     setSelectedBlocksCount(12);
+
+    if (card.format === 'journey') {
+      setIsJourneyEnabled(true);
+    } else {
+      setIsJourneyEnabled(false);
+    }
 
     // Se já havia quizzes selecionados válidos, mantemos; senão limpamos para seleção fresca
     if (card.format === 'roulette' && selectedQuizIds.length < 2) {
@@ -492,7 +568,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
         return;
       }
     } else {
-      // Clássico ou Blocos: requer pelo menos 1 quiz
+      // Clássico, Blocos ou Jornada: requer pelo menos 1 quiz
       if (selectedQuizIds.length < 1) {
         setSelectionWarning(`Selecione pelo menos 1 quiz para iniciar no ${activeCard.title}!`);
         return;
@@ -519,18 +595,22 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
         onStartRouletteGame(selectedQuizIds, 'local', 'individual');
       }
     } else {
-      // Clássico, Blocos ou Batalha contra o Chefe
-      const formatParam = format === 'boss_raid' ? 'boss_raid' : format === 'blocks' ? 'blocks' : 'classic';
+      // Clássico, Blocos, Batalha contra o Chefe ou Jornada
+      const isJourney = format === 'journey' || isJourneyEnabled;
+      const formatParam = isJourney ? 'journey' : format === 'boss_raid' ? 'boss_raid' : format === 'blocks' ? 'blocks' : 'classic';
       const blocksParam = format === 'blocks' ? selectedBlocksCount : 12;
 
+      // Trava de questões por etapa
+      const effectiveQuestionsPerStage = Math.max(1, Math.min(journeyQuestionsPerStage, totalQuestionsSelected));
+
       if (delivery === 'hybrid') {
-        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId);
+        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
       } else if (delivery === 'online') {
-        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId);
+        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
       } else if (delivery === 'local_teams') {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
       } else {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
       }
     }
 
@@ -638,6 +718,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
           {[
             { id: 'all', label: 'Todos os Formatos', icon: <Sparkles style={{ width: '13px', height: '13px' }} /> },
             { id: 'classic', label: '⚡ Modo Clássico', icon: null },
+            { id: 'journey', label: '🗺️ Modo Jornada', icon: null },
             { id: 'roulette', label: '🎡 Modo Roleta', icon: null },
             { id: 'blocks', label: '🧱 Modo em Blocos', icon: null },
             { id: 'boss_raid', label: '⚔️ Batalha contra o Chefe', icon: null },
@@ -1269,6 +1350,222 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                     </div>
                   </div>
                 </div>
+              ) : activeCard.format === 'journey' ? (
+                <div
+                  style={{
+                    backgroundColor: '#fffbeb',
+                    borderRadius: '18px',
+                    padding: '16px 20px',
+                    border: '1.5px solid #f59e0b',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '12px',
+                          backgroundColor: '#fef3c7',
+                          color: '#d97706',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Compass style={{ width: '24px', height: '24px' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: 800, color: '#92400e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span>🗺️ Modo Jornada: Expedição pelo Mapa</span>
+                          <span style={{ fontSize: '10px', background: '#f59e0b', color: '#0f172a', padding: '1px 6px', borderRadius: '999px', fontWeight: 900 }}>NOVO</span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#78350f', margin: '2px 0 0 0', lineHeight: 1.4 }}>
+                          O telão exibe as questões normalmente e, ao acertar as questões da etapa, o mapa da cidade avança rumo ao destino final!
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '999px',
+                        backgroundColor: selectedQuizIds.length >= 1 ? '#10b981' : '#f59e0b',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 800,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {selectedQuizIds.length === 0
+                        ? 'Selecione pelo menos 1 quiz'
+                        : `✅ ${selectedQuizIds.length} quiz(zes) selecionado(s)`}
+                    </div>
+                  </div>
+
+                  {/* Seletor de Jornada */}
+                  <div style={{ borderTop: '1px solid #fde68a', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Escolha a Jornada:
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#78350f', fontWeight: 700 }}>
+                        {AVAILABLE_JOURNEYS.length} jornada(s) disponível(is)
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                      {AVAILABLE_JOURNEYS.map(j => {
+                        const isChosen = selectedJourneyId === j.id;
+                        return (
+                          <div
+                            key={j.id}
+                            onClick={() => {
+                              sfx.playClick();
+                              setSelectedJourneyId(j.id);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '10px 14px',
+                              borderRadius: '12px',
+                              backgroundColor: isChosen ? '#ffffff' : '#fffbeb',
+                              border: isChosen ? '2px solid #d97706' : '1px solid #fde68a',
+                              cursor: 'pointer',
+                              boxShadow: isChosen ? '0 2px 8px rgba(217, 119, 6, 0.2)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <img 
+                              src={j.mapOverviewImage} 
+                              alt={j.title} 
+                              style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }} 
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {j.title}: {j.subtitle}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#78350f', marginTop: '2px', fontWeight: 600 }}>
+                                {j.stages.map(s => s.cityName).join(' ➔ ')} ⭐
+                              </div>
+                            </div>
+                            {isChosen && (
+                              <CheckCircle2 style={{ width: '18px', height: '18px', color: '#d97706', flexShrink: 0 }} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Seletor de Quantidade de Questões por Etapa */}
+                  <div style={{ borderTop: '1px solid #fde68a', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Quantas Questões por Etapa / Cidade?
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: 900, color: '#b45309' }}>
+                        {Math.min(journeyQuestionsPerStage, Math.max(1, totalQuestionsSelected))} {journeyQuestionsPerStage === 1 ? 'questão' : 'questões'} por cidade
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {[1, 2, 3, 4, 5].map(num => {
+                        const maxAllowed = Math.max(1, totalQuestionsSelected);
+                        const isChosen = journeyQuestionsPerStage === num;
+                        const isDisabled = totalQuestionsSelected > 0 && num > maxAllowed;
+
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => {
+                              sfx.playClick();
+                              setJourneyQuestionsPerStage(num);
+                            }}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: isDisabled ? 'not-allowed' : 'pointer',
+                              border: isChosen ? '2px solid #d97706' : '1px solid #fde68a',
+                              backgroundColor: isChosen ? '#f59e0b' : isDisabled ? '#fef3c7' : '#ffffff',
+                              color: isChosen ? '#0f172a' : isDisabled ? '#d1d5db' : '#92400e',
+                              boxShadow: isChosen ? '0 2px 6px rgba(245, 158, 11, 0.3)' : 'none',
+                              opacity: isDisabled ? 0.5 : 1,
+                            }}
+                          >
+                            {num} {num === 2 ? '(Recomendado)' : num === 1 ? 'questão' : 'questões'}
+                          </button>
+                        );
+                      })}
+
+                      {totalQuestionsSelected > 5 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sfx.playClick();
+                            const val = prompt(`Quantas questões por etapa? (Máximo: ${totalQuestionsSelected})`, String(journeyQuestionsPerStage));
+                            if (val) {
+                              const n = parseInt(val, 10);
+                              if (!isNaN(n) && n >= 1 && n <= totalQuestionsSelected) {
+                                setJourneyQuestionsPerStage(n);
+                              } else if (n > totalQuestionsSelected) {
+                                alert(`O máximo permitido para esta categoria é ${totalQuestionsSelected} questões.`);
+                              }
+                            }
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            border: '1px solid #fde68a',
+                            backgroundColor: '#fffbeb',
+                            color: '#92400e',
+                          }}
+                        >
+                          Outro valor...
+                        </button>
+                      )}
+
+                      {totalQuestionsSelected > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sfx.playClick();
+                            setJourneyQuestionsPerStage(totalQuestionsSelected);
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            border: journeyQuestionsPerStage === totalQuestionsSelected ? '2px solid #d97706' : '1px solid #fde68a',
+                            backgroundColor: journeyQuestionsPerStage === totalQuestionsSelected ? '#f59e0b' : '#fffbeb',
+                            color: journeyQuestionsPerStage === totalQuestionsSelected ? '#0f172a' : '#b45309',
+                            marginLeft: 'auto'
+                          }}
+                        >
+                          Máximo ({totalQuestionsSelected})
+                        </button>
+                      )}
+                    </div>
+
+                    <p style={{ fontSize: '11px', color: '#78350f', margin: '2px 0 0 0' }}>
+                      ⚠️ A quantidade de questões por etapa não pode ultrapassar o total de questões disponíveis da categoria ({totalQuestionsSelected || 0} no momento).
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <div
                   style={{
@@ -1277,52 +1574,267 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                     padding: '16px 20px',
                     border: '1.5px solid #60a5fa',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '16px',
+                    flexDirection: 'column',
+                    gap: '12px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '12px',
+                          backgroundColor: '#dbeafe',
+                          color: '#2563eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Zap style={{ width: '22px', height: '22px' }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e40af' }}>
+                          ⚡ Regra do Modo Clássico: Selecione pelo menos 1 quiz
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', lineHeight: 1.4 }}>
+                          As perguntas dos quizzes selecionados serão disparadas em sequência eletrizante com pontuação e cronômetro.
+                        </p>
+                      </div>
+                    </div>
+
                     <div
                       style={{
-                        width: '42px',
-                        height: '42px',
-                        borderRadius: '12px',
-                        backgroundColor: '#dbeafe',
-                        color: '#2563eb',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        padding: '6px 14px',
+                        borderRadius: '999px',
+                        backgroundColor: selectedQuizIds.length >= 1 ? '#10b981' : '#f59e0b',
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 800,
                         flexShrink: 0,
                       }}
                     >
-                      <Zap style={{ width: '22px', height: '22px' }} />
+                      {selectedQuizIds.length === 0
+                        ? 'Selecione pelo menos 1 quiz'
+                        : `✅ ${selectedQuizIds.length} quiz(zes) selecionado(s)`}
                     </div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#1e40af' }}>
-                        ⚡ Regra do Modo Clássico: Selecione pelo menos 1 quiz
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', lineHeight: 1.4 }}>
-                        As perguntas dos quizzes selecionados serão disparadas em sequência eletrizante com pontuação e cronômetro.
+                  </div>
+
+                  {/* Toggle para ativar Modo Jornada dentro do Modo Clássico */}
+                  <div
+                    onClick={() => {
+                      sfx.playClick();
+                      setIsJourneyEnabled(prev => !prev);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      backgroundColor: isJourneyEnabled ? '#fef3c7' : '#ffffff',
+                      border: isJourneyEnabled ? '2px solid #f59e0b' : '1.5px solid #bfdbfe',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      marginTop: '4px',
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={isJourneyEnabled} 
+                      onChange={() => {}} 
+                      style={{ cursor: 'pointer', width: '18px', height: '18px', accentColor: '#f59e0b', flexShrink: 0 }} 
+                    />
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: isJourneyEnabled ? '#92400e' : '#1e40af' }}>
+                        🗺️ Ativar Modo Jornada nesta partida (Expedição pelo Mapa)
+                      </span>
+                      <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                        O jogo roda normalmente no telão e, a cada etapa com 100% de acertos, a imagem do mapa avança mostrando a cidade conquistada!
                       </p>
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      padding: '6px 14px',
-                      borderRadius: '999px',
-                      backgroundColor: selectedQuizIds.length >= 1 ? '#10b981' : '#f59e0b',
-                      color: '#ffffff',
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {selectedQuizIds.length === 0
-                      ? 'Selecione pelo menos 1 quiz'
-                      : `✅ ${selectedQuizIds.length} quiz(zes) selecionado(s)`}
-                  </div>
+                  {/* Painel expandido de configuração da Jornada dentro do Modo Clássico quando ativado */}
+                  {isJourneyEnabled && (
+                    <div
+                      style={{
+                        backgroundColor: '#fffbeb',
+                        borderRadius: '14px',
+                        padding: '14px 16px',
+                        border: '1.5px solid #f59e0b',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        marginTop: '4px',
+                      }}
+                    >
+                      {/* Seletor de Jornada */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Escolha a Jornada:
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#78350f', fontWeight: 700 }}>
+                            {AVAILABLE_JOURNEYS.length} jornada(s) disponível(is)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
+                          {AVAILABLE_JOURNEYS.map(j => {
+                            const isChosen = selectedJourneyId === j.id;
+                            return (
+                              <div
+                                key={j.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sfx.playClick();
+                                  setSelectedJourneyId(j.id);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '12px',
+                                  padding: '8px 12px',
+                                  borderRadius: '10px',
+                                  backgroundColor: isChosen ? '#ffffff' : '#fef3c7',
+                                  border: isChosen ? '2px solid #d97706' : '1px solid #fde68a',
+                                  cursor: 'pointer',
+                                  boxShadow: isChosen ? '0 2px 6px rgba(217, 119, 6, 0.2)' : 'none',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                <img 
+                                  src={j.mapOverviewImage} 
+                                  alt={j.title} 
+                                  style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #e2e8f0', flexShrink: 0 }} 
+                                />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {j.title}: {j.subtitle}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: '#78350f', marginTop: '2px', fontWeight: 600 }}>
+                                    {j.stages.map(s => s.cityName).join(' ➔ ')} ⭐
+                                  </div>
+                                </div>
+                                {isChosen && (
+                                  <CheckCircle2 style={{ width: '16px', height: '16px', color: '#d97706', flexShrink: 0 }} />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Seletor de Quantidade de Questões por Etapa */}
+                      <div style={{ borderTop: '1px solid #fde68a', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Quantas Questões por Etapa / Cidade?
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: 900, color: '#b45309' }}>
+                            {Math.min(journeyQuestionsPerStage, Math.max(1, totalQuestionsSelected))} {journeyQuestionsPerStage === 1 ? 'questão' : 'questões'} por cidade
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {[1, 2, 3, 4, 5].map(num => {
+                            const maxAllowed = Math.max(1, totalQuestionsSelected);
+                            const isChosen = journeyQuestionsPerStage === num;
+                            const isDisabled = totalQuestionsSelected > 0 && num > maxAllowed;
+
+                            return (
+                              <button
+                                key={num}
+                                type="button"
+                                disabled={isDisabled}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sfx.playClick();
+                                  setJourneyQuestionsPerStage(num);
+                                }}
+                                style={{
+                                  padding: '5px 12px',
+                                  borderRadius: '8px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                  border: isChosen ? '2px solid #d97706' : '1px solid #fde68a',
+                                  backgroundColor: isChosen ? '#f59e0b' : isDisabled ? '#fef3c7' : '#ffffff',
+                                  color: isChosen ? '#0f172a' : isDisabled ? '#d1d5db' : '#92400e',
+                                  boxShadow: isChosen ? '0 2px 6px rgba(245, 158, 11, 0.3)' : 'none',
+                                  opacity: isDisabled ? 0.5 : 1,
+                                }}
+                              >
+                                {num} {num === 2 ? '(Recomendado)' : num === 1 ? 'questão' : 'questões'}
+                              </button>
+                            );
+                          })}
+
+                          {totalQuestionsSelected > 5 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                sfx.playClick();
+                                const val = prompt(`Quantas questões por etapa? (Máximo: ${totalQuestionsSelected})`, String(journeyQuestionsPerStage));
+                                if (val) {
+                                  const n = parseInt(val, 10);
+                                  if (!isNaN(n) && n >= 1 && n <= totalQuestionsSelected) {
+                                    setJourneyQuestionsPerStage(n);
+                                  } else if (n > totalQuestionsSelected) {
+                                    alert(`O máximo permitido para esta categoria é ${totalQuestionsSelected} questões.`);
+                                  }
+                                }
+                              }}
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                border: '1px solid #fde68a',
+                                backgroundColor: '#fffbeb',
+                                color: '#92400e',
+                              }}
+                            >
+                              Outro valor...
+                            </button>
+                          )}
+
+                          {totalQuestionsSelected > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                sfx.playClick();
+                                setJourneyQuestionsPerStage(totalQuestionsSelected);
+                              }}
+                              style={{
+                                padding: '5px 10px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                border: journeyQuestionsPerStage === totalQuestionsSelected ? '2px solid #d97706' : '1px solid #fde68a',
+                                backgroundColor: journeyQuestionsPerStage === totalQuestionsSelected ? '#f59e0b' : '#fffbeb',
+                                color: journeyQuestionsPerStage === totalQuestionsSelected ? '#0f172a' : '#b45309',
+                                marginLeft: 'auto'
+                              }}
+                            >
+                              Máximo ({totalQuestionsSelected})
+                            </button>
+                          )}
+                        </div>
+
+                        <p style={{ fontSize: '11px', color: '#78350f', margin: '2px 0 0 0' }}>
+                          ⚠️ A quantidade de questões por etapa não pode ultrapassar o total de questões disponíveis da categoria ({totalQuestionsSelected || 0} no momento).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

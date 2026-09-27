@@ -22,7 +22,6 @@ import { checkUsernameAvailable } from '../../lib/adminService';
 interface LoginPortalProps {
   onJoinAsStudent: (pin: string) => void;
   onGoToPractice: () => void;
-  onGoToJourney?: () => void;
   onTeacherLogin: (loginIdentifier: string, pass: string, isSignUp: boolean, username?: string) => Promise<{ success: boolean; error?: string; info?: string; needsConfirmation?: boolean }>;
   onDemoLogin: () => void;
   initialPin?: string;
@@ -31,7 +30,6 @@ interface LoginPortalProps {
 export const LoginPortal: React.FC<LoginPortalProps> = ({
   onJoinAsStudent,
   onGoToPractice,
-  onGoToJourney,
   onTeacherLogin,
   onDemoLogin,
   initialPin = '',
@@ -377,42 +375,6 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   <span>Praticar no Treino Individual</span>
                   <ArrowRight style={{ width: '13px', height: '13px', color: '#64748b', marginLeft: '2px' }} />
                 </button>
-
-                {/* Botão Modo Jornada (Expedição Ceará) */}
-                {onGoToJourney && (
-                  <button
-                    type="button"
-                    onClick={onGoToJourney}
-                    style={{
-                      height: '44px',
-                      borderRadius: '13px',
-                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.1))',
-                      border: '1px solid rgba(245, 158, 11, 0.35)',
-                      color: '#fef3c7',
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.15)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(234, 88, 12, 0.2))';
-                      e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.6)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(234, 88, 12, 0.1))';
-                      e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.35)';
-                    }}
-                  >
-                    <span style={{ fontSize: '15px' }}>🗺️</span>
-                    <span>Modo Jornada: Expedição Ceará</span>
-                    <span style={{ fontSize: '10px', background: '#f59e0b', color: '#0f172a', padding: '1px 6px', borderRadius: '999px', fontWeight: 900 }}>NOVO</span>
-                  </button>
-                )}
               </motion.div>
             ) : (
               <motion.div

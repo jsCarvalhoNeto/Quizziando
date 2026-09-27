@@ -99,3 +99,12 @@ export const CEARA_JOURNEY: JourneyDef = {
     }
   ]
 };
+
+export const AVAILABLE_JOURNEYS: JourneyDef[] = [
+  CEARA_JOURNEY
+];
+
+export function getJourneyById(id?: string | null): JourneyDef {
+  return AVAILABLE_JOURNEYS.find(j => j.id === id) || CEARA_JOURNEY;
+}
+

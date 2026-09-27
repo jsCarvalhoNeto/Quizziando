@@ -57,7 +57,7 @@ interface Props {
   supabaseCategories?: LocalCategory[];
   supabaseQuestions?: LocalQuestion[];
   initialSelectedCategoryIds?: string[];
-  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
+  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
   selectedBossId?: string;
   initialBlocksCount?: number;
   initialPlayMode?: 'teams' | 'individual';

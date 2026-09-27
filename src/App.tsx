@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download, Play, Zap, Smartphone, Compass
+  ArrowLeft, Search, Download, Play, Zap, Smartphone
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -19,7 +19,6 @@ import { getAvatarUrl } from './lib/avatars';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, duplicateQuiz, toggleFavoriteQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 import LocalGameMode from './LocalGameMode';
-import JourneyGameMode from './components/game/JourneyGameMode';
 import LoginPortal from './components/auth/LoginPortal';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import QuizConfigModal from './components/teacher/QuizConfigModal';
@@ -33,6 +32,7 @@ import { BlocksBoardView } from './components/game/BlocksBoardView';
 import { generateQuizBlocks, type QuizBlockItem } from './lib/blocks';
 import { BossRaidBoardView } from './components/game/BossRaidBoardView';
 import { RAID_BOSSES, calculateBossInitialHp } from './lib/bossRaid';
+import { getJourneyById } from './lib/journey';
 import TeacherRemoteView from './components/teacher/TeacherRemoteView';
 import TeacherRemoteModal from './components/teacher/TeacherRemoteModal';
 import AmbientBorderGlow from './components/game/AmbientBorderGlow';
@@ -949,10 +949,19 @@ Garanta que:
   };
 
   // Estados de Partida Ativa
-  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette' | 'blocks' | 'boss_raid'>('classic');
+  const [quizFormat, setQuizFormat] = useState<'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey'>('classic');
   const [blocksCount, setBlocksCount] = useState<number>(12);
   const [hostBlocks, setHostBlocks] = useState<QuizBlockItem[]>([]);
   const [activeHostBlockId, setActiveHostBlockId] = useState<string | null>(null);
+
+  // Estados do Modo Jornada (Expedição pelo Mapa)
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string>('ceara-juazeiro-fortaleza');
+  const [journeyQuestionsPerStage, setJourneyQuestionsPerStage] = useState<number>(2);
+  const [journeyStageIndex, setJourneyStageIndex] = useState<number>(0); // 0 a 5 (Juazeiro até Fortaleza)
+  const [journeyStageCorrectCount, setJourneyStageCorrectCount] = useState<number>(0);
+  const [journeyStageTotalAnswered, setJourneyStageTotalAnswered] = useState<number>(0);
+  const [showJourneyStageMapModal, setShowJourneyStageMapModal] = useState<boolean>(false);
+  const [showJourneyFinalVictory, setShowJourneyFinalVictory] = useState<boolean>(false);
 
   // Estados da Batalha contra o Chefe (Boss Raid)
   const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
@@ -2808,13 +2817,17 @@ Garanta que:
     categoryIds: string[],
     mode: 'online' | 'local' | 'hybrid',
     playMode?: 'teams' | 'individual',
-    format: 'classic' | 'blocks' | 'boss_raid' = 'classic',
+    format: 'classic' | 'blocks' | 'boss_raid' | 'journey' = 'classic',
     totalBlocks: number = 12,
-    bossId?: string
+    bossId?: string,
+    questionsPerStage?: number,
+    selectedJourneyIdParam?: string
   ) => {
     if (categoryIds.length < 1) {
       alert(
-        format === 'boss_raid'
+        format === 'journey'
+          ? 'Para jogar o Modo Jornada, selecione pelo menos 1 quiz.'
+          : format === 'boss_raid'
           ? 'Para jogar a Batalha contra o Chefe, selecione pelo menos 1 quiz.'
           : format === 'blocks'
           ? 'Para jogar o Modo Blocos, selecione pelo menos 1 quiz.'
@@ -2830,6 +2843,17 @@ Garanta que:
     }
 
     const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+
+    if (format === 'journey') {
+      const qPerStage = Math.max(1, Math.min(questionsPerStage || 2, catQuestions.length || 2));
+      setJourneyQuestionsPerStage(qPerStage);
+      setSelectedJourneyId(selectedJourneyIdParam || 'ceara-juazeiro-fortaleza');
+      setJourneyStageIndex(0);
+      setJourneyStageCorrectCount(0);
+      setJourneyStageTotalAnswered(0);
+      setShowJourneyStageMapModal(false);
+      setShowJourneyFinalVictory(false);
+    }
 
     if (format === 'boss_raid') {
       const chosenId = bossId || selectedBossId;
@@ -2874,7 +2898,9 @@ Garanta que:
       return;
     }
 
-    const roundsCount = format === 'blocks'
+    const roundsCount = format === 'journey'
+      ? Math.max(1, Math.min(catQuestions.length, 6 * (questionsPerStage || 2)))
+      : format === 'blocks'
       ? Math.max(1, Math.min(catQuestions.length, totalBlocks || 12))
       : Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
     setGameRounds(roundsCount);
@@ -3064,8 +3090,57 @@ Garanta que:
         }
       }
     }
+
+    if (quizFormat === 'journey') {
+      const correctPlayers = activePlayers.filter(p => p.stats?.answers?.[currentRoundIndex] === true);
+      const hadCorrect = activePlayers.length > 0 ? correctPlayers.length > 0 : true;
+
+      const newDone = journeyStageTotalAnswered + 1;
+      const newCorrect = hadCorrect ? journeyStageCorrectCount + 1 : journeyStageCorrectCount;
+      setJourneyStageTotalAnswered(newDone);
+      setJourneyStageCorrectCount(newCorrect);
+
+      // Verificamos se completou as questões configuradas para a etapa atual
+      if (newDone >= journeyQuestionsPerStage) {
+        if (newCorrect >= journeyQuestionsPerStage) {
+          // 100% de acertos na etapa: a cidade foi conquistada!
+          setShowJourneyStageMapModal(true);
+          sfx.playVictory();
+          confetti({
+            particleCount: 160,
+            spread: 90,
+            origin: { y: 0.5 }
+          });
+        } else {
+          // Não obteve 100% de acerto nas questões da etapa
+          // Reinicia a etapa para motivar a turma a tentar novamente a conquista da cidade
+          setJourneyStageCorrectCount(0);
+          setJourneyStageTotalAnswered(0);
+        }
+      }
+    }
   });
   useEffect(() => { revealAnswerRef.current = revealAnswer; });
+
+  const handleAdvanceJourneyStage = () => {
+    sfx.playCorrect();
+    setShowJourneyStageMapModal(false);
+    if (journeyStageIndex < 5) {
+      setJourneyStageIndex(prev => prev + 1);
+      setJourneyStageCorrectCount(0);
+      setJourneyStageTotalAnswered(0);
+    } else {
+      setShowJourneyFinalVictory(true);
+      sfx.playVictory();
+      confetti({
+        particleCount: 220,
+        spread: 120,
+        origin: { y: 0.45 },
+        colors: ['#fbbf24', '#f59e0b', '#3b82f6', '#10b981', '#ec4899']
+      });
+    }
+  };
+
 
   const handleGoToRanking = async () => runHostAction(async () => {
     await publishRoomState({ round_state: 'ranking' });
@@ -3359,7 +3434,6 @@ Garanta que:
       <LoginPortal
         onJoinAsStudent={handleJoinAsStudentFromPortal}
         onGoToPractice={() => setAppMode('practice')}
-        onGoToJourney={() => { setAppMode('journey'); sfx.playClick(); }}
         onTeacherLogin={handleTeacherLoginFromPortal}
         onDemoLogin={handleDemoLoginFromPortal}
         initialPin={URL_ROOM_CODE || ''}
@@ -3489,39 +3563,6 @@ Garanta que:
     );
   }
 
-  // ─── Modo Jornada: Expedição Ceará (Juazeiro a Fortaleza) ─────────────────
-  if (appMode === 'journey') {
-    return (
-      <div className="w-full min-h-screen flex flex-col" style={{ backgroundColor: '#090d16' }}>
-        <JourneyGameMode
-          onBack={() => {
-            if (authUser) {
-              setAppMode('online');
-              setScreen('operator-dashboard');
-            } else {
-              setAppMode('portal');
-            }
-            sfx.playClick();
-          }}
-          categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
-          questions={questions.map(q => ({
-            id: q.id,
-            category_id: q.category_id,
-            question_text: q.question_text,
-            time_limit: q.time_limit || 20,
-            explanation: q.explanation,
-            reference_url: q.reference_url,
-            difficulty: q.difficulty,
-            tags: q.tags,
-            alternatives: q.alternatives
-          }))}
-          soundEnabled={soundEnabled}
-          onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
-        />
-      </div>
-    );
-  }
-
   // ─── Tela de Seleção de Modo ─────────────────────────────────────────────
   if (appMode === 'select') {
     return (
@@ -3557,41 +3598,6 @@ Garanta que:
               </div>
 
               <div className="flex flex-col gap-4">
-                {/* Modo Jornada (Expedição Ceará) */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => { setAppMode('journey'); sfx.playClick(); }}
-                  style={{
-                    padding: '24px', borderRadius: 20,
-                    background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(234,88,12,0.14))',
-                    border: '2px solid rgba(245,158,11,0.6)',
-                    cursor: 'pointer', textAlign: 'left', width: '100%',
-                    display: 'flex', alignItems: 'center', gap: 20,
-                    boxShadow: '0 8px 32px rgba(245,158,11,0.25)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(245,158,11,0.5)' }}>
-                    <Compass style={{ width: 30, height: 30, color: '#0F172A' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>🗺️ Modo Jornada: Juazeiro a Fortaleza</p>
-                      <span style={{ fontSize: 10, fontWeight: 900, color: '#0F172A', background: '#F59E0B', borderRadius: 999, padding: '2px 8px' }}>NOVO</span>
-                    </div>
-                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(254,243,199,0.9)', lineHeight: 1.5 }}>
-                      Cruze o Ceará etapa por etapa! Comece em Juazeiro do Norte e acerte 100% das questões para avançar pelas cidades até a grande vitória em Fortaleza!
-                    </p>
-                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {['6 Cidades', 'Progressão de Mapas', '100% de Acerto por Etapa', 'Tela Épica'].map(tag => (
-                        <span key={tag} style={{ fontSize: 10, fontWeight: 800, color: '#FCD34D', background: 'rgba(245,158,11,0.2)', borderRadius: 999, padding: '3px 10px', border: '1px solid rgba(245,158,11,0.4)' }}>{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                  <ChevronRight style={{ width: 24, height: 24, color: '#F59E0B', flexShrink: 0 }} />
-                </motion.button>
 
                 {/* Modo Online */}
                 <motion.button
@@ -4570,8 +4576,111 @@ Garanta que:
               {/* PERGUNTA & CRONÔMETRO */}
               {(roundState === 'question-reveal' || roundState === 'question' || roundState === 'answered') && currentQuestion && (
                 <div className="glass-card p-6 flex flex-col gap-6" style={{ flex: 1, minHeight: 0 }}>
+                  {/* Banner do Modo Jornada no Telão */}
+                  {quizFormat === 'journey' && (() => {
+                    const journey = getJourneyById(selectedJourneyId);
+                    const currentStage = journey.stages[journeyStageIndex] || journey.stages[0];
+                    const questionInStage = (journeyStageTotalAnswered % journeyQuestionsPerStage) + 1;
+                    return (
+                      <div
+                        style={{
+                          borderRadius: '16px',
+                          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(180, 83, 9, 0.25) 100%)',
+                          border: '1.5px solid rgba(245, 158, 11, 0.45)',
+                          padding: '12px 20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          boxShadow: '0 4px 20px rgba(245, 158, 11, 0.2)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <img
+                            src={currentStage.image}
+                            alt={currentStage.cityName}
+                            style={{
+                              width: '46px',
+                              height: '46px',
+                              borderRadius: '10px',
+                              objectFit: 'cover',
+                              border: '2px solid #f59e0b',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                            }}
+                          />
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fde68a' }}>
+                                🗺️ {journey.title} • Etapa {journeyStageIndex + 1} de {journey.stages.length}
+                              </span>
+                              <span style={{ fontSize: '10px', background: '#f59e0b', color: '#0f172a', fontWeight: 900, padding: '1px 6px', borderRadius: '999px' }}>
+                                {currentStage.badge}
+                              </span>
+                            </div>
+                            <h4 style={{ margin: '2px 0 0 0', fontSize: '18px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                              Rumo a: <span style={{ color: '#fbbf24' }}>{currentStage.cityName}</span> ({currentStage.region})
+                            </h4>
+                          </div>
+                        </div>
+
+                        {/* Rota visual em linha das 6 cidades */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          {journey.stages.map((st, idx) => {
+                            const isConquered = idx < journeyStageIndex;
+                            const isCurrent = idx === journeyStageIndex;
+                            return (
+                              <div
+                                key={st.stageNumber}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  fontWeight: 800,
+                                  padding: '4px 10px',
+                                  borderRadius: '999px',
+                                  backgroundColor: isConquered
+                                    ? 'rgba(16, 185, 129, 0.25)'
+                                    : isCurrent
+                                    ? '#f59e0b'
+                                    : 'rgba(255, 255, 255, 0.06)',
+                                  color: isConquered ? '#6ee7b7' : isCurrent ? '#0f172a' : 'rgba(255, 255, 255, 0.4)',
+                                  border: isConquered
+                                    ? '1px solid #10b981'
+                                    : isCurrent
+                                    ? '1.5px solid #ffffff'
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                  boxShadow: isCurrent ? '0 0 12px rgba(245, 158, 11, 0.6)' : 'none',
+                                }}
+                              >
+                                {isConquered ? '✓' : idx + 1} {st.cityName}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Contador da etapa */}
+                        <div
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '999px',
+                            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#fef3c7',
+                          }}
+                        >
+                          Etapa: Questão {Math.min(questionInStage, journeyQuestionsPerStage)} de {journeyQuestionsPerStage} • Acertos: {journeyStageCorrectCount}/{journeyQuestionsPerStage}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Categoria Sorteada */}
                   <div className="flex justify-between items-center">
+
                     <div 
                       className="flex items-center gap-3 px-6 py-2.5 rounded-2xl border transition-all duration-500 hover:scale-105"
                       style={{ 
@@ -5133,6 +5242,416 @@ Garanta que:
                 </div>
               </div>
             )}
+
+            {/* ─── MODAL DE CONQUISTA DE ETAPA / CIDADE DA JORNADA NO TELÃO ─── */}
+            {quizFormat === 'journey' && showJourneyStageMapModal && (() => {
+              const journey = getJourneyById(selectedJourneyId);
+              const currentStage = journey.stages[journeyStageIndex] || journey.stages[0];
+              const nextStage = journey.stages[journeyStageIndex + 1];
+              const isFinalStage = journeyStageIndex >= journey.stages.length - 1;
+
+              return (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: 'rgba(5, 7, 15, 0.88)',
+                    backdropFilter: 'blur(16px)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '24px',
+                    animation: 'fadeInModal 0.3s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '780px',
+                      width: '100%',
+                      backgroundColor: '#0f172a',
+                      borderRadius: '28px',
+                      border: '2px solid #f59e0b',
+                      boxShadow: '0 25px 60px -12px rgba(245, 158, 11, 0.4), 0 0 40px rgba(245, 158, 11, 0.25)',
+                      padding: '32px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '20px',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {/* Efeito Glow Dourado de Fundo */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '-80px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '320px',
+                        height: '320px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, transparent 70%)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+
+                    {/* Badge da Etapa */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1 }}>
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 900,
+                          backgroundColor: '#f59e0b',
+                          color: '#0f172a',
+                          padding: '4px 14px',
+                          borderRadius: '999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.1em',
+                          boxShadow: '0 2px 10px rgba(245, 158, 11, 0.5)',
+                        }}
+                      >
+                        🎉 {isFinalStage ? '⭐ DESTINO FINAL ALCANÇADO!' : `ETAPA ${journeyStageIndex + 1} DE ${journey.stages.length} CONCLUÍDA!`}
+                      </span>
+                    </div>
+
+                    {/* Título da Cidade Conquistada */}
+                    <div style={{ zIndex: 1 }}>
+                      <h2
+                        style={{
+                          fontSize: 'clamp(26px, 3.5vw, 38px)',
+                          fontWeight: 900,
+                          color: '#ffffff',
+                          margin: 0,
+                          letterSpacing: '-0.02em',
+                        }}
+                      >
+                        {isFinalStage ? '🏆 Vitória Total em Fortaleza!' : `Cidade Conquistada: ${currentStage.cityName}!`}
+                      </h2>
+                      <p style={{ fontSize: '14px', color: '#fde68a', margin: '4px 0 0 0', fontWeight: 700 }}>
+                        {currentStage.tagline} • {currentStage.region}
+                      </p>
+                    </div>
+
+                    {/* Imagem do Mapa da Cidade Conquistada */}
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '520px',
+                        borderRadius: '20px',
+                        overflow: 'hidden',
+                        border: '3px solid #f59e0b',
+                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6), 0 0 30px rgba(245, 158, 11, 0.35)',
+                        zIndex: 1,
+                        backgroundColor: '#1e293b',
+                      }}
+                    >
+                      <img
+                        src={currentStage.image}
+                        alt={currentStage.cityName}
+                        style={{
+                          width: '100%',
+                          maxHeight: '280px',
+                          objectFit: 'contain',
+                          display: 'block',
+                          backgroundColor: '#090d16',
+                        }}
+                      />
+                    </div>
+
+                    {/* Curiosidade Cultural da Cidade */}
+                    <div
+                      style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '16px',
+                        border: '1px solid rgba(245, 158, 11, 0.3)',
+                        padding: '14px 20px',
+                        maxWidth: '620px',
+                        zIndex: 1,
+                      }}
+                    >
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '4px' }}>
+                        💡 Sabia disso?
+                      </span>
+                      <p style={{ fontSize: '13px', color: '#e2e8f0', margin: 0, lineHeight: 1.5 }}>
+                        {currentStage.curiosity}
+                      </p>
+                    </div>
+
+                    {/* Botões de Ação do Professor */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', zIndex: 1, marginTop: '8px' }}>
+                      {role === 'operator' ? (
+                        <button
+                          type="button"
+                          onClick={handleAdvanceJourneyStage}
+                          style={{
+                            padding: '14px 36px',
+                            borderRadius: '16px',
+                            border: 'none',
+                            background: isFinalStage
+                              ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)'
+                              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            fontSize: '15px',
+                            fontWeight: 900,
+                            cursor: 'pointer',
+                            boxShadow: isFinalStage
+                              ? '0 8px 25px rgba(245, 158, 11, 0.5)'
+                              : '0 8px 25px rgba(16, 185, 129, 0.45)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                        >
+                          {isFinalStage ? (
+                            <>
+                              <span>Ver Celebração Épica de Fortaleza ⭐</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Avançar para {nextStage?.cityName || 'Próxima Cidade'}</span>
+                              <ChevronRight style={{ width: '20px', height: '20px' }} />
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <div style={{ fontSize: '13px', color: '#cbd5e1', fontStyle: 'italic' }}>
+                          Aguardando o professor avançar a expedição para a próxima cidade...
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ─── TELA ÉPICA DE VITÓRIA FINAL DA EXPEDIÇÃO (FORTALEZA) ─── */}
+            {quizFormat === 'journey' && showJourneyFinalVictory && (() => {
+              const journey = getJourneyById(selectedJourneyId);
+              const topWinner = sortedPlayers[0];
+
+              return (
+                <div
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    backgroundColor: 'rgba(5, 7, 15, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    zIndex: 10000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '24px',
+                    animation: 'fadeInModal 0.4s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: '820px',
+                      width: '100%',
+                      backgroundColor: '#0b101e',
+                      borderRadius: '32px',
+                      border: '3px solid #fbbf24',
+                      boxShadow: '0 0 60px rgba(251, 191, 36, 0.4), 0 25px 60px rgba(0, 0, 0, 0.8)',
+                      padding: '40px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '24px',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {/* Efeito Glow Triunfal */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '-100px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: '450px',
+                        height: '450px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(251, 191, 36, 0.3) 0%, transparent 70%)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+
+                    {/* Coroa e Troféu */}
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <Crown style={{ width: '64px', height: '64px', color: '#fbbf24', filter: 'drop-shadow(0 0 16px rgba(251, 191, 36, 0.8))' }} />
+                    </div>
+
+                    <div style={{ zIndex: 1 }}>
+                      <span
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 900,
+                          backgroundColor: '#fbbf24',
+                          color: '#0f172a',
+                          padding: '4px 18px',
+                          borderRadius: '999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.12em',
+                        }}
+                      >
+                        ⭐ {journey.title.toUpperCase()} CONCLUÍDA COM SUCESSO! ⭐
+                      </span>
+                      <h1
+                        style={{
+                          fontSize: 'clamp(32px, 4.5vw, 48px)',
+                          fontWeight: 900,
+                          color: '#ffffff',
+                          margin: '12px 0 6px 0',
+                          letterSpacing: '-0.02em',
+                        }}
+                      >
+                        Chegada Triunfal em Fortaleza!
+                      </h1>
+                      <p style={{ fontSize: '16px', color: '#cbd5e1', margin: 0, fontWeight: 600 }}>
+                        Cruzamos o Ceará de Juazeiro do Norte à Capital da Luz acertando todas as etapas!
+                      </p>
+                    </div>
+
+                    {/* Imagem de Fortaleza (mapa06.png) */}
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '540px',
+                        borderRadius: '24px',
+                        overflow: 'hidden',
+                        border: '3px solid #fbbf24',
+                        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.7), 0 0 35px rgba(251, 191, 36, 0.35)',
+                        zIndex: 1,
+                        backgroundColor: '#090d16',
+                      }}
+                    >
+                      <img
+                        src="/jornada/mapa06.png"
+                        alt="Fortaleza Conquistada"
+                        style={{
+                          width: '100%',
+                          maxHeight: '280px',
+                          objectFit: 'contain',
+                          display: 'block',
+                        }}
+                      />
+                    </div>
+
+                    {/* Destaque do Campeão / Vencedor */}
+                    {topWinner && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '16px',
+                          backgroundColor: 'rgba(251, 191, 36, 0.1)',
+                          border: '2px solid rgba(251, 191, 36, 0.4)',
+                          borderRadius: '20px',
+                          padding: '12px 28px',
+                          zIndex: 1,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '54px',
+                            height: '54px',
+                            borderRadius: '50%',
+                            border: '3px solid #fbbf24',
+                            overflow: 'hidden',
+                            backgroundColor: '#0d1326',
+                          }}
+                        >
+                          <img
+                            src={getAvatarUrl(topWinner.nickname)}
+                            alt={topWinner.nickname}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            Mestre da Expedição (1º Lugar):
+                          </span>
+                          <div style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff' }}>
+                            {topWinner.nickname}
+                          </div>
+                        </div>
+                        <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                          <span style={{ fontSize: '24px', fontWeight: 900, color: '#fbbf24', fontFamily: 'monospace' }}>
+                            {topWinner.score}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', fontWeight: 700 }}>
+                            PONTOS
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Botões de Encerramento */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', zIndex: 1, marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sfx.playClick();
+                          setShowJourneyFinalVictory(false);
+                          setScreen('podium');
+                          setPodiumStep(4);
+                        }}
+                        style={{
+                          padding: '14px 28px',
+                          borderRadius: '14px',
+                          border: 'none',
+                          backgroundColor: '#fbbf24',
+                          color: '#0f172a',
+                          fontSize: '14px',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          boxShadow: '0 6px 20px rgba(251, 191, 36, 0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        <Trophy style={{ width: '18px', height: '18px' }} />
+                        <span>Ver Pódio Geral de Campeões</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sfx.playClick();
+                          setShowJourneyFinalVictory(false);
+                          setScreen('operator-dashboard');
+                        }}
+                        style={{
+                          padding: '14px 24px',
+                          borderRadius: '14px',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          color: '#ffffff',
+                          fontSize: '14px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Voltar ao Painel
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })()}
 
             </div>
           </div>

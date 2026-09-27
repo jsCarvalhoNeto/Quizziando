@@ -15,8 +15,8 @@ interface QuizConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStartGame: () => void;
-  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid';
-  setQuizFormat?: (format: 'classic' | 'roulette' | 'blocks' | 'boss_raid') => void;
+  quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
+  setQuizFormat?: (format: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey') => void;
   gameMode: 'duel' | 'team' | 'open';
   setGameMode: (mode: 'duel' | 'team' | 'open') => void;
   gameRounds: number;
