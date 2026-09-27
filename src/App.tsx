@@ -963,6 +963,16 @@ Garanta que:
   const [showJourneyStageMapModal, setShowJourneyStageMapModal] = useState<boolean>(false);
   const [showJourneyFinalVictory, setShowJourneyFinalVictory] = useState<boolean>(false);
   const [journeyUseRoulette, setJourneyUseRoulette] = useState<boolean>(false);
+  const [isJourneyTransitioningToMap, setIsJourneyTransitioningToMap] = useState<boolean>(false);
+  const journeyModalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (journeyModalTimeoutRef.current) {
+        clearTimeout(journeyModalTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Estados da Batalha contra o Chefe (Boss Raid)
   const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
@@ -2854,6 +2864,11 @@ Garanta que:
       setJourneyStageIndex(0);
       setJourneyStageCorrectCount(0);
       setJourneyStageTotalAnswered(0);
+      if (journeyModalTimeoutRef.current) {
+        clearTimeout(journeyModalTimeoutRef.current);
+        journeyModalTimeoutRef.current = null;
+      }
+      setIsJourneyTransitioningToMap(false);
       setShowJourneyStageMapModal(false);
       setShowJourneyFinalVictory(false);
       setJourneyUseRoulette(!!journeyUseRouletteParam);
@@ -3116,17 +3131,32 @@ Garanta que:
       setJourneyStageTotalAnswered(newDone);
       setJourneyStageCorrectCount(newCorrect);
 
+      if (hadCorrect) {
+        sfx.playCorrect();
+      } else {
+        sfx.playWrong();
+      }
+
       // Verificamos se completou as questões configuradas para a etapa atual
       if (newDone >= journeyQuestionsPerStage) {
         if (newCorrect >= journeyQuestionsPerStage) {
           // 100% de acertos na etapa: a cidade foi conquistada!
-          setShowJourneyStageMapModal(true);
-          sfx.playVictory();
-          confetti({
-            particleCount: 160,
-            spread: 90,
-            origin: { y: 0.5 }
-          });
+          // Transição suave: dá tempo suficiente para apreciar o efeito da alternativa correta antes de abrir o mapa
+          setIsJourneyTransitioningToMap(true);
+          if (journeyModalTimeoutRef.current) {
+            clearTimeout(journeyModalTimeoutRef.current);
+          }
+          journeyModalTimeoutRef.current = setTimeout(() => {
+            setIsJourneyTransitioningToMap(false);
+            setShowJourneyStageMapModal(true);
+            sfx.playVictory();
+            confetti({
+              particleCount: 160,
+              spread: 90,
+              origin: { y: 0.5 }
+            });
+            journeyModalTimeoutRef.current = null;
+          }, 3800);
         } else {
           // Não obteve 100% de acerto nas questões da etapa
           // Reinicia a etapa para motivar a turma a tentar novamente a conquista da cidade
@@ -3139,6 +3169,11 @@ Garanta que:
   useEffect(() => { revealAnswerRef.current = revealAnswer; });
 
   const handleAdvanceJourneyStage = async (goToRanking: boolean = true) => {
+    if (journeyModalTimeoutRef.current) {
+      clearTimeout(journeyModalTimeoutRef.current);
+      journeyModalTimeoutRef.current = null;
+    }
+    setIsJourneyTransitioningToMap(false);
     sfx.playCorrect();
     setShowJourneyStageMapModal(false);
     if (journeyStageIndex < 5) {
@@ -3166,11 +3201,21 @@ Garanta que:
 
 
   const handleGoToRanking = async () => runHostAction(async () => {
+    if (journeyModalTimeoutRef.current) {
+      clearTimeout(journeyModalTimeoutRef.current);
+      journeyModalTimeoutRef.current = null;
+    }
+    setIsJourneyTransitioningToMap(false);
     await publishRoomState({ round_state: 'ranking' });
     sfx.playClick();
   });
 
   const handleNextRound = async () => runHostAction(async () => {
+    if (journeyModalTimeoutRef.current) {
+      clearTimeout(journeyModalTimeoutRef.current);
+      journeyModalTimeoutRef.current = null;
+    }
+    setIsJourneyTransitioningToMap(false);
     sfx.playClick();
     if (currentRoundIndex < gameRounds) {
       const nextRound = currentRoundIndex + 1;
@@ -4910,16 +4955,18 @@ Garanta que:
                           onClick={() => handlePlayerAnswer(index)}
                           initial={false}
                           animate={{
-                            scale: isWinner ? 1.07 : isLoser ? 0.91 : (role === 'player' && isSelectedBySelf ? 1.03 : 1),
+                            scale: isWinner ? [1.06, 1.09, 1.06] : isLoser ? 0.91 : (role === 'player' && isSelectedBySelf ? 1.03 : 1),
                             y: isWinner ? -8 : isLoser ? 10 : 0,
                             opacity: isLoser ? 0.2 : 1,
                             filter: isLoser ? 'grayscale(70%) blur(0.5px)' : 'none',
                             zIndex: isWinner ? 30 : (role === 'player' && isSelectedBySelf ? 10 : 1),
                           }}
                           transition={{
-                            type: 'spring',
-                            stiffness: isWinner ? 380 : 320,
-                            damping: isWinner ? 20 : 28,
+                            scale: isWinner
+                              ? { repeat: Infinity, duration: 2, ease: 'easeInOut' }
+                              : { type: 'spring', stiffness: 320, damping: 28 },
+                            y: { type: 'spring', stiffness: 380, damping: 20 },
+                            opacity: { duration: 0.3 }
                           }}
                           whileHover={role === 'player' && !showAnswers && !playerAnswered ? { scale: 1.025, filter: 'brightness(1.08)' } : {}}
                           whileTap={role === 'player' && !showAnswers && !playerAnswered ? { scale: 0.98 } : {}}
@@ -5113,6 +5160,64 @@ Garanta que:
                       {currentQuestion.reference_url?.match(/^https?:\/\//i) && <a href={currentQuestion.reference_url} target="_blank" rel="noopener noreferrer" className="block mt-2 text-sky-300 underline">Ver referência</a>}
                     </div>
                   )}
+
+                  {/* Banner de Transição Suave para o Mapa da Expedição */}
+                  <AnimatePresence>
+                    {quizFormat === 'journey' && isJourneyTransitioningToMap && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                        className="rounded-2xl border border-amber-400/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/25 to-amber-500/20 p-4 backdrop-blur-md shadow-[0_0_35px_rgba(245,158,11,0.25)] flex items-center justify-between gap-4 flex-wrap"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl animate-bounce">🏆</span>
+                          <div className="text-left">
+                            <div className="text-sm font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                              <span>Etapa Conquistada com Sucesso!</span>
+                              <span className="text-[10px] bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded-full uppercase tracking-normal">Gabarito Confirmado</span>
+                            </div>
+                            <div className="text-xs text-amber-100 font-medium mt-1 flex items-center gap-3">
+                              <span>Revelando o mapa da expedição em instantes...</span>
+                              <div className="w-24 h-2 bg-black/40 rounded-full overflow-hidden inline-block align-middle border border-amber-400/30">
+                                <motion.div
+                                  initial={{ width: '0%' }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ duration: 3.8, ease: 'linear' }}
+                                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {role === 'operator' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (journeyModalTimeoutRef.current) {
+                                clearTimeout(journeyModalTimeoutRef.current);
+                                journeyModalTimeoutRef.current = null;
+                              }
+                              setIsJourneyTransitioningToMap(false);
+                              setShowJourneyStageMapModal(true);
+                              sfx.playVictory();
+                              confetti({
+                                particleCount: 160,
+                                spread: 90,
+                                origin: { y: 0.5 }
+                              });
+                            }}
+                            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-extrabold text-xs shadow-lg transition-all hover:scale-105 flex items-center gap-1.5 ml-auto"
+                          >
+                            <span>Ver Mapa Agora</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Ações do Organizador na Pergunta */}
                   {role === 'operator' && (
@@ -5344,29 +5449,38 @@ Garanta que:
             )}
 
             {/* ─── MODAL DE CONQUISTA DE ETAPA / CIDADE DA JORNADA NO TELÃO ─── */}
-            {quizFormat === 'journey' && showJourneyStageMapModal && (() => {
-              const journey = getJourneyById(selectedJourneyId);
-              const currentStage = journey.stages[journeyStageIndex] || journey.stages[0];
-              const nextStage = journey.stages[journeyStageIndex + 1];
-              const isFinalStage = journeyStageIndex >= journey.stages.length - 1;
+            <AnimatePresence>
+              {quizFormat === 'journey' && showJourneyStageMapModal && (() => {
+                const journey = getJourneyById(selectedJourneyId);
+                const currentStage = journey.stages[journeyStageIndex] || journey.stages[0];
+                const nextStage = journey.stages[journeyStageIndex + 1];
+                const isFinalStage = journeyStageIndex >= journey.stages.length - 1;
 
-              return (
-                <div
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(5, 7, 15, 0.88)',
-                    backdropFilter: 'blur(16px)',
-                    zIndex: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '24px',
-                    animation: 'fadeInModal 0.3s ease',
-                  }}
-                >
-                  <div
+                return (
+                  <motion.div
+                    key="journey-stage-map-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.45 }}
                     style={{
+                      position: 'fixed',
+                      inset: 0,
+                      backgroundColor: 'rgba(5, 7, 15, 0.88)',
+                      backdropFilter: 'blur(16px)',
+                      zIndex: 9999,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '24px',
+                    }}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.92, y: 24 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.92, y: 24 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      style={{
                       maxWidth: 'min(95vw, 980px)',
                       width: '100%',
                       maxHeight: '94vh',
@@ -5554,33 +5668,43 @@ Garanta que:
                       )}
                     </div>
 
-                  </div>
-                </div>
-              );
-            })()}
+                    </motion.div>
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
 
             {/* ─── TELA ÉPICA DE VITÓRIA FINAL DA EXPEDIÇÃO (FORTALEZA) ─── */}
-            {quizFormat === 'journey' && showJourneyFinalVictory && (() => {
-              const journey = getJourneyById(selectedJourneyId);
-              const topWinner = sortedPlayers[0];
+            <AnimatePresence>
+              {quizFormat === 'journey' && showJourneyFinalVictory && (() => {
+                const journey = getJourneyById(selectedJourneyId);
+                const topWinner = sortedPlayers[0];
 
-              return (
-                <div
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    backgroundColor: 'rgba(5, 7, 15, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    zIndex: 10000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '24px',
-                    animation: 'fadeInModal 0.4s ease',
-                  }}
-                >
-                  <div
+                return (
+                  <motion.div
+                    key="journey-final-victory-modal"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
                     style={{
+                      position: 'fixed',
+                      inset: 0,
+                      backgroundColor: 'rgba(5, 7, 15, 0.95)',
+                      backdropFilter: 'blur(20px)',
+                      zIndex: 10000,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '24px',
+                    }}
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                      style={{
                       maxWidth: 'min(95vw, 1020px)',
                       width: '100%',
                       maxHeight: '94vh',
@@ -5777,10 +5901,11 @@ Garanta que:
                       </button>
                     </div>
 
-                  </div>
-                </div>
-              );
-            })()}
+                    </motion.div>
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
 
             </div>
           </div>
