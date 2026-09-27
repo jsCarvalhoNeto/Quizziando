@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download, Play, Zap, Smartphone
+  ArrowLeft, Search, Download, Play, Zap, Smartphone, Compass
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -19,6 +19,7 @@ import { getAvatarUrl } from './lib/avatars';
 import { readSavedQuizzes, saveQuiz, deleteSavedQuiz, duplicateQuiz, toggleFavoriteQuiz, type SavedQuiz } from './lib/savedQuizzes';
 import { createQuestionBank, downloadQuestionBank, parseQuestionBank } from './lib/questionBank';
 import LocalGameMode from './LocalGameMode';
+import JourneyGameMode from './components/game/JourneyGameMode';
 import LoginPortal from './components/auth/LoginPortal';
 import TeacherDashboard from './components/teacher/TeacherDashboard';
 import QuizConfigModal from './components/teacher/QuizConfigModal';
@@ -506,9 +507,9 @@ export default function App() {
   }, [useRealSupabase, authUser?.id]);
 
   // ==========================================
-  // 🖥️ MODO DE JOGO: 'portal' | 'select' | 'online' | 'local' | 'practice'
+  // 🖥️ MODO DE JOGO: 'portal' | 'select' | 'online' | 'local' | 'practice' | 'journey'
   // ==========================================
-  const [appMode, setAppMode] = useState<'portal' | 'select' | 'online' | 'local' | 'practice'>('portal');
+  const [appMode, setAppMode] = useState<'portal' | 'select' | 'online' | 'local' | 'practice' | 'journey'>('portal');
   const [studentRoomCode, setStudentRoomCode] = useState<string | null>(null);
   const [showQuizConfigModal, setShowQuizConfigModal] = useState(false);
   const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
@@ -3358,6 +3359,7 @@ Garanta que:
       <LoginPortal
         onJoinAsStudent={handleJoinAsStudentFromPortal}
         onGoToPractice={() => setAppMode('practice')}
+        onGoToJourney={() => { setAppMode('journey'); sfx.playClick(); }}
         onTeacherLogin={handleTeacherLoginFromPortal}
         onDemoLogin={handleDemoLoginFromPortal}
         initialPin={URL_ROOM_CODE || ''}
@@ -3487,6 +3489,39 @@ Garanta que:
     );
   }
 
+  // ─── Modo Jornada: Expedição Ceará (Juazeiro a Fortaleza) ─────────────────
+  if (appMode === 'journey') {
+    return (
+      <div className="w-full min-h-screen flex flex-col" style={{ backgroundColor: '#090d16' }}>
+        <JourneyGameMode
+          onBack={() => {
+            if (authUser) {
+              setAppMode('online');
+              setScreen('operator-dashboard');
+            } else {
+              setAppMode('portal');
+            }
+            sfx.playClick();
+          }}
+          categories={categories.map(c => ({ id: c.id, name: c.name, color: c.color, icon: c.icon }))}
+          questions={questions.map(q => ({
+            id: q.id,
+            category_id: q.category_id,
+            question_text: q.question_text,
+            time_limit: q.time_limit || 20,
+            explanation: q.explanation,
+            reference_url: q.reference_url,
+            difficulty: q.difficulty,
+            tags: q.tags,
+            alternatives: q.alternatives
+          }))}
+          soundEnabled={soundEnabled}
+          onToggleSound={() => { setSoundEnabled(s => !s); sfx.playClick(); }}
+        />
+      </div>
+    );
+  }
+
   // ─── Tela de Seleção de Modo ─────────────────────────────────────────────
   if (appMode === 'select') {
     return (
@@ -3522,6 +3557,42 @@ Garanta que:
               </div>
 
               <div className="flex flex-col gap-4">
+                {/* Modo Jornada (Expedição Ceará) */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setAppMode('journey'); sfx.playClick(); }}
+                  style={{
+                    padding: '24px', borderRadius: 20,
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(234,88,12,0.14))',
+                    border: '2px solid rgba(245,158,11,0.6)',
+                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                    display: 'flex', alignItems: 'center', gap: 20,
+                    boxShadow: '0 8px 32px rgba(245,158,11,0.25)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg, #F59E0B, #D97706)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 20px rgba(245,158,11,0.5)' }}>
+                    <Compass style={{ width: 30, height: 30, color: '#0F172A' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: 20, fontWeight: 900, color: 'white' }}>🗺️ Modo Jornada: Juazeiro a Fortaleza</p>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: '#0F172A', background: '#F59E0B', borderRadius: 999, padding: '2px 8px' }}>NOVO</span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: 13, color: 'rgba(254,243,199,0.9)', lineHeight: 1.5 }}>
+                      Cruze o Ceará etapa por etapa! Comece em Juazeiro do Norte e acerte 100% das questões para avançar pelas cidades até a grande vitória em Fortaleza!
+                    </p>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {['6 Cidades', 'Progressão de Mapas', '100% de Acerto por Etapa', 'Tela Épica'].map(tag => (
+                        <span key={tag} style={{ fontSize: 10, fontWeight: 800, color: '#FCD34D', background: 'rgba(245,158,11,0.2)', borderRadius: 999, padding: '3px 10px', border: '1px solid rgba(245,158,11,0.4)' }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <ChevronRight style={{ width: 24, height: 24, color: '#F59E0B', flexShrink: 0 }} />
+                </motion.button>
+
                 {/* Modo Online */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
