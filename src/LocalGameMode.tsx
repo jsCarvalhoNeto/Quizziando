@@ -58,6 +58,7 @@ interface Props {
   supabaseQuestions?: LocalQuestion[];
   initialSelectedCategoryIds?: string[];
   quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
+  journeyUseRoulette?: boolean;
   selectedBossId?: string;
   initialBlocksCount?: number;
   initialPlayMode?: 'teams' | 'individual';
@@ -137,6 +138,7 @@ export default function LocalGameMode({
   supabaseQuestions,
   initialSelectedCategoryIds,
   quizFormat = 'classic',
+  journeyUseRoulette = false,
   selectedBossId: initialBossId,
   initialBlocksCount = 12,
   initialPlayMode = 'teams',
@@ -2093,8 +2095,8 @@ export default function LocalGameMode({
                     soundEnabled={soundEnabled}
                   />
                 </motion.div>
-              ) : quizFormat === 'classic' ? (
-                /* Card do Quiz Clássico (Direto nas perguntas) */
+              ) : quizFormat === 'classic' || (quizFormat === 'journey' && !journeyUseRoulette) ? (
+                /* Card do Quiz Clássico / Jornada Clássica (Direto nas perguntas) */
                 <motion.div key="classic-intro"
                   initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                   style={{

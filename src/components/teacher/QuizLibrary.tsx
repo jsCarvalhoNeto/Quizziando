@@ -58,7 +58,7 @@ interface QuizLibraryProps {
   isAdmin?: boolean;
   onCreateNewQuiz: () => void;
   onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', customRounds?: number) => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid' | 'journey', totalBlocks?: number, selectedBossId?: string, questionsPerStage?: number, selectedJourneyId?: string, customRounds?: number) => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid' | 'journey', totalBlocks?: number, selectedBossId?: string, questionsPerStage?: number, selectedJourneyId?: string, customRounds?: number, journeyUseRoulette?: boolean) => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }

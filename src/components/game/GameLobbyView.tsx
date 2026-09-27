@@ -20,7 +20,8 @@ import {
   LayoutGrid,
   X,
   Smartphone,
-  Award
+  Award,
+  Compass
 } from 'lucide-react';
 import { type GamePlayer } from '../../App';
 
@@ -59,6 +60,7 @@ interface GameLobbyViewProps {
   nickname?: string;
   getAvatarUrl: (nickname: string) => string;
   quizFormat?: 'classic' | 'roulette' | 'blocks' | 'boss_raid' | 'journey';
+  journeyUseRoulette?: boolean;
   totalAnswered?: number;
   onOpenRemoteModal?: () => void;
   pairingPin?: string;
@@ -94,6 +96,7 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
   nickname,
   getAvatarUrl,
   quizFormat = 'classic',
+  journeyUseRoulette = false,
   onOpenRemoteModal,
   isSmartphoneConnected = false
 }) => {
@@ -203,16 +206,16 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 fontWeight: 800,
                 padding: '2px 8px',
                 borderRadius: '999px',
-                backgroundColor: quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.15)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.2)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
-                border: `1px solid ${quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.5)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.5)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
-                color: quizFormat === 'boss_raid' ? '#fda4af' : quizFormat === 'blocks' ? '#a78bfa' : quizFormat === 'classic' ? '#34d399' : '#c084fc',
+                backgroundColor: quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.15)' : quizFormat === 'journey' ? 'rgba(245, 158, 11, 0.2)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.2)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(168, 85, 247, 0.2)',
+                border: `1px solid ${quizFormat === 'boss_raid' ? 'rgba(225, 29, 72, 0.5)' : quizFormat === 'journey' ? 'rgba(245, 158, 11, 0.5)' : quizFormat === 'blocks' ? 'rgba(124, 58, 237, 0.5)' : quizFormat === 'classic' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(168, 85, 247, 0.4)'}`,
+                color: quizFormat === 'boss_raid' ? '#fda4af' : quizFormat === 'journey' ? '#fbbf24' : quizFormat === 'blocks' ? '#a78bfa' : quizFormat === 'classic' ? '#34d399' : '#c084fc',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 display: 'none',
               }}
               className="md:inline-block"
             >
-              {quizFormat === 'boss_raid' ? '⚔️ Batalha contra o Chefe' : quizFormat === 'blocks' ? '🧱 Modo Blocos' : quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
+              {quizFormat === 'boss_raid' ? '⚔️ Batalha contra o Chefe' : quizFormat === 'journey' ? (journeyUseRoulette ? '🗺️ Jornada (c/ Roleta)' : '🗺️ Jornada (Clássico)') : quizFormat === 'blocks' ? '🧱 Modo Blocos' : quizFormat === 'classic' ? '⚡ Quiz Clássico' : '🎡 Roleta'}
             </span>
           </div>
         </div>
@@ -746,14 +749,16 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
                 gap: '6px',
               }}
             >
-              {quizFormat === 'blocks' ? (
+              {quizFormat === 'journey' ? (
+                <Compass style={{ width: '13px', height: '13px', color: '#fbbf24' }} />
+              ) : quizFormat === 'blocks' ? (
                 <LayoutGrid style={{ width: '13px', height: '13px', color: '#a78bfa' }} />
               ) : quizFormat === 'classic' ? (
                 <Zap style={{ width: '13px', height: '13px', color: '#34d399' }} />
               ) : (
                 <RotateCw style={{ width: '13px', height: '13px', color: '#c084fc' }} />
               )}
-              <span>{quizFormat === 'blocks' ? 'Modo Blocos (Kahoot)' : quizFormat === 'classic' ? 'Quiz Clássico (Sem Roleta)' : 'Quiz com Roleta'}</span>
+              <span>{quizFormat === 'journey' ? (journeyUseRoulette ? 'Modo Jornada (c/ Roleta)' : 'Modo Jornada (Clássico)') : quizFormat === 'blocks' ? 'Modo Blocos (Kahoot)' : quizFormat === 'classic' ? 'Quiz Clássico (Sem Roleta)' : 'Quiz com Roleta'}</span>
             </span>
 
             <span

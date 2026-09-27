@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download, Play, Zap, Smartphone
+  ArrowLeft, Search, Download, Play, Zap, Smartphone, Compass
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -962,6 +962,7 @@ Garanta que:
   const [journeyStageTotalAnswered, setJourneyStageTotalAnswered] = useState<number>(0);
   const [showJourneyStageMapModal, setShowJourneyStageMapModal] = useState<boolean>(false);
   const [showJourneyFinalVictory, setShowJourneyFinalVictory] = useState<boolean>(false);
+  const [journeyUseRoulette, setJourneyUseRoulette] = useState<boolean>(false);
 
   // Estados da Batalha contra o Chefe (Boss Raid)
   const [selectedBossId, setSelectedBossId] = useState<string>(RAID_BOSSES[0].id);
@@ -2822,7 +2823,8 @@ Garanta que:
     bossId?: string,
     questionsPerStage?: number,
     selectedJourneyIdParam?: string,
-    customRounds?: number
+    customRounds?: number,
+    journeyUseRouletteParam: boolean = false
   ) => {
     if (categoryIds.length < 1) {
       alert(
@@ -2854,6 +2856,9 @@ Garanta que:
       setJourneyStageTotalAnswered(0);
       setShowJourneyStageMapModal(false);
       setShowJourneyFinalVictory(false);
+      setJourneyUseRoulette(!!journeyUseRouletteParam);
+    } else {
+      setJourneyUseRoulette(false);
     }
 
     if (format === 'boss_raid') {
@@ -3315,7 +3320,7 @@ Garanta que:
             void handleStartMatch();
             break;
           case 'SPIN':
-            if (quizFormat === 'roulette') {
+            if (quizFormat === 'roulette' || (quizFormat === 'journey' && journeyUseRoulette)) {
               void handleSpinRoulette();
             } else {
               void handleStartClassicQuestion();
@@ -3350,7 +3355,7 @@ Garanta que:
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [roomCode, role, hostPairingPin, quizFormat, useRealSupabase, isSpinning, roundState]);
+  }, [roomCode, role, hostPairingPin, quizFormat, journeyUseRoulette, useRealSupabase, isSpinning, roundState]);
 
   // Ordenação de vencedores
   // ── Leaderboard animado: mostra o placar anterior primeiro, depois revela o novo ──
@@ -3570,6 +3575,7 @@ Garanta que:
             }))}
             initialSelectedCategoryIds={selectedCategoryIds}
             quizFormat={quizFormat}
+            journeyUseRoulette={journeyUseRoulette}
             selectedBossId={selectedBossId}
             initialBlocksCount={blocksCount}
             initialPlayMode={localPlayMode}
@@ -4018,6 +4024,7 @@ Garanta que:
             nickname={nickname}
             getAvatarUrl={getAvatarUrl}
             quizFormat={quizFormat}
+            journeyUseRoulette={journeyUseRoulette}
             onOpenRemoteModal={() => setShowTeacherRemoteModal(true)}
             pairingPin={hostPairingPin}
             isSmartphoneConnected={isSmartphoneConnected}
@@ -4147,7 +4154,7 @@ Garanta que:
                       soundEnabled={soundEnabled}
                     />
                   </div>
-                ) : quizFormat === 'classic' ? (
+                ) : quizFormat === 'classic' || (quizFormat === 'journey' && !journeyUseRoulette) ? (
                   <div 
                     style={{ 
                       flex: 1, 
@@ -4157,19 +4164,42 @@ Garanta que:
                       alignItems: 'center', 
                       justifyContent: 'center', 
                       borderRadius: '32px', 
-                      border: '4px solid rgba(16, 185, 129, 0.45)', 
+                      border: quizFormat === 'journey' ? '4px solid rgba(245, 158, 11, 0.45)' : '4px solid rgba(16, 185, 129, 0.45)', 
                       position: 'relative', 
                       boxShadow: '0 12px 32px rgba(0,0,0,0.45)', 
-                      background: 'radial-gradient(ellipse at 50% 40%, #1e1b4b 0%, #0f172a 100%)',
+                      background: quizFormat === 'journey' 
+                        ? 'radial-gradient(ellipse at 50% 40%, #451a03 0%, #0f172a 100%)' 
+                        : 'radial-gradient(ellipse at 50% 40%, #1e1b4b 0%, #0f172a 100%)',
                       minHeight: '380px' 
                     }}
                   >
                     {/* Floating Header */}
                     <div style={{ position: 'absolute', top: '-24px', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-                      <div style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: '3px solid #047857', borderRadius: '9999px', padding: '10px 28px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)' }}>
+                      <div style={{ 
+                        background: quizFormat === 'journey' 
+                          ? 'linear-gradient(135deg, #d97706, #b45309)' 
+                          : 'linear-gradient(135deg, #10b981, #059669)', 
+                        border: quizFormat === 'journey' ? '3px solid #78350f' : '3px solid #047857', 
+                        borderRadius: '9999px', 
+                        padding: '10px 28px', 
+                        boxShadow: quizFormat === 'journey' ? '0 4px 12px rgba(217, 119, 6, 0.4)' : '0 4px 12px rgba(16, 185, 129, 0.4)' 
+                      }}>
                         <h3 style={{ fontSize: '20px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Zap style={{ width: '20px', height: '20px', fill: 'currentColor' }} />
-                          Quiz Clássico
+                          {quizFormat === 'journey' ? (
+                            <>
+                              <Compass style={{ width: '20px', height: '20px' }} />
+                              Modo Jornada: {(() => {
+                                const j = getJourneyById(selectedJourneyId);
+                                const stage = j.stages[journeyStageIndex] || j.stages[0];
+                                return stage.cityName;
+                              })()}
+                            </>
+                          ) : (
+                            <>
+                              <Zap style={{ width: '20px', height: '20px', fill: 'currentColor' }} />
+                              Quiz Clássico
+                            </>
+                          )}
                         </h3>
                       </div>
                     </div>
@@ -4190,19 +4220,50 @@ Garanta que:
                     </div>
 
                     <div style={{ textAlign: 'center', maxWidth: '600px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', marginTop: '16px' }}>
-                      <div style={{ width: '84px', height: '84px', borderRadius: '24px', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '2px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)' }}>
-                        <Sparkles style={{ width: '42px', height: '42px' }} />
+                      <div style={{ 
+                        width: '84px', 
+                        height: '84px', 
+                        borderRadius: '24px', 
+                        backgroundColor: quizFormat === 'journey' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)', 
+                        border: quizFormat === 'journey' ? '2px solid rgba(245, 158, 11, 0.3)' : '2px solid rgba(16, 185, 129, 0.3)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: quizFormat === 'journey' ? '#f59e0b' : '#10b981', 
+                        boxShadow: quizFormat === 'journey' ? '0 8px 24px rgba(245, 158, 11, 0.2)' : '0 8px 24px rgba(16, 185, 129, 0.2)' 
+                      }}>
+                        {quizFormat === 'journey' ? (
+                          <Compass style={{ width: '42px', height: '42px' }} />
+                        ) : (
+                          <Sparkles style={{ width: '42px', height: '42px' }} />
+                        )}
                       </div>
 
                       <div>
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#34d399', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                          Rodada {currentRoundIndex} de {gameRounds}
+                        <span style={{ 
+                          fontSize: '13px', 
+                          fontWeight: 800, 
+                          color: quizFormat === 'journey' ? '#fbbf24' : '#34d399', 
+                          textTransform: 'uppercase', 
+                          letterSpacing: '1px' 
+                        }}>
+                          {quizFormat === 'journey' ? (() => {
+                            const j = getJourneyById(selectedJourneyId);
+                            const stage = j.stages[journeyStageIndex] || j.stages[0];
+                            return `Rodada ${currentRoundIndex} de ${gameRounds} · Etapa ${journeyStageIndex + 1}/${j.stages.length} (${stage.cityName})`;
+                          })() : `Rodada ${currentRoundIndex} de ${gameRounds}`}
                         </span>
                         <h2 style={{ fontSize: '32px', fontWeight: 900, color: '#ffffff', margin: '8px 0 6px 0', fontFamily: "'Outfit', sans-serif" }}>
-                          Preparados para a Pergunta {currentRoundIndex}?
+                          {quizFormat === 'journey' ? (() => {
+                            const j = getJourneyById(selectedJourneyId);
+                            const stage = j.stages[journeyStageIndex] || j.stages[0];
+                            return `Rumo a ${stage.cityName}!`;
+                          })() : `Preparados para a Pergunta ${currentRoundIndex}?`}
                         </h2>
                         <p style={{ fontSize: '14px', color: '#94a3b8', margin: 0 }}>
-                          A pergunta será exibida com as opções no estilo Kahoot para os competidores responderem.
+                          {quizFormat === 'journey'
+                            ? `Responda no celular no estilo Kahoot. Acerte as questões da etapa para avançar no mapa rumo a Fortaleza!`
+                            : `A pergunta será exibida com as opções no estilo Kahoot para os competidores responderem.`}
                         </p>
                       </div>
 
@@ -4215,8 +4276,10 @@ Garanta que:
                             height: '54px',
                             padding: '0 36px',
                             borderRadius: '14px',
-                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                            color: '#ffffff',
+                            background: quizFormat === 'journey'
+                              ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: quizFormat === 'journey' ? '#0f172a' : '#ffffff',
                             fontSize: '17px',
                             fontWeight: 900,
                             border: 'none',
@@ -4224,7 +4287,7 @@ Garanta que:
                             display: 'flex',
                             alignItems: 'center',
                             gap: '10px',
-                            boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                            boxShadow: quizFormat === 'journey' ? '0 6px 20px rgba(245, 158, 11, 0.4)' : '0 6px 20px rgba(16, 185, 129, 0.4)',
                             transition: 'all 0.15s ease',
                             letterSpacing: '0.4px'
                           }}
@@ -4232,7 +4295,11 @@ Garanta que:
                           onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
                         >
                           <Play style={{ width: '18px', height: '18px', fill: 'currentColor' }} />
-                          <span>INICIAR PERGUNTA {currentRoundIndex}</span>
+                          <span>{quizFormat === 'journey' ? (() => {
+                            const j = getJourneyById(selectedJourneyId);
+                            const stage = j.stages[journeyStageIndex] || j.stages[0];
+                            return `INICIAR QUESTÃO (${stage.cityName})`;
+                          })() : `INICIAR PERGUNTA ${currentRoundIndex}`}</span>
                         </button>
                       )}
                     </div>
@@ -4248,9 +4315,24 @@ Garanta que:
 
                   {/* Floating Header */}
                   <div style={{ position: 'absolute', top: '-30px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ background: 'linear-gradient(to bottom, #8b5cf6, #6d28d9)', border: '4px solid #4c1d95', borderRadius: '9999px', padding: '12px 32px', boxShadow: '0 6px 0 rgba(76,29,149,1)' }}>
-                      <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)' }}>
-                        Roleta das Categorias
+                    <div style={{ 
+                      background: quizFormat === 'journey' ? 'linear-gradient(to bottom, #d97706, #b45309)' : 'linear-gradient(to bottom, #8b5cf6, #6d28d9)', 
+                      border: quizFormat === 'journey' ? '4px solid #78350f' : '4px solid #4c1d95', 
+                      borderRadius: '9999px', 
+                      padding: '12px 32px', 
+                      boxShadow: quizFormat === 'journey' ? '0 6px 0 #78350f' : '0 6px 0 rgba(76,29,149,1)' 
+                    }}>
+                      <h3 style={{ fontSize: '24px', fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1, textShadow: '0 2px 2px rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {quizFormat === 'journey' ? (
+                          <>
+                            <Compass style={{ width: '24px', height: '24px' }} />
+                            Roleta da Jornada · {(() => {
+                              const j = getJourneyById(selectedJourneyId);
+                              const stage = j.stages[journeyStageIndex] || j.stages[0];
+                              return stage.cityName;
+                            })()}
+                          </>
+                        ) : 'Roleta das Categorias'}
                       </h3>
                     </div>
                   </div>

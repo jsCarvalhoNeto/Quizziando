@@ -23,6 +23,7 @@ import {
   Skull,
   Compass,
   Award,
+  AlertCircle,
 } from 'lucide-react';
 import { sfx } from '../../App';
 import { RAID_BOSSES } from '../../lib/bossRaid';
@@ -42,7 +43,8 @@ export interface LaunchGameHubProps {
     selectedBossId?: string,
     questionsPerStage?: number,
     selectedJourneyId?: string,
-    customRounds?: number
+    customRounds?: number,
+    journeyUseRoulette?: boolean
   ) => void;
   onLaunchNewRoom?: (mode: 'online' | 'hybrid' | 'local') => void;
   deliveryFilter?: 'all' | 'hybrid' | 'online' | 'local';
@@ -101,6 +103,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   const [isJourneyEnabled, setIsJourneyEnabled] = useState<boolean>(false);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>(CEARA_JOURNEY.id);
   const [journeyQuestionsPerStage, setJourneyQuestionsPerStage] = useState<number>(2);
+  const [journeyRoundMode, setJourneyRoundMode] = useState<'classic' | 'roulette'>('classic');
   const [selectedClassicRounds, setSelectedClassicRounds] = useState<number | null>(null);
   const [selectionWarning, setSelectionWarning] = useState<string>('');
 
@@ -515,6 +518,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
     setSelectedFolderFilter('all');
     setSelectedBlocksCount(12);
     setSelectedClassicRounds(null);
+    setJourneyRoundMode('classic');
 
     if (card.format === 'journey') {
       setIsJourneyEnabled(true);
@@ -574,14 +578,22 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   const handleConfirmLaunch = () => {
     if (!activeCard) return;
 
+    const isJourney = activeCard.format === 'journey' || isJourneyEnabled;
+    const isJourneyWithRoulette = isJourney && journeyRoundMode === 'roulette';
+
     // Validação de Roleta: requer 2 ou mais quizzes
     if (activeCard.format === 'roulette') {
       if (selectedQuizIds.length < 2) {
         setSelectionWarning('O Modo Roleta necessita de no mínimo 2 quizzes para sortear os temas!');
         return;
       }
+    } else if (isJourney && journeyRoundMode === 'roulette') {
+      if (selectedQuizIds.length < 2) {
+        setSelectionWarning('Para a Jornada no Modo Roleta, selecione pelo menos 2 quizzes para sortear os temas!');
+        return;
+      }
     } else {
-      // Clássico, Blocos ou Jornada: requer pelo menos 1 quiz
+      // Clássico, Blocos, Batalha contra o Chefe ou Jornada Clássica: requer pelo menos 1 quiz
       if (selectedQuizIds.length < 1) {
         setSelectionWarning(`Selecione pelo menos 1 quiz para iniciar no ${activeCard.title}!`);
         return;
@@ -609,7 +621,6 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
       }
     } else {
       // Clássico, Blocos, Batalha contra o Chefe ou Jornada
-      const isJourney = format === 'journey' || isJourneyEnabled;
       const formatParam = isJourney ? 'journey' : format === 'boss_raid' ? 'boss_raid' : format === 'blocks' ? 'blocks' : 'classic';
       const blocksParam = format === 'blocks' ? selectedBlocksCount : 12;
 
@@ -617,13 +628,13 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
       const effectiveQuestionsPerStage = Math.max(1, Math.min(journeyQuestionsPerStage, totalQuestionsSelected));
 
       if (delivery === 'hybrid') {
-        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
+        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds, isJourneyWithRoulette);
       } else if (delivery === 'online') {
-        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
+        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds, isJourneyWithRoulette);
       } else if (delivery === 'local_teams') {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds, isJourneyWithRoulette);
       } else {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds, isJourneyWithRoulette);
       }
     }
 
@@ -1578,6 +1589,139 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                       ⚠️ A quantidade de questões por etapa não pode ultrapassar o total de questões disponíveis da categoria ({totalQuestionsSelected || 0} no momento).
                     </p>
                   </div>
+
+                  {/* Seletor de Formato da Rodada: Clássico (Padrão) vs Roleta (Opcional) */}
+                  <div style={{ borderTop: '1px solid #fde68a', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Formato das Rodadas na Jornada:
+                      </span>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: journeyRoundMode === 'classic' ? '#047857' : '#7c3aed', backgroundColor: journeyRoundMode === 'classic' ? '#ecfdf5' : '#f5f3ff', border: journeyRoundMode === 'classic' ? '1px solid #a7f3d0' : '1px solid #ddd6fe', padding: '2px 8px', borderRadius: '999px' }}>
+                        {journeyRoundMode === 'classic' ? '⚡ Modo Clássico Ativo' : '🎡 Modo Roleta Ativo'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
+                      {/* Opção 1: Modo Clássico (Padrão) */}
+                      <div
+                        onClick={() => {
+                          sfx.playClick();
+                          setJourneyRoundMode('classic');
+                          setSelectionWarning('');
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          padding: '12px 14px',
+                          borderRadius: '12px',
+                          backgroundColor: journeyRoundMode === 'classic' ? '#ffffff' : '#fffbeb',
+                          border: journeyRoundMode === 'classic' ? '2px solid #10b981' : '1px solid #fde68a',
+                          cursor: 'pointer',
+                          boxShadow: journeyRoundMode === 'classic' ? '0 3px 10px rgba(16, 185, 129, 0.2)' : 'none',
+                          transition: 'all 0.15s ease',
+                          position: 'relative',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            backgroundColor: journeyRoundMode === 'classic' ? '#ecfdf5' : '#fef3c7',
+                            color: journeyRoundMode === 'classic' ? '#059669' : '#d97706',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Zap style={{ width: '20px', height: '20px' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }}>
+                              Modo Clássico
+                            </span>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', backgroundColor: '#d1fae5', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                              Padrão
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '11px', color: '#64748b', margin: '3px 0 0 0', lineHeight: 1.35 }}>
+                            Perguntas diretas no telão em sequência no estilo Kahoot, sem sorteio na roleta.
+                          </p>
+                        </div>
+                        {journeyRoundMode === 'classic' && (
+                          <CheckCircle2 style={{ width: '18px', height: '18px', color: '#10b981', flexShrink: 0 }} />
+                        )}
+                      </div>
+
+                      {/* Opção 2: Modo Roleta (Opcional) */}
+                      <div
+                        onClick={() => {
+                          sfx.playClick();
+                          setJourneyRoundMode('roulette');
+                          if (selectedQuizIds.length < 2) {
+                            setSelectionWarning('Dica: O Modo Roleta requer pelo menos 2 quizzes selecionados para sortear os temas.');
+                          } else {
+                            setSelectionWarning('');
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          padding: '12px 14px',
+                          borderRadius: '12px',
+                          backgroundColor: journeyRoundMode === 'roulette' ? '#ffffff' : '#fffbeb',
+                          border: journeyRoundMode === 'roulette' ? '2px solid #8b5cf6' : '1px solid #fde68a',
+                          cursor: 'pointer',
+                          boxShadow: journeyRoundMode === 'roulette' ? '0 3px 10px rgba(139, 92, 246, 0.2)' : 'none',
+                          transition: 'all 0.15s ease',
+                          position: 'relative',
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            backgroundColor: journeyRoundMode === 'roulette' ? '#f5f3ff' : '#fef3c7',
+                            color: journeyRoundMode === 'roulette' ? '#7c3aed' : '#d97706',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <RotateCw style={{ width: '20px', height: '20px' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }}>
+                              Modo Roleta
+                            </span>
+                            <span style={{ fontSize: '10px', fontWeight: 800, color: '#6d28d9', backgroundColor: '#ede9fe', padding: '1px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                              Opcional
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '11px', color: '#64748b', margin: '3px 0 0 0', lineHeight: 1.35 }}>
+                            Gira a roleta a cada rodada para sortear o tema da pergunta da etapa.
+                          </p>
+                        </div>
+                        {journeyRoundMode === 'roulette' && (
+                          <CheckCircle2 style={{ width: '18px', height: '18px', color: '#8b5cf6', flexShrink: 0 }} />
+                        )}
+                      </div>
+                    </div>
+
+                    {journeyRoundMode === 'roulette' && selectedQuizIds.length < 2 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#b45309', backgroundColor: '#fef3c7', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                        <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                        <span>Selecione 2 ou mais quizzes abaixo para compor as fatias da roleta.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div
@@ -1845,6 +1989,82 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                         <p style={{ fontSize: '11px', color: '#78350f', margin: '2px 0 0 0' }}>
                           ⚠️ A quantidade de questões por etapa não pode ultrapassar o total de questões disponíveis da categoria ({totalQuestionsSelected || 0} no momento).
                         </p>
+                      </div>
+
+                      {/* Seletor de Formato da Rodada no Toggle: Clássico (Padrão) vs Roleta (Opcional) */}
+                      <div style={{ borderTop: '1px solid #fde68a', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Formato das Rodadas na Jornada:
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: 800, color: journeyRoundMode === 'classic' ? '#047857' : '#7c3aed', backgroundColor: journeyRoundMode === 'classic' ? '#ecfdf5' : '#f5f3ff', border: journeyRoundMode === 'classic' ? '1px solid #a7f3d0' : '1px solid #ddd6fe', padding: '2px 6px', borderRadius: '999px' }}>
+                            {journeyRoundMode === 'classic' ? '⚡ Modo Clássico (Padrão)' : '🎡 Modo Roleta (Opcional)'}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sfx.playClick();
+                              setJourneyRoundMode('classic');
+                              setSelectionWarning('');
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              backgroundColor: journeyRoundMode === 'classic' ? '#ffffff' : '#fef3c7',
+                              border: journeyRoundMode === 'classic' ? '2px solid #10b981' : '1px solid #fde68a',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <Zap style={{ width: '16px', height: '16px', color: '#10b981', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a' }}>Clássico (Padrão)</div>
+                              <div style={{ fontSize: '10px', color: '#64748b' }}>Direto nas perguntas</div>
+                            </div>
+                            {journeyRoundMode === 'classic' && (
+                              <CheckCircle2 style={{ width: '16px', height: '16px', color: '#10b981', flexShrink: 0 }} />
+                            )}
+                          </div>
+
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sfx.playClick();
+                              setJourneyRoundMode('roulette');
+                              if (selectedQuizIds.length < 2) {
+                                setSelectionWarning('Dica: O Modo Roleta requer pelo menos 2 quizzes selecionados.');
+                              } else {
+                                setSelectionWarning('');
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              backgroundColor: journeyRoundMode === 'roulette' ? '#ffffff' : '#fef3c7',
+                              border: journeyRoundMode === 'roulette' ? '2px solid #8b5cf6' : '1px solid #fde68a',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            <RotateCw style={{ width: '16px', height: '16px', color: '#8b5cf6', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '12px', fontWeight: 900, color: '#0f172a' }}>Roleta (Opcional)</div>
+                              <div style={{ fontSize: '10px', color: '#64748b' }}>Sorteio antes de perguntar</div>
+                            </div>
+                            {journeyRoundMode === 'roulette' && (
+                              <CheckCircle2 style={{ width: '16px', height: '16px', color: '#8b5cf6', flexShrink: 0 }} />
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
