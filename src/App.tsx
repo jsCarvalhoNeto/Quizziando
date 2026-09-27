@@ -5267,19 +5267,20 @@ Garanta que:
                 >
                   <div
                     style={{
-                      maxWidth: '780px',
+                      maxWidth: 'min(95vw, 980px)',
                       width: '100%',
+                      maxHeight: '94vh',
+                      overflowY: 'auto',
                       backgroundColor: '#0f172a',
                       borderRadius: '28px',
                       border: '2px solid #f59e0b',
                       boxShadow: '0 25px 60px -12px rgba(245, 158, 11, 0.4), 0 0 40px rgba(245, 158, 11, 0.25)',
-                      padding: '32px',
+                      padding: '24px 32px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '20px',
+                      gap: '16px',
                       position: 'relative',
-                      overflow: 'hidden',
                       textAlign: 'center',
                     }}
                   >
@@ -5338,25 +5339,26 @@ Garanta que:
                     {/* Imagem do Mapa da Cidade Conquistada */}
                     <div
                       style={{
-                        width: '100%',
-                        maxWidth: '520px',
-                        borderRadius: '20px',
+                        borderRadius: '24px',
                         overflow: 'hidden',
                         border: '3px solid #f59e0b',
-                        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6), 0 0 30px rgba(245, 158, 11, 0.35)',
+                        boxShadow: '0 16px 45px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 158, 11, 0.45)',
                         zIndex: 1,
-                        backgroundColor: '#1e293b',
+                        backgroundColor: '#f5eedc',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
                       <img
                         src={currentStage.image}
                         alt={currentStage.cityName}
                         style={{
-                          width: '100%',
-                          maxHeight: '280px',
+                          width: 'auto',
+                          maxWidth: 'min(88vw, 780px)',
+                          height: 'min(52vh, 480px)',
                           objectFit: 'contain',
                           display: 'block',
-                          backgroundColor: '#090d16',
                         }}
                       />
                     </div>
@@ -5455,19 +5457,20 @@ Garanta que:
                 >
                   <div
                     style={{
-                      maxWidth: '820px',
+                      maxWidth: 'min(95vw, 1020px)',
                       width: '100%',
+                      maxHeight: '94vh',
+                      overflowY: 'auto',
                       backgroundColor: '#0b101e',
                       borderRadius: '32px',
                       border: '3px solid #fbbf24',
                       boxShadow: '0 0 60px rgba(251, 191, 36, 0.4), 0 25px 60px rgba(0, 0, 0, 0.8)',
-                      padding: '40px',
+                      padding: '28px 36px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '24px',
+                      gap: '18px',
                       position: 'relative',
-                      overflow: 'hidden',
                       textAlign: 'center',
                     }}
                   >
@@ -5488,7 +5491,7 @@ Garanta que:
 
                     {/* Coroa e Troféu */}
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                      <Crown style={{ width: '64px', height: '64px', color: '#fbbf24', filter: 'drop-shadow(0 0 16px rgba(251, 191, 36, 0.8))' }} />
+                      <Crown style={{ width: '56px', height: '56px', color: '#fbbf24', filter: 'drop-shadow(0 0 16px rgba(251, 191, 36, 0.8))' }} />
                     </div>
 
                     <div style={{ zIndex: 1 }}>
@@ -5508,16 +5511,16 @@ Garanta que:
                       </span>
                       <h1
                         style={{
-                          fontSize: 'clamp(32px, 4.5vw, 48px)',
+                          fontSize: 'clamp(28px, 4vw, 44px)',
                           fontWeight: 900,
                           color: '#ffffff',
-                          margin: '12px 0 6px 0',
+                          margin: '10px 0 4px 0',
                           letterSpacing: '-0.02em',
                         }}
                       >
                         Chegada Triunfal em Fortaleza!
                       </h1>
-                      <p style={{ fontSize: '16px', color: '#cbd5e1', margin: 0, fontWeight: 600 }}>
+                      <p style={{ fontSize: '15px', color: '#cbd5e1', margin: 0, fontWeight: 600 }}>
                         Cruzamos o Ceará de Juazeiro do Norte à Capital da Luz acertando todas as etapas!
                       </p>
                     </div>
@@ -5525,22 +5528,24 @@ Garanta que:
                     {/* Imagem de Fortaleza (mapa06.png) */}
                     <div
                       style={{
-                        width: '100%',
-                        maxWidth: '540px',
                         borderRadius: '24px',
                         overflow: 'hidden',
                         border: '3px solid #fbbf24',
-                        boxShadow: '0 15px 40px rgba(0, 0, 0, 0.7), 0 0 35px rgba(251, 191, 36, 0.35)',
+                        boxShadow: '0 16px 45px rgba(0, 0, 0, 0.7), 0 0 40px rgba(251, 191, 36, 0.45)',
                         zIndex: 1,
-                        backgroundColor: '#090d16',
+                        backgroundColor: '#f5eedc',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                     >
                       <img
                         src="/jornada/mapa06.png"
                         alt="Fortaleza Conquistada"
                         style={{
-                          width: '100%',
-                          maxHeight: '280px',
+                          width: 'auto',
+                          maxWidth: 'min(88vw, 760px)',
+                          height: 'min(50vh, 460px)',
                           objectFit: 'contain',
                           display: 'block',
                         }}
