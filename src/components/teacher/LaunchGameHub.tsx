@@ -22,6 +22,7 @@ import {
   Shield,
   Skull,
   Compass,
+  Award,
 } from 'lucide-react';
 import { sfx } from '../../App';
 import { RAID_BOSSES } from '../../lib/bossRaid';
@@ -31,7 +32,7 @@ export interface LaunchGameHubProps {
   categories: Array<{ id: string; name: string; color?: string; folder_id?: string | null; icon?: string }>;
   questions: Array<{ id: string; category_id: string; question_text: string }>;
   folders: Array<{ id: string; name: string; color?: string }>;
-  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
+  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', customRounds?: number) => void;
   onStartClassicGame?: (
     categoryIds: string[],
     mode: 'online' | 'local' | 'hybrid',
@@ -40,7 +41,8 @@ export interface LaunchGameHubProps {
     totalBlocks?: number,
     selectedBossId?: string,
     questionsPerStage?: number,
-    selectedJourneyId?: string
+    selectedJourneyId?: string,
+    customRounds?: number
   ) => void;
   onLaunchNewRoom?: (mode: 'online' | 'hybrid' | 'local') => void;
   deliveryFilter?: 'all' | 'hybrid' | 'online' | 'local';
@@ -99,6 +101,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
   const [isJourneyEnabled, setIsJourneyEnabled] = useState<boolean>(false);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>(CEARA_JOURNEY.id);
   const [journeyQuestionsPerStage, setJourneyQuestionsPerStage] = useState<number>(2);
+  const [selectedClassicRounds, setSelectedClassicRounds] = useState<number | null>(null);
   const [selectionWarning, setSelectionWarning] = useState<string>('');
 
   // Mapeamento de perguntas por categoria
@@ -494,6 +497,15 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
     }, 0);
   }, [selectedQuizIds, questionCountByCat]);
 
+  // Quantidade efetiva de rodadas para a partida
+  const effectiveClassicRounds = useMemo(() => {
+    if (totalQuestionsSelected === 0) return 0;
+    if (selectedClassicRounds !== null) {
+      return Math.max(1, Math.min(selectedClassicRounds, totalQuestionsSelected));
+    }
+    return Math.min(totalQuestionsSelected, 10);
+  }, [totalQuestionsSelected, selectedClassicRounds]);
+
   // Ao abrir o modal clicando em um card
   const handleOpenLaunchModal = (card: GameModeCardDef) => {
     sfx.playClick();
@@ -502,6 +514,7 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
     setSearchQuizQuery('');
     setSelectedFolderFilter('all');
     setSelectedBlocksCount(12);
+    setSelectedClassicRounds(null);
 
     if (card.format === 'journey') {
       setIsJourneyEnabled(true);
@@ -586,13 +599,13 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
     // Mapeamento dos parâmetros de lançamento
     if (format === 'roulette') {
       if (delivery === 'hybrid') {
-        onStartRouletteGame(selectedQuizIds, 'hybrid');
+        onStartRouletteGame(selectedQuizIds, 'hybrid', undefined, effectiveClassicRounds);
       } else if (delivery === 'online') {
-        onStartRouletteGame(selectedQuizIds, 'online');
+        onStartRouletteGame(selectedQuizIds, 'online', undefined, effectiveClassicRounds);
       } else if (delivery === 'local_teams') {
-        onStartRouletteGame(selectedQuizIds, 'local', 'teams');
+        onStartRouletteGame(selectedQuizIds, 'local', 'teams', effectiveClassicRounds);
       } else {
-        onStartRouletteGame(selectedQuizIds, 'local', 'individual');
+        onStartRouletteGame(selectedQuizIds, 'local', 'individual', effectiveClassicRounds);
       }
     } else {
       // Clássico, Blocos, Batalha contra o Chefe ou Jornada
@@ -604,13 +617,13 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
       const effectiveQuestionsPerStage = Math.max(1, Math.min(journeyQuestionsPerStage, totalQuestionsSelected));
 
       if (delivery === 'hybrid') {
-        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
+        onStartClassicGame?.(selectedQuizIds, 'hybrid', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
       } else if (delivery === 'online') {
-        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
+        onStartClassicGame?.(selectedQuizIds, 'online', undefined, formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
       } else if (delivery === 'local_teams') {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'teams', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
       } else {
-        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId);
+        onStartClassicGame?.(selectedQuizIds, 'local', 'individual', formatParam, blocksParam, selectedBossId, effectiveQuestionsPerStage, selectedJourneyId, effectiveClassicRounds);
       }
     }
 
@@ -1835,6 +1848,149 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Seletor de Quantidade de Rodadas da Partida (Modo Clássico) */}
+                  {!isJourneyEnabled && (
+                    <div
+                      style={{
+                        borderTop: '1.5px solid #bfdbfe',
+                        paddingTop: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '8px',
+                              backgroundColor: '#dbeafe',
+                              color: '#1d4ed8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Award style={{ width: '16px', height: '16px' }} />
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: '#1e40af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              Número de Rodadas da Partida
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>
+                              Quantas perguntas serão sorteadas para esta partida
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '999px',
+                            backgroundColor: '#dbeafe',
+                            color: '#1d4ed8',
+                            fontSize: '12px',
+                            fontWeight: 900,
+                          }}
+                        >
+                          🎯 {effectiveClassicRounds} {effectiveClassicRounds === 1 ? 'Rodada' : 'Rodadas'} ({totalQuestionsSelected} disponíveis)
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {[3, 5, 10, 15, 20].map(num => {
+                          if (totalQuestionsSelected < num) return null;
+                          const isChosen = effectiveClassicRounds === num;
+                          return (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => {
+                                sfx.playClick();
+                                setSelectedClassicRounds(num);
+                              }}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                border: isChosen ? '2px solid #2563eb' : '1px solid #bfdbfe',
+                                backgroundColor: isChosen ? '#2563eb' : '#ffffff',
+                                color: isChosen ? '#ffffff' : '#1e40af',
+                                boxShadow: isChosen ? '0 2px 6px rgba(37, 99, 235, 0.3)' : 'none',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              {num} rodadas
+                            </button>
+                          );
+                        })}
+
+                        {totalQuestionsSelected > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sfx.playClick();
+                              setSelectedClassicRounds(totalQuestionsSelected);
+                            }}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              border: effectiveClassicRounds === totalQuestionsSelected ? '2px solid #2563eb' : '1px solid #bfdbfe',
+                              backgroundColor: effectiveClassicRounds === totalQuestionsSelected ? '#2563eb' : '#eff6ff',
+                              color: effectiveClassicRounds === totalQuestionsSelected ? '#ffffff' : '#1d4ed8',
+                              boxShadow: effectiveClassicRounds === totalQuestionsSelected ? '0 2px 6px rgba(37, 99, 235, 0.3)' : 'none',
+                              transition: 'all 0.15s ease',
+                            }}
+                          >
+                            Todas ({totalQuestionsSelected})
+                          </button>
+                        )}
+
+                        {/* Input numérico personalizado */}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Outro valor:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={totalQuestionsSelected || 50}
+                            value={effectiveClassicRounds || ''}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val)) {
+                                setSelectedClassicRounds(Math.max(1, Math.min(val, totalQuestionsSelected || 50)));
+                              }
+                            }}
+                            style={{
+                              width: '58px',
+                              padding: '5px 8px',
+                              textAlign: 'center',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              borderRadius: '8px',
+                              border: '1.5px solid #bfdbfe',
+                              color: '#1e40af',
+                              outline: 'none',
+                              backgroundColor: '#ffffff',
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0 0' }}>
+                        {effectiveClassicRounds < totalQuestionsSelected
+                          ? `🎲 O sistema sorteará aleatoriamente ${effectiveClassicRounds} das ${totalQuestionsSelected} perguntas sem repetição.`
+                          : `✅ Todas as ${totalQuestionsSelected} perguntas cadastradas serão jogadas.`}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2125,11 +2281,16 @@ export const LaunchGameHub: React.FC<LaunchGameHubProps> = ({
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                  {selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'}
+                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{selectedQuizIds.length} {selectedQuizIds.length === 1 ? 'quiz selecionado' : 'quizzes selecionados'}</span>
+                  {activeCard.format !== 'blocks' && !isJourneyEnabled && totalQuestionsSelected > 0 && (
+                    <span style={{ color: '#2563eb', backgroundColor: '#dbeafe', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 900 }}>
+                      🎯 {effectiveClassicRounds} {effectiveClassicRounds === 1 ? 'rodada' : 'rodadas'}
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  Total de <b>{totalQuestionsSelected}</b> perguntas prontas para esta partida
+                  Total de <b>{totalQuestionsSelected}</b> perguntas disponíveis no acervo selecionado
                 </span>
               </div>
 

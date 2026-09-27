@@ -2821,7 +2821,8 @@ Garanta que:
     totalBlocks: number = 12,
     bossId?: string,
     questionsPerStage?: number,
-    selectedJourneyIdParam?: string
+    selectedJourneyIdParam?: string,
+    customRounds?: number
   ) => {
     if (categoryIds.length < 1) {
       alert(
@@ -2877,6 +2878,9 @@ Garanta que:
 
     // 1. Modo Local (Offline)
     if (mode === 'local') {
+      if (customRounds) {
+        setGameRounds(Math.max(1, Math.min(catQuestions.length, customRounds)));
+      }
       setAppMode('local');
       sfx.playClick();
       return;
@@ -2902,6 +2906,8 @@ Garanta que:
       ? Math.max(1, Math.min(catQuestions.length, 6 * (questionsPerStage || 2)))
       : format === 'blocks'
       ? Math.max(1, Math.min(catQuestions.length, totalBlocks || 12))
+      : customRounds
+      ? Math.max(1, Math.min(catQuestions.length, customRounds))
       : Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
     setGameRounds(roundsCount);
 
@@ -2946,7 +2952,7 @@ Garanta que:
     }
   };
 
-  const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', playMode?: 'teams' | 'individual') => {
+  const handleStartRouletteGame = async (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', playMode?: 'teams' | 'individual', customRounds?: number) => {
     if (categoryIds.length < 2 || categoryIds.length > 12) {
       alert('Para jogar com a Roleta, selecione entre 2 e no máximo 12 quizzes.');
       return;
@@ -2957,8 +2963,17 @@ Garanta que:
       setLocalPlayMode(playMode);
     }
 
+    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
+    if (catQuestions.length === 0) {
+      alert('Os quizzes selecionados não possuem perguntas cadastradas.');
+      return;
+    }
+
     // 1. Modo Local (Offline)
     if (mode === 'local') {
+      if (customRounds) {
+        setGameRounds(Math.max(1, Math.min(catQuestions.length, customRounds)));
+      }
       setAppMode('local');
       sfx.playClick();
       return;
@@ -2975,13 +2990,9 @@ Garanta que:
     setShowQuizConfigModal(false);
     sfx.playClick();
 
-    const catQuestions = questions.filter(q => categoryIds.includes(q.category_id));
-    if (catQuestions.length === 0) {
-      alert('Os quizzes selecionados não possuem perguntas cadastradas.');
-      return;
-    }
-
-    const roundsCount = Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
+    const roundsCount = customRounds
+      ? Math.max(1, Math.min(catQuestions.length, customRounds))
+      : Math.max(1, Math.min(catQuestions.length, gameRounds || 10, 20));
     setGameRounds(roundsCount);
 
     try {

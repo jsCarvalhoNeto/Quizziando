@@ -1,5 +1,5 @@
 // GameLaunchModal.tsx — Modal para escolher formato e modo de inicialização do jogo
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Zap,
@@ -10,6 +10,7 @@ import {
   Hand,
   Smartphone,
   ChevronRight,
+  Award,
 } from 'lucide-react';
 
 interface GameLaunchModalProps {
@@ -20,10 +21,13 @@ interface GameLaunchModalProps {
   selectedQuizIds: string[];
   blocksCount: number;
   setBlocksCount: (count: number) => void;
-  onStartOnline: () => void;
-  onStartLocalTeams: () => void;
-  onStartLocalIndividual: () => void;
-  onStartHybrid: () => void;
+  roundsCount?: number;
+  setRoundsCount?: (count: number) => void;
+  totalAvailableQuestions?: number;
+  onStartOnline: (customRounds?: number) => void;
+  onStartLocalTeams: (customRounds?: number) => void;
+  onStartLocalIndividual: (customRounds?: number) => void;
+  onStartHybrid: (customRounds?: number) => void;
 }
 
 export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
@@ -34,11 +38,29 @@ export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
   selectedQuizIds,
   blocksCount,
   setBlocksCount,
+  roundsCount,
+  setRoundsCount,
+  totalAvailableQuestions,
   onStartOnline,
   onStartLocalTeams,
   onStartLocalIndividual,
   onStartHybrid,
 }) => {
+  const [localRounds, setLocalRounds] = useState<number>(() => roundsCount || 10);
+
+  useEffect(() => {
+    if (roundsCount) {
+      setLocalRounds(roundsCount);
+    } else if (totalAvailableQuestions) {
+      setLocalRounds(Math.min(totalAvailableQuestions, 10));
+    }
+  }, [roundsCount, totalAvailableQuestions]);
+
+  const handleUpdateRounds = (val: number) => {
+    setLocalRounds(val);
+    setRoundsCount?.(val);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -255,12 +277,130 @@ export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
           </div>
         )}
 
+        {/* Configuração da Quantidade Pré-definida de Rodadas para Modo Clássico ou Roleta */}
+        {(playSessionType === 'classic' || playSessionType === 'roulette') && (
+          <div
+            style={{
+              backgroundColor: '#eff6ff',
+              border: '1.5px solid #bfdbfe',
+              borderRadius: '14px',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award style={{ width: '18px', height: '18px', color: '#2563eb' }} />
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#1e40af', display: 'block' }}>
+                    Número de Rodadas (Perguntas):
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                    Quantas perguntas serão sorteadas para esta partida
+                  </span>
+                </div>
+              </div>
+              <span
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  backgroundColor: '#dbeafe',
+                  color: '#1d4ed8',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                }}
+              >
+                🎯 {localRounds} {localRounds === 1 ? 'Rodada' : 'Rodadas'}
+                {totalAvailableQuestions ? ` (de ${totalAvailableQuestions} disponíveis)` : ''}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {[3, 5, 10, 15, 20].map((num) => {
+                if (totalAvailableQuestions && totalAvailableQuestions < num) return null;
+                const isChosen = localRounds === num;
+                return (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleUpdateRounds(num)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      border: isChosen ? '2px solid #2563eb' : '1px solid #bfdbfe',
+                      backgroundColor: isChosen ? '#2563eb' : '#ffffff',
+                      color: isChosen ? '#ffffff' : '#1e40af',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isChosen ? '0 2px 6px rgba(37, 99, 235, 0.3)' : 'none',
+                    }}
+                  >
+                    {num} rodadas
+                  </button>
+                );
+              })}
+
+              {Boolean(totalAvailableQuestions && totalAvailableQuestions > 0) && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateRounds(totalAvailableQuestions!)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    border: localRounds === totalAvailableQuestions ? '2px solid #2563eb' : '1px solid #bfdbfe',
+                    backgroundColor: localRounds === totalAvailableQuestions ? '#2563eb' : '#eff6ff',
+                    color: localRounds === totalAvailableQuestions ? '#ffffff' : '#1d4ed8',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Todas ({totalAvailableQuestions})
+                </button>
+              )}
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Outro:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalAvailableQuestions || 50}
+                  value={localRounds || ''}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) {
+                      handleUpdateRounds(Math.max(1, Math.min(val, totalAvailableQuestions || 50)));
+                    }
+                  }}
+                  style={{
+                    width: '56px',
+                    padding: '4px 6px',
+                    textAlign: 'center',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    borderRadius: '8px',
+                    border: '1.5px solid #bfdbfe',
+                    color: '#1e40af',
+                    outline: 'none',
+                    backgroundColor: '#ffffff',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Lista dos 4 Modos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Opção 1: Modo Online */}
           <button
             type="button"
-            onClick={onStartOnline}
+            onClick={() => onStartOnline(localRounds)}
             style={{
               padding: '18px',
               borderRadius: '14px',
@@ -355,7 +495,7 @@ export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
           {/* Opção 2: Modo Local por Equipes */}
           <button
             type="button"
-            onClick={onStartLocalTeams}
+            onClick={() => onStartLocalTeams(localRounds)}
             style={{
               padding: '18px',
               borderRadius: '14px',
@@ -450,7 +590,7 @@ export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
           {/* Opção 3: Modo Local Individual */}
           <button
             type="button"
-            onClick={onStartLocalIndividual}
+            onClick={() => onStartLocalIndividual(localRounds)}
             style={{
               padding: '18px',
               borderRadius: '14px',
@@ -545,7 +685,7 @@ export const GameLaunchModal: React.FC<GameLaunchModalProps> = ({
           {/* Opção 4: Presencial com Celulares */}
           <button
             type="button"
-            onClick={onStartHybrid}
+            onClick={() => onStartHybrid(localRounds)}
             style={{
               padding: '18px',
               borderRadius: '14px',

@@ -57,8 +57,8 @@ interface QuizLibraryProps {
   currentUserId?: string;
   isAdmin?: boolean;
   onCreateNewQuiz: () => void;
-  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual') => void;
-  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid', totalBlocks?: number, selectedBossId?: string) => void;
+  onStartRouletteGame: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', customRounds?: number) => void;
+  onStartClassicGame?: (categoryIds: string[], mode: 'online' | 'local' | 'hybrid', localPlayMode?: 'teams' | 'individual', format?: 'classic' | 'blocks' | 'boss_raid' | 'journey', totalBlocks?: number, selectedBossId?: string, questionsPerStage?: number, selectedJourneyId?: string, customRounds?: number) => void;
   onSaveRouletteQuiz: (name: string, categoryIds: string[]) => void;
   onOpenQuestionManager: (mode?: 'bank' | 'create') => void;
 }
@@ -194,6 +194,11 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     });
     return map;
   }, [questions]);
+
+  // Total de perguntas dos quizzes atualmente selecionados
+  const totalQuestionsInSelection = useMemo(() => {
+    return selectedQuizIds.reduce((sum, id) => sum + (questionCountByCategory.get(id) || 0), 0);
+  }, [selectedQuizIds, questionCountByCategory]);
 
   // Mapeamento de nome de pasta por ID
   const folderMap = useMemo(() => {
@@ -1825,36 +1830,37 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
         selectedQuizIds={selectedQuizIds}
         blocksCount={blocksCount}
         setBlocksCount={setBlocksCount}
-        onStartOnline={() => {
+        totalAvailableQuestions={totalQuestionsInSelection}
+        onStartOnline={(customRounds) => {
           setShowRouletteModeModal(false);
           if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
-            onStartClassicGame(selectedQuizIds, 'online', undefined, playSessionType, blocksCount);
+            onStartClassicGame(selectedQuizIds, 'online', undefined, playSessionType, blocksCount, undefined, undefined, undefined, customRounds);
           } else {
-            onStartRouletteGame(selectedQuizIds, 'online');
+            onStartRouletteGame(selectedQuizIds, 'online', undefined, customRounds);
           }
         }}
-        onStartLocalTeams={() => {
+        onStartLocalTeams={(customRounds) => {
           setShowRouletteModeModal(false);
           if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
-            onStartClassicGame(selectedQuizIds, 'local', 'teams', playSessionType, blocksCount);
+            onStartClassicGame(selectedQuizIds, 'local', 'teams', playSessionType, blocksCount, undefined, undefined, undefined, customRounds);
           } else {
-            onStartRouletteGame(selectedQuizIds, 'local', 'teams');
+            onStartRouletteGame(selectedQuizIds, 'local', 'teams', customRounds);
           }
         }}
-        onStartLocalIndividual={() => {
+        onStartLocalIndividual={(customRounds) => {
           setShowRouletteModeModal(false);
           if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
-            onStartClassicGame(selectedQuizIds, 'local', 'individual', playSessionType, blocksCount);
+            onStartClassicGame(selectedQuizIds, 'local', 'individual', playSessionType, blocksCount, undefined, undefined, undefined, customRounds);
           } else {
-            onStartRouletteGame(selectedQuizIds, 'local', 'individual');
+            onStartRouletteGame(selectedQuizIds, 'local', 'individual', customRounds);
           }
         }}
-        onStartHybrid={() => {
+        onStartHybrid={(customRounds) => {
           setShowRouletteModeModal(false);
           if ((playSessionType === 'classic' || playSessionType === 'blocks') && onStartClassicGame) {
-            onStartClassicGame(selectedQuizIds, 'hybrid', undefined, playSessionType, blocksCount);
+            onStartClassicGame(selectedQuizIds, 'hybrid', undefined, playSessionType, blocksCount, undefined, undefined, undefined, customRounds);
           } else {
-            onStartRouletteGame(selectedQuizIds, 'hybrid');
+            onStartRouletteGame(selectedQuizIds, 'hybrid', undefined, customRounds);
           }
         }}
       />

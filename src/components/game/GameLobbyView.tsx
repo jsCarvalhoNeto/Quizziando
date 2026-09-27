@@ -19,7 +19,8 @@ import {
   Zap,
   LayoutGrid,
   X,
-  Smartphone
+  Smartphone,
+  Award
 } from 'lucide-react';
 import { type GamePlayer } from '../../App';
 
@@ -755,8 +756,24 @@ export const GameLobbyView: React.FC<GameLobbyViewProps> = ({
               <span>{quizFormat === 'blocks' ? 'Modo Blocos (Kahoot)' : quizFormat === 'classic' ? 'Quiz Clássico (Sem Roleta)' : 'Quiz com Roleta'}</span>
             </span>
 
-            <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>
-              {gameRounds} {gameRounds === 1 ? 'Rodada' : 'Rodadas'}
+            <span
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#ffffff',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+              }}
+              title={`Partida configurada para ${gameRounds} ${gameRounds === 1 ? 'rodada' : 'rodadas'} de perguntas`}
+            >
+              <Award style={{ width: '13px', height: '13px', color: '#facc15' }} />
+              <span>{gameRounds} {gameRounds === 1 ? 'Rodada' : 'Rodadas'}</span>
             </span>
 
             {selectedCategories.length > 0 && (
