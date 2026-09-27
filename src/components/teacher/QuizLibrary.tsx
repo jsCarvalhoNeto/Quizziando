@@ -1410,31 +1410,6 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
                             {/* Separador */}
                             <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
 
-                            {/* Metadado: Data de Criação do Quiz */}
-                            <div 
-                              style={{ 
-                                padding: '6px 10px', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px',
-                                fontSize: '11px',
-                                color: '#475569',
-                                backgroundColor: '#f8fafc',
-                                borderRadius: '6px',
-                                margin: '2px 0'
-                              }}
-                              title={`Data de criação: ${formatQuizDate(cat.created_at)}`}
-                            >
-                              <Calendar style={{ width: '13px', height: '13px', color: '#6366f1', flexShrink: 0 }} />
-                              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                                <span style={{ fontSize: '9px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>Criado em</span>
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{formatQuizDate(cat.created_at)}</span>
-                              </div>
-                            </div>
-
-                            {/* Separador */}
-                            <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
-
                             {/* Opção Excluir Quiz */}
                             <button
                               type="button"
