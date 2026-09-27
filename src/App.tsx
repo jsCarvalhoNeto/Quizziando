@@ -3122,22 +3122,29 @@ Garanta que:
   });
   useEffect(() => { revealAnswerRef.current = revealAnswer; });
 
-  const handleAdvanceJourneyStage = () => {
+  const handleAdvanceJourneyStage = async (goToRanking: boolean = true) => {
     sfx.playCorrect();
     setShowJourneyStageMapModal(false);
     if (journeyStageIndex < 5) {
       setJourneyStageIndex(prev => prev + 1);
       setJourneyStageCorrectCount(0);
       setJourneyStageTotalAnswered(0);
+      if (goToRanking) {
+        await handleGoToRanking();
+      }
     } else {
-      setShowJourneyFinalVictory(true);
-      sfx.playVictory();
-      confetti({
-        particleCount: 220,
-        spread: 120,
-        origin: { y: 0.45 },
-        colors: ['#fbbf24', '#f59e0b', '#3b82f6', '#10b981', '#ec4899']
-      });
+      if (goToRanking) {
+        await handleGoToRanking();
+      } else {
+        setShowJourneyFinalVictory(true);
+        sfx.playVictory();
+        confetti({
+          particleCount: 220,
+          spread: 120,
+          origin: { y: 0.45 },
+          colors: ['#fbbf24', '#f59e0b', '#3b82f6', '#10b981', '#ec4899']
+        });
+      }
     }
   };
 
@@ -5382,50 +5389,74 @@ Garanta que:
                       </p>
                     </div>
 
-                    {/* Botões de Ação do Professor */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', zIndex: 1, marginTop: '8px' }}>
+                    {/* Botões de Ação do Professor na Tela do Mapa */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', zIndex: 1, marginTop: '8px', flexWrap: 'wrap' }}>
                       {role === 'operator' ? (
-                        <button
-                          type="button"
-                          onClick={handleAdvanceJourneyStage}
-                          style={{
-                            padding: '14px 36px',
-                            borderRadius: '16px',
-                            border: 'none',
-                            background: isFinalStage
-                              ? 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)'
-                              : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                            color: '#ffffff',
-                            fontSize: '15px',
-                            fontWeight: 900,
-                            cursor: 'pointer',
-                            boxShadow: isFinalStage
-                              ? '0 8px 25px rgba(245, 158, 11, 0.5)'
-                              : '0 8px 25px rgba(16, 185, 129, 0.45)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            transition: 'all 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-                        >
-                          {isFinalStage ? (
-                            <>
-                              <span>Ver Celebração Épica de Fortaleza ⭐</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>Avançar para {nextStage?.cityName || 'Próxima Cidade'}</span>
-                              <ChevronRight style={{ width: '20px', height: '20px' }} />
-                            </>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleAdvanceJourneyStage(true)}
+                            className="btn-glow"
+                            style={{
+                              padding: '14px 36px',
+                              borderRadius: '16px',
+                              border: 'none',
+                              background: 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
+                              color: '#ffffff',
+                              fontSize: '16px',
+                              fontWeight: 900,
+                              cursor: 'pointer',
+                              boxShadow: '0 8px 25px rgba(236, 72, 153, 0.5), 0 0 20px rgba(139, 92, 246, 0.4)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              letterSpacing: '0.02em',
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
+                              <span>Ver Placar da Rodada</span>
+                              {nextStage && (
+                                <span style={{ fontSize: '11px', opacity: 0.9, fontWeight: 700 }}>
+                                  Próxima cidade: {nextStage.cityName}
+                                </span>
+                              )}
+                            </div>
+                            <ChevronRight style={{ width: '22px', height: '22px' }} />
+                          </button>
+
+                          {isFinalStage && (
+                            <button
+                              type="button"
+                              onClick={() => handleAdvanceJourneyStage(false)}
+                              style={{
+                                padding: '14px 30px',
+                                borderRadius: '16px',
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                                color: '#0f172a',
+                                fontSize: '15px',
+                                fontWeight: 900,
+                                cursor: 'pointer',
+                                boxShadow: '0 8px 25px rgba(245, 158, 11, 0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                letterSpacing: '0.02em',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                            >
+                              <span>⭐ Celebração Épica de Fortaleza</span>
+                            </button>
                           )}
-                        </button>
+                        </>
                       ) : (
                         <div style={{ fontSize: '13px', color: '#cbd5e1', fontStyle: 'italic' }}>
-                          Aguardando o professor avançar a expedição para a próxima cidade...
+                          Aguardando o professor avançar para o placar da rodada...
                         </div>
                       )}
                     </div>
