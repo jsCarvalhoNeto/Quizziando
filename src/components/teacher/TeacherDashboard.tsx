@@ -30,7 +30,8 @@ import {
   BookOpen,
   Loader2,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  Compass
 } from 'lucide-react';
 import { type SavedQuiz } from '../../lib/savedQuizzes';
 import { type Category, type Question, GAME_THEMES, sfx } from '../../App';
@@ -73,7 +74,7 @@ interface TeacherDashboardProps {
   onOpenSettings?: () => void;
   onRecoverRoom: (roomCode: string) => void;
   onCloseRoom: (roomCode: string) => void;
-  onLaunchNewRoom: (mode: 'online' | 'hybrid' | 'local') => void;
+  onLaunchNewRoom: (mode: 'online' | 'hybrid' | 'local' | 'journey') => void;
   // Configurações e IA
   geminiApiKey?: string;
   onUpdateGeminiApiKey?: (key: string) => void;
@@ -1801,6 +1802,42 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               >
                 <Users style={{ width: '16px', height: '16px', color: '#10b981' }} />
                 <span>Local (2 Times)</span>
+              </button>
+
+              {/* Botão Modo Jornada */}
+              <button
+                type="button"
+                onClick={() => {
+                  onLaunchNewRoom('journey');
+                  sfx.playClick();
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#b45309',
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  marginTop: '4px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.18)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.08)';
+                }}
+                title="Lançar Modo Jornada: Expedição Ceará (Juazeiro a Fortaleza)"
+              >
+                <Compass style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
+                <span>Modo Jornada (Ceará)</span>
+                <span style={{ fontSize: '9px', background: '#f59e0b', color: '#0f172a', padding: '1px 5px', borderRadius: '999px', fontWeight: 900, marginLeft: 'auto' }}>NOVO</span>
               </button>
             </div>
 

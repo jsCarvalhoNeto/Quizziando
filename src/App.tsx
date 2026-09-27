@@ -3821,6 +3821,8 @@ Garanta que:
                 } else if (mode === 'online') {
                   setHybridMode(false);
                   setShowQuizConfigModal(true);
+                } else if (mode === 'journey') {
+                  setAppMode('journey');
                 } else {
                   setAppMode('local');
                 }
