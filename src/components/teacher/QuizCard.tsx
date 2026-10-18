@@ -14,6 +14,9 @@ import { type SavedQuiz } from '../../lib/savedQuizzes';
 
 interface QuizCardProps {
   quiz: SavedQuiz;
+  folders?: Array<{ id: string; name: string; color?: string }>;
+  folderName?: string;
+  folderColor?: string;
   onPlay: (quiz: SavedQuiz) => void;
   onEdit?: (quiz: SavedQuiz) => void;
   onDuplicate: (quizId: string) => void;
@@ -34,6 +37,9 @@ const CARD_GRADIENTS = [
 
 export const QuizCard: React.FC<QuizCardProps> = ({
   quiz,
+  folders = [],
+  folderName,
+  folderColor,
   onPlay,
   onEdit,
   onDuplicate,
@@ -43,6 +49,10 @@ export const QuizCard: React.FC<QuizCardProps> = ({
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const matchedFolder = folders.find(f => f.id === quiz.folderId);
+  const resolvedFolderName = folderName || matchedFolder?.name || (quiz.folderId ? 'Pasta' : 'Geral (Sem Pasta)');
+  const resolvedFolderColor = folderColor || matchedFolder?.color || '#46178f';
 
   // Fecha o menu ao clicar fora
   useEffect(() => {
@@ -141,8 +151,23 @@ export const QuizCard: React.FC<QuizCardProps> = ({
                 <Star style={{ width: '14px', height: '14px', fill: '#eab308', color: '#eab308', flexShrink: 0 }} />
               )}
             </div>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-              {quiz.authorName || 'Professor'} · Modificado em {formattedDate}
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{quiz.authorName || 'Educador'}</span>
+              <span>·</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span 
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: quiz.folderId ? resolvedFolderColor : '#94a3b8',
+                    display: 'inline-block'
+                  }}
+                />
+                {resolvedFolderName}
+              </span>
+              <span>·</span>
+              <span>Modificado em {formattedDate}</span>
             </p>
           </div>
         </div>
@@ -580,10 +605,31 @@ export const QuizCard: React.FC<QuizCardProps> = ({
         </div>
 
         {/* Rodapé do Card */}
-        <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {quiz.folderId ? 'Pasta' : 'GERAL'}
-          </span>
+        <div style={{ paddingTop: '8px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, maxWidth: '65%' }}>
+            <span 
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: quiz.folderId ? resolvedFolderColor : '#94a3b8',
+                flexShrink: 0,
+              }}
+            />
+            <span 
+              style={{ 
+                fontSize: '11px', 
+                color: '#64748b', 
+                fontWeight: 600, 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis', 
+                whiteSpace: 'nowrap' 
+              }}
+              title={resolvedFolderName}
+            >
+              {resolvedFolderName}
+            </span>
+          </div>
 
           {totalQuestions === 0 ? (
             <button

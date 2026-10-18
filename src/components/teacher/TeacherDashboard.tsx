@@ -1574,7 +1574,9 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     {/* Lista das Pastas Criadas */}
                     {folders.map(folder => {
                       const isSelected = selectedFolderId === folder.id && activeNav === 'library';
-                      const count = categories.filter(c => c.folder_id === folder.id).length;
+                      const catCount = categories.filter(c => c.folder_id === folder.id).length;
+                      const quizCount = quizzes.filter(q => q.folderId === folder.id).length;
+                      const count = catCount + quizCount;
                       return (
                         <button
                           key={folder.id}

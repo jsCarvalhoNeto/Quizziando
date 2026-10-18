@@ -244,6 +244,42 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     });
   }, [categories, selectedFolderId, searchQuery, activeTab, privacyFilter, favoriteCategoryIds, questionCountByCategory, folderMap]);
 
+  // Filtragem dos quizzes salvos customizados
+  const filteredQuizzes = useMemo(() => {
+    return quizzes.filter(quiz => {
+      // Filtro de Pasta
+      if (selectedFolderId !== null) {
+        if (quiz.folderId !== selectedFolderId) return false;
+      }
+
+      // Filtro de Favoritos
+      if (activeTab === 'favorites') {
+        if (!quiz.isFavorite) return false;
+      }
+
+      // Filtro de Privacidade (quizzes salvos locais são considerados privados do educador)
+      if (privacyFilter === 'public') return false;
+
+      // Filtro de Busca
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = quiz.name.toLowerCase().includes(query);
+        const folder = quiz.folderId ? folderMap.get(quiz.folderId) : null;
+        const matchesFolder = folder?.name.toLowerCase().includes(query);
+        if (!matchesName && !matchesFolder) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      if (activeTab === 'popular') {
+        const countA = a.questionCount || a.questionIds?.length || a.rounds || 0;
+        const countB = b.questionCount || b.questionIds?.length || b.rounds || 0;
+        return countB - countA;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [quizzes, selectedFolderId, searchQuery, activeTab, privacyFilter, folderMap]);
+
   // Alternar seleção de um quiz para o jogo
   const handleToggleSelectQuiz = (catId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -356,11 +392,17 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
     setSelectedQuizIds([]);
   };
 
-  // Contagem total de favoritos
+  // Contagem total de favoritos (respeita a pasta atual)
   const totalFavoritesCount = useMemo(() => {
-    const favCatCount = categories.filter(c => favoriteCategoryIds.includes(c.id)).length;
-    const favQuizCount = quizzes.filter(q => q.isFavorite).length;
-    return favCatCount + (selectedFolderId === null ? favQuizCount : 0);
+    const favCatCount = categories.filter(c => {
+      if (selectedFolderId !== null && c.folder_id !== selectedFolderId) return false;
+      return favoriteCategoryIds.includes(c.id);
+    }).length;
+    const favQuizCount = quizzes.filter(q => {
+      if (selectedFolderId !== null && q.folderId !== selectedFolderId) return false;
+      return q.isFavorite;
+    }).length;
+    return favCatCount + favQuizCount;
   }, [categories, favoriteCategoryIds, quizzes, selectedFolderId]);
 
   // Contagens para os filtros de visibilidade (Públicos e Privados)
@@ -372,14 +414,27 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
   }, [categories, selectedFolderId]);
 
   const privateCount = useMemo(() => {
-    return categories.filter(c => {
+    const privCats = categories.filter(c => {
       if (selectedFolderId !== null && c.folder_id !== selectedFolderId) return false;
       return !c.is_public;
     }).length;
-  }, [categories, selectedFolderId]);
+    const privQuizzes = quizzes.filter(q => {
+      if (selectedFolderId !== null && q.folderId !== selectedFolderId) return false;
+      return true;
+    }).length;
+    return privCats + privQuizzes;
+  }, [categories, quizzes, selectedFolderId]);
 
-  // Total de itens exibidos
-  const totalItemsCount = categories.length + (selectedFolderId === null ? quizzes.length : 0);
+  // Total de itens exibidos na visão/pasta atual
+  const totalItemsCount = useMemo(() => {
+    const catCount = selectedFolderId !== null
+      ? categories.filter(c => c.folder_id === selectedFolderId).length
+      : categories.length;
+    const quizCount = selectedFolderId !== null
+      ? quizzes.filter(q => q.folderId === selectedFolderId).length
+      : quizzes.length;
+    return catCount + quizCount;
+  }, [categories, quizzes, selectedFolderId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', width: '100%' }}>
@@ -1000,7 +1055,7 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
       </div>
 
       {/* ─── Grid de Blocos / Quizzes com Checkbox de Seleção ────────────────── */}
-      {filteredCategories.length > 0 || (selectedFolderId === null && (activeTab === 'favorites' ? quizzes.filter(q => q.isFavorite) : quizzes).length > 0) ? (
+      {filteredCategories.length > 0 || filteredQuizzes.length > 0 ? (
         <div
           style={{
             display: 'grid',
@@ -1640,25 +1695,21 @@ export const QuizLibrary: React.FC<QuizLibraryProps> = ({
           })}
 
           {/* 2. Quizzes Salvos Customizados */}
-          {selectedFolderId === null && (
-            (activeTab === 'favorites' ? quizzes.filter(q => q.isFavorite) : quizzes)
-              .filter(quiz => {
-                if (!searchQuery.trim()) return true;
-                return quiz.name.toLowerCase().includes(searchQuery.toLowerCase());
-              })
-              .map(quiz => (
-                <QuizCard
-                  key={quiz.id}
-                  quiz={quiz}
-                  onPlay={handlePlaySavedQuizClassic}
-                  onEdit={onEditQuiz}
-                  onDuplicate={onDuplicateQuiz}
-                  onToggleFavorite={onToggleFavorite}
-                  onDelete={onDeleteQuiz}
-                  isCompactList={viewMode === 'list'}
-                />
-              ))
-          )}
+          {filteredQuizzes.map(quiz => (
+            <QuizCard
+              key={quiz.id}
+              quiz={quiz}
+              folders={folders}
+              folderName={quiz.folderId ? folderMap.get(quiz.folderId)?.name : undefined}
+              folderColor={quiz.folderId ? folderMap.get(quiz.folderId)?.color : undefined}
+              onPlay={handlePlaySavedQuizClassic}
+              onEdit={onEditQuiz}
+              onDuplicate={onDuplicateQuiz}
+              onToggleFavorite={onToggleFavorite}
+              onDelete={onDeleteQuiz}
+              isCompactList={viewMode === 'list'}
+            />
+          ))}
         </div>
       ) : activeTab === 'favorites' ? (
         /* Estado Vazio Amigável para a Aba de Favoritos */
