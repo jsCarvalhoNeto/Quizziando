@@ -16,7 +16,8 @@ import {
   Key,
   CheckCircle2,
   Lock,
-  Globe
+  Globe,
+  Dices
 } from 'lucide-react';
 import type { Question } from '../../App';
 import { 
@@ -163,7 +164,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
         model: geminiModel,
         themeOrPrompt: aiTheme,
         categoryName: activeCatName,
-        quantity: aiQuantity,
+        quantity: Math.max(1, Math.min(30, Number(aiQuantity) || 5)),
         difficulty: aiDifficulty,
         pastedText: aiPastedText,
         file: aiFile,
@@ -821,20 +822,98 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                     {/* Linha 2: Quantidade & Nível de Dificuldade */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div>
-                        <label style={{ display: 'block', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#475569', marginBottom: '4px' }}>
-                          Qtd de Questões
-                        </label>
-                        <select
-                          value={aiQuantity}
-                          onChange={(e) => setAiQuantity(Number(e.target.value))}
-                          className="qm-select"
-                          style={{ height: '34px', fontSize: '12px' }}
-                        >
-                          <option value={3}>3 questões</option>
-                          <option value={5}>5 questões</option>
-                          <option value={8}>8 questões</option>
-                          <option value={10}>10 questões</option>
-                        </select>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <label style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: '#475569', margin: 0 }}>
+                            Qtd de Questões
+                          </label>
+                          <span style={{ fontSize: '10px', color: '#7c3aed', fontWeight: 700 }}>
+                            1 a 30 questões
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={aiQuantity || ''}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (isNaN(val)) {
+                                setAiQuantity(1);
+                              } else {
+                                setAiQuantity(Math.min(30, Math.max(1, val)));
+                              }
+                            }}
+                            className="qm-input"
+                            placeholder="Qtd (1 a 30)"
+                            style={{ 
+                              height: '34px', 
+                              fontSize: '12px', 
+                              fontWeight: 700, 
+                              flex: 1,
+                              color: '#1e293b'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Sorteia um número aleatório entre 3 e 15
+                              const randomVal = Math.floor(Math.random() * 13) + 3;
+                              setAiQuantity(randomVal);
+                            }}
+                            title="Sortear quantidade aleatória (3 a 15)"
+                            style={{
+                              height: '34px',
+                              padding: '0 10px',
+                              borderRadius: '8px',
+                              border: '1px solid #ddd6fe',
+                              background: '#f5f3ff',
+                              color: '#7c3aed',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#ede9fe';
+                              e.currentTarget.style.borderColor = '#c4b5fd';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = '#f5f3ff';
+                              e.currentTarget.style.borderColor = '#ddd6fe';
+                            }}
+                          >
+                            <Dices style={{ width: 14, height: 14 }} />
+                            <span>Aleatório</span>
+                          </button>
+                        </div>
+                        {/* Chips de atalhos rápidos opcionais */}
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '4px', alignItems: 'center' }}>
+                          {[3, 5, 10, 15, 20].map((preset) => (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => setAiQuantity(preset)}
+                              style={{
+                                border: 'none',
+                                background: aiQuantity === preset ? '#7c3aed' : '#f1f5f9',
+                                color: aiQuantity === preset ? '#ffffff' : '#64748b',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                transition: 'all 0.1s ease'
+                              }}
+                            >
+                              {preset}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <div>
@@ -987,7 +1066,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                       ) : (
                         <>
                           <Sparkles style={{ width: 16, height: 16 }} />
-                          <span>Gerar {aiQuantity} Questões com Gemini IA</span>
+                          <span>Gerar {aiQuantity} {aiQuantity === 1 ? 'Questão' : 'Questões'} com Gemini IA</span>
                         </>
                       )}
                     </button>

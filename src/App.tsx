@@ -6,7 +6,7 @@ import {
   Crown, Sparkles, BookOpen, ChevronRight, AlertCircle,
   Lock, Eye, EyeOff, LogOut, ShieldCheck, Mail,
   Pencil, Check, X, Settings, Upload, FileText, Monitor, Wifi, Palette,
-  ArrowLeft, Search, Download, Play, Zap, Smartphone, Compass
+  ArrowLeft, Search, Download, Play, Zap, Smartphone, Compass, Dices
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase } from './lib/supabaseClient';
@@ -7325,24 +7325,52 @@ Garanta que:
 
                   {/* Quantidade de Questões */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] font-black text-slate-700 uppercase">
-                      Quantidade de Questões (1 a 25)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="25"
-                      value={aiQuantity}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val)) {
-                          setAiQuantity(Math.min(25, Math.max(1, val)));
-                        } else {
-                          setAiQuantity(1);
-                        }
-                      }}
-                      className="qm-input font-bold"
-                    />
+                    <div className="flex justify-between items-center">
+                      <label className="text-[11px] font-black text-slate-700 uppercase">
+                        Quantidade de Questões (1 a 25)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const randomVal = Math.floor(Math.random() * 13) + 3; // 3 a 15
+                          setAiQuantity(randomVal);
+                        }}
+                        className="text-[11px] font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1 transition cursor-pointer"
+                        title="Sortear quantidade aleatória (3 a 15)"
+                      >
+                        <Dices className="w-3.5 h-3.5" />
+                        <span>Aleatório</span>
+                      </button>
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="number"
+                        min="1"
+                        max="25"
+                        value={aiQuantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val)) {
+                            setAiQuantity(Math.min(25, Math.max(1, val)));
+                          } else {
+                            setAiQuantity(1);
+                          }
+                        }}
+                        className="qm-input font-bold flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const randomVal = Math.floor(Math.random() * 13) + 3;
+                          setAiQuantity(randomVal);
+                        }}
+                        className="h-10 px-3 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap"
+                        title="Sortear quantidade aleatória"
+                      >
+                        <Dices className="w-4 h-4" />
+                        <span>Aleatório</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* AI Error Display */}
