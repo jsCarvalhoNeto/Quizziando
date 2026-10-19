@@ -118,6 +118,11 @@ function matchesQuestionFilters(question: Question, selectedIds: string[] | null
     (!tag.trim() || (question.tags || []).some(value => value.toLocaleLowerCase('pt-BR').includes(tag.trim().toLocaleLowerCase('pt-BR'))));
 }
 
+export const isValidUuid = (id: unknown): boolean => {
+  if (typeof id !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+};
+
 interface Alternative {
   text: string;
   isCorrect: boolean;
@@ -326,14 +331,17 @@ export default function App() {
     savedQuizzes.forEach(sq => {
       const trimmedName = sq.name?.trim();
       if (!trimmedName) return;
+      const validCatId = sq.categoryIds?.find(id => isValidUuid(id));
+      const matchedByName = list.find(c => isValidUuid(c.id) && c.name.trim().toLowerCase() === trimmedName.toLowerCase());
       const exists = list.some(c => 
+        (validCatId && c.id === validCatId) ||
         c.id === sq.id || 
         (sq.categoryIds && sq.categoryIds.includes(c.id)) ||
         c.name.trim().toLowerCase() === trimmedName.toLowerCase()
       );
       if (!exists) {
         list.push({
-          id: sq.id,
+          id: validCatId || matchedByName?.id || sq.id,
           name: trimmedName,
           color: '#7c3aed',
           icon: 'HelpCircle',
@@ -353,15 +361,19 @@ export default function App() {
       savedQuizzes.forEach(sq => {
         const trimmedName = sq.name?.trim();
         if (!trimmedName) return;
+        const validCatId = sq.categoryIds?.find(id => isValidUuid(id));
+        const matchedByName = next.find(c => isValidUuid(c.id) && c.name.trim().toLowerCase() === trimmedName.toLowerCase());
         const exists = next.some(c => 
+          (validCatId && c.id === validCatId) ||
           c.id === sq.id || 
           (sq.categoryIds && sq.categoryIds.includes(c.id)) ||
           c.name.trim().toLowerCase() === trimmedName.toLowerCase()
         );
         if (!exists) {
           changed = true;
+          const assignedId = validCatId || matchedByName?.id || (isValidUuid(sq.id) ? sq.id : crypto.randomUUID());
           next.push({
-            id: sq.id,
+            id: assignedId,
             name: trimmedName,
             color: '#7c3aed',
             icon: 'HelpCircle',
@@ -767,12 +779,17 @@ export default function App() {
     setAiError('');
 
     try {
+      const resolvedCatId = await resolveOrCreateCategoryId(managerQCatId);
+      if (resolvedCatId !== managerQCatId) {
+        setManagerQCatId(resolvedCatId);
+      }
+
       let contextText = '';
       if (aiFile) {
         contextText = await extractTextFromPdf(aiFile);
       }
 
-      const categoryName = categories.find(c => c.id === managerQCatId)?.name || 'Geral';
+      const categoryName = categories.find(c => c.id === resolvedCatId || c.id === managerQCatId)?.name || 'Geral';
       const promptText = `Crie ${aiQuantity} questão(ões) de múltipla escolha inédita(s) de alta qualidade, adequada(s) para um jogo de quiz dinâmico.
 A(s) questão(ões) deve(m) pertencer ou se relacionar à categoria: "${categoryName}".
 ${aiPrompt.trim() ? `O tema/prompt de contexto especificado pelo usuário é: "${aiPrompt.trim()}".` : ''}
@@ -887,7 +904,7 @@ Garanta que:
 
         newQuestions.push({
           id: crypto.randomUUID(),
-          category_id: managerQCatId,
+          category_id: resolvedCatId,
           question_text: parsed.question_text.trim(),
           time_limit: parsed.time_limit || 20,
           explanation: typeof parsed.explanation === 'string' ? parsed.explanation.trim() : '',
@@ -1629,6 +1646,101 @@ Garanta que:
     sfx.playCorrect();
   };
 
+  const resolveOrCreateCategoryId = async (rawCatId: string, customName?: string): Promise<string> => {
+    if (isValidUuid(rawCatId)) {
+      return rawCatId;
+    }
+
+    // 1. Procurar nas fontes locais (savedQuizzes ou categories)
+    const targetSq = savedQuizzes.find(sq => sq.id === rawCatId);
+    const targetCat = categories.find(c => c.id === rawCatId);
+    const targetName = (customName || targetSq?.name || targetCat?.name || '').trim();
+
+    // 2. Se o quiz salvo possui algum categoryId com UUID válido, verificar se existe na lista de categorias
+    const existingValidIdFromSq = targetSq?.categoryIds?.find(id => isValidUuid(id));
+    if (existingValidIdFromSq) {
+      const foundInCats = categories.find(c => c.id === existingValidIdFromSq);
+      if (foundInCats) {
+        return existingValidIdFromSq;
+      }
+    }
+
+    // 3. Verificar se já existe uma categoria cadastrada no banco com esse mesmo nome cujo id é um UUID válido
+    if (targetName) {
+      const matchedByName = categories.find(c => isValidUuid(c.id) && c.name.trim().toLowerCase() === targetName.toLowerCase());
+      if (matchedByName) {
+        if (targetSq && !targetSq.categoryIds?.includes(matchedByName.id)) {
+          const updatedSq = { ...targetSq, categoryIds: Array.from(new Set([...(targetSq.categoryIds || []), matchedByName.id])) };
+          saveQuiz(updatedSq);
+          setSavedQuizzes(readSavedQuizzes());
+        }
+        return matchedByName.id;
+      }
+    }
+
+    // 4. Se não existe no banco, criar a categoria no Supabase para gerar o UUID oficial e persistir
+    if (useRealSupabase) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = authUser?.id || sessionData.session?.user?.id;
+        if (userId) {
+          const todayIso = new Date().toISOString();
+          const { data: createdCat, error: catErr } = await supabase
+            .from('categories')
+            .insert({
+              name: targetName || 'Quiz Personalizado',
+              color: targetSq?.color || targetCat?.color || '#7c3aed',
+              icon: targetSq?.icon || targetCat?.icon || 'HelpCircle',
+              folder_id: targetSq?.folderId || targetCat?.folder_id || null,
+              created_by: userId,
+              created_at: todayIso,
+              is_public: false
+            })
+            .select()
+            .single();
+
+          if (!catErr && createdCat?.id) {
+            const newCatId = String(createdCat.id);
+            const newCatObj: Category = {
+              id: newCatId,
+              name: createdCat.name,
+              color: createdCat.color,
+              icon: createdCat.icon,
+              folder_id: createdCat.folder_id,
+              created_by: userId,
+              created_at: createdCat.created_at || todayIso,
+              is_public: false
+            };
+
+            setCategories(prev => [...prev.filter(c => c.id !== rawCatId && c.id !== newCatId), newCatObj]);
+
+            if (targetSq) {
+              const updatedSq = {
+                ...targetSq,
+                categoryIds: Array.from(new Set([...(targetSq.categoryIds || []).filter(isValidUuid), newCatId]))
+              };
+              saveQuiz(updatedSq);
+              setSavedQuizzes(readSavedQuizzes());
+            }
+
+            if (managerQCatId === rawCatId) {
+              setManagerQCatId(newCatId);
+            }
+
+            return newCatId;
+          } else {
+            console.error('Erro ao criar categoria para quiz no Supabase:', catErr);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao resolver/criar categoria no Supabase:', err);
+      }
+    }
+
+    // Fallback: se tiver um ID UUID legado no sq usa ele, senão gera um UUID novo
+    return existingValidIdFromSq || crypto.randomUUID();
+  };
+
   const persistAiDraft = async (draft: Question): Promise<Question> => {
     let savedQuestionId = draft.id || crypto.randomUUID();
     const alternatives = draft.alternatives.map((alternative) => ({
@@ -1636,10 +1748,13 @@ Garanta que:
       text: alternative.text.trim().slice(0, 80)
     }));
 
+    // Garantir que a categoria é um UUID válido no banco antes de chamar a RPC
+    const validCatId = await resolveOrCreateCategoryId(draft.category_id);
+
     if (useRealSupabase) {
       const { data, error } = await supabase.rpc('quiz_save_question', {
         p_question_id: null,
-        p_category_id: draft.category_id,
+        p_category_id: validCatId,
         p_question_text: draft.question_text.trim(),
         p_time_limit: draft.time_limit || 20,
         p_explanation: draft.explanation?.trim() || '',
@@ -1652,7 +1767,7 @@ Garanta que:
       savedQuestionId = String(data);
     }
 
-    return { ...draft, id: savedQuestionId, alternatives, difficulty: draft.difficulty || 'medium', tags: draft.tags || [] };
+    return { ...draft, id: savedQuestionId, category_id: validCatId, alternatives, difficulty: draft.difficulty || 'medium', tags: draft.tags || [] };
   };
 
   const syncSavedQuizQuestion = (qId: string, catId: string) => {
@@ -1699,9 +1814,20 @@ Garanta que:
     setAiSavingAllDrafts(true);
     const failedDraftIds: string[] = [];
 
+    // Resolver categoria comum antecipadamente para evitar chamadas redundantes
+    let commonValidCatId: string | null = null;
+    if (draftsToSave.length > 0 && draftsToSave[0].category_id) {
+      try {
+        commonValidCatId = await resolveOrCreateCategoryId(draftsToSave[0].category_id);
+      } catch (err) {
+        console.error('Erro ao resolver categoria unificada de rascunhos:', err);
+      }
+    }
+
     for (const draft of draftsToSave) {
       try {
-        const savedDraft = await persistAiDraft(draft);
+        const draftToProcess = commonValidCatId ? { ...draft, category_id: commonValidCatId } : draft;
+        const savedDraft = await persistAiDraft(draftToProcess);
         setQuestions((current) => [...current, savedDraft]);
         syncSavedQuizQuestion(savedDraft.id, savedDraft.category_id);
         setAiDrafts((drafts) => drafts.filter((item) => item.id !== draft.id));
@@ -1742,6 +1868,11 @@ Garanta que:
       } catch { alert('Informe uma URL de referência http ou https válida.'); return; }
     }
 
+    const validCatId = await resolveOrCreateCategoryId(managerQCatId);
+    if (validCatId !== managerQCatId) {
+      setManagerQCatId(validCatId);
+    }
+
     let savedQuestionId = editingQuestionId || Math.random().toString();
     const updatedAlts = managerQAlts.map(alt => ({
       text: alt.text.trim().slice(0, 80),
@@ -1752,7 +1883,7 @@ Garanta que:
       try {
         const { data, error } = await supabase.rpc('quiz_save_question', {
           p_question_id: editingQuestionId || null,
-          p_category_id: managerQCatId,
+          p_category_id: validCatId,
           p_question_text: managerQText.trim(),
           p_time_limit: managerQTimeLimit,
           p_explanation: managerQExplanation.trim(),
@@ -1774,7 +1905,7 @@ Garanta que:
 
     const questionObj: Question = {
       id: savedQuestionId,
-      category_id: managerQCatId,
+      category_id: validCatId,
       question_text: managerQText.trim(),
       time_limit: managerQTimeLimit,
       explanation: managerQExplanation.trim() || null,
@@ -1788,7 +1919,7 @@ Garanta que:
       setQuestions(questions.map(q => q.id === editingQuestionId ? questionObj : q));
     } else {
       setQuestions([...questions, questionObj]);
-      syncSavedQuizQuestion(savedQuestionId, managerQCatId);
+      syncSavedQuizQuestion(savedQuestionId, validCatId);
     }
 
     // Resetar campos
@@ -2246,6 +2377,8 @@ Garanta que:
       removedQuestionIds
     } = payload;
 
+    const effectiveTargetId = await resolveOrCreateCategoryId(targetId, name);
+
     // 1. Atualizar Categoria (se for categoria / quiz principal)
     if (isCategory) {
       if (useRealSupabase) {
@@ -2261,15 +2394,16 @@ Garanta que:
           await supabase
             .from('categories')
             .update(updatePayload)
-            .eq('id', targetId);
+            .eq('id', effectiveTargetId);
         } catch (err) {
           console.error('Erro ao atualizar categoria no Supabase:', err);
         }
       }
 
       setCategories(prev => prev.map(c => 
-        c.id === targetId ? { 
+        (c.id === targetId || c.id === effectiveTargetId) ? { 
           ...c, 
+          id: effectiveTargetId,
           name, 
           folder_id: folderId || null, 
           color: color || c.color,
@@ -2280,7 +2414,7 @@ Garanta que:
 
     // 2. Perguntas Removidas do Quiz
     if (removedQuestionIds.length > 0) {
-      const uncat = categories.find(c => c.id !== targetId && c.name.trim().toLowerCase() === 'sem categoria');
+      const uncat = categories.find(c => c.id !== targetId && c.id !== effectiveTargetId && c.name.trim().toLowerCase() === 'sem categoria');
       const uncatId = uncat ? uncat.id : null;
 
       if (useRealSupabase && uncatId) {
@@ -2302,7 +2436,7 @@ Garanta que:
     // 3. Perguntas Importadas
     const importedIds = finalQuestionIds.filter(id => {
       const q = questions.find(item => item.id === id);
-      return q && q.category_id !== targetId;
+      return q && q.category_id !== effectiveTargetId;
     });
 
     if (importedIds.length > 0) {
@@ -2310,7 +2444,7 @@ Garanta que:
         try {
           await supabase
             .from('questions')
-            .update({ category_id: targetId })
+            .update({ category_id: effectiveTargetId })
             .in('id', importedIds);
         } catch (err) {
           console.error('Erro ao vincular perguntas importadas no Supabase:', err);
@@ -2318,7 +2452,7 @@ Garanta que:
       }
 
       setQuestions(prev => prev.map(q => 
-        importedIds.includes(q.id) ? { ...q, category_id: targetId } : q
+        importedIds.includes(q.id) ? { ...q, category_id: effectiveTargetId } : q
       ));
     }
 
@@ -2329,7 +2463,7 @@ Garanta que:
           try {
             await supabase.rpc('quiz_save_question', {
               p_question_id: eq.id,
-              p_category_id: targetId,
+              p_category_id: effectiveTargetId,
               p_question_text: eq.question_text.trim(),
               p_time_limit: eq.time_limit,
               p_explanation: eq.explanation?.trim() || null,
@@ -2343,7 +2477,7 @@ Garanta que:
           }
         }
 
-        setQuestions(prev => prev.map(q => q.id === eq.id ? eq : q));
+        setQuestions(prev => prev.map(q => q.id === eq.id ? { ...eq, category_id: effectiveTargetId } : q));
       }
     }
 
@@ -2358,7 +2492,7 @@ Garanta que:
           try {
             const { data, error } = await supabase.rpc('quiz_save_question', {
               p_question_id: null,
-              p_category_id: targetId,
+              p_category_id: effectiveTargetId,
               p_question_text: nq.question_text.trim(),
               p_time_limit: nq.time_limit,
               p_explanation: nq.explanation?.trim() || null,
@@ -2378,7 +2512,7 @@ Garanta que:
 
         const newObj: Question = {
           id: createdId,
-          category_id: targetId,
+          category_id: effectiveTargetId,
           question_text: nq.question_text,
           time_limit: nq.time_limit,
           explanation: nq.explanation || null,
@@ -2395,7 +2529,7 @@ Garanta que:
     }
 
     // 6. Sincronizar SavedQuiz se aplicável
-    const existingSavedQuiz = savedQuizzes.find(sq => sq.id === targetId || sq.categoryIds?.includes(targetId));
+    const existingSavedQuiz = savedQuizzes.find(sq => sq.id === targetId || sq.id === effectiveTargetId || sq.categoryIds?.includes(targetId) || sq.categoryIds?.includes(effectiveTargetId));
     if (existingSavedQuiz) {
       const updatedSq: SavedQuiz = {
         ...existingSavedQuiz,
@@ -2740,7 +2874,7 @@ Garanta que:
 
     // 4. Salvar também no registro de SavedQuiz
     const newQuiz: SavedQuiz = {
-      id: `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      id: crypto.randomUUID(),
       name: trimmedName,
       savedAt: new Date().toISOString(),
       categoryIds: [newCategory.id],

@@ -80,7 +80,7 @@ export function duplicateQuiz(id: string): SavedQuiz[] {
   if (!target) return quizzes;
   const copy: SavedQuiz = {
     ...target,
-    id: `quiz-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    id: crypto.randomUUID(),
     name: `${target.name} (Cópia)`,
     savedAt: new Date().toISOString(),
     isFavorite: false
