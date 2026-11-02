@@ -13,6 +13,8 @@ export interface SavedQuiz {
   difficultyFilter?: 'all' | 'easy' | 'medium' | 'hard';
   tagFilter?: string;
   thumbnailUrl?: string;
+  color?: string;
+  icon?: string;
   folderId?: string | null;
   isFavorite?: boolean;
   description?: string;
