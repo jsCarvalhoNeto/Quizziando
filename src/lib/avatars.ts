@@ -3,7 +3,7 @@
 // mesmo jogador exibe sempre o mesmo avatar em todas as telas (lobby, placar,
 // pódio) sem necessidade de armazenar nada no banco.
 
-const AVATAR_BASE = 'https://nttbpmnnzrrhijobinui.supabase.co/storage/v1/object/public/images/Avatares';
+const AVATAR_BASE = 'https://api-quiz.portalinfobva.tech/storage/v1/object/public/images/Avatares';
 
 // Números de avatar existentes no bucket (verificados). Alguns números têm
 // vãos, por isso mantemos a lista explícita para nunca apontar para uma imagem
